@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Analytics Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-24
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -168,9 +168,63 @@
     *   Обновлении сегментов (`analytics.segment.updated`).
     *   Срабатывании алертов мониторинга (`analytics.alert.triggered`).
     *   Готовности новых прогнозов (`analytics.prediction.ready`).
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "prediction_id": "uuid_prediction_instance",
+              "model_id": "uuid_ml_model",
+              "model_name": "Прогноз оттока пользователей v2.1",
+              "prediction_type": "churn_probability",
+              "entity_type": "user",
+              "generated_at": "ISO8601_timestamp",
+              "status": "completed",
+              "result_summary_url": "url_to_prediction_summary_or_details"
+            }
+            ```
 *   Используемая система: Kafka.
 *   Формат: CloudEvents JSON.
-*   TODO: Детализировать структуру Payload для публикуемых событий.
+
+#### Пример структур Payload для публикуемых событий:
+
+*   **`analytics.report.generated`**
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "report_id": "uuid_report_definition",
+          "instance_id": "uuid_report_instance",
+          "report_name": "Ежедневный отчет по продажам",
+          "generated_at": "ISO8601_timestamp",
+          "status": "completed",
+          "file_format": "pdf",
+          "file_url": "s3_or_internal_url_to_report_file",
+          "error_message": null
+        }
+        ```
+*   **`analytics.segment.updated`**
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "segment_id": "uuid_segment",
+          "segment_name": "Активные игроки в RPG за последний месяц",
+          "user_count": 12500,
+          "updated_at": "ISO8601_timestamp",
+          "criteria_changed": false
+        }
+        ```
+*   **`analytics.alert.triggered`** (ранее `analytics.kpi.threshold.breached`)
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "alert_id": "uuid_alert_definition",
+          "alert_name": "Низкий уровень удержания новых пользователей",
+          "severity": "warning",
+          "triggered_at": "ISO8601_timestamp",
+          "metric_name": "new_user_retention_d7",
+          "current_value": "15%",
+          "threshold_value": "< 20%",
+          "description": "Удержание новых пользователей на 7-й день упало ниже порогового значения."
+        }
+        ```
 
 ### 5.2. Потребляемые События (Consumed Events)
 *   **Источник**: Все микросервисы платформы.
@@ -197,7 +251,7 @@ Analytics Service интегрируется со всеми сервисами 
 ### 6.2. Внешние Системы
 *   **S3-совместимое хранилище (MinIO)**: Для Raw Data Storage.
 *   **Grafana / Superset**: Для визуализации и дашбордов.
-*   TODO: Указать другие внешние системы, если они используются (например, внешние источники данных для импорта).
+*   Кроме указанных систем (S3-совместимое хранилище, Grafana/Superset), на данный момент другие специфичные внешние интеграции не определены. Этот раздел будет дополнен при необходимости интеграции с дополнительными источниками данных или системами визуализации.
 
 ## 7. Конфигурация (Configuration)
 
@@ -217,7 +271,42 @@ Analytics Service интегрируется со всеми сервисами 
 *   Конфигурационные файлы для Spark/Flink задач.
 *   Настройки коннекторов Kafka.
 *   Определения схем событий.
-*   TODO: Детализировать структуру и расположение конфигурационных файлов.
+    ```yaml
+    # Пример конфигурации для Spark/Flink задачи или схемы события
+    # spark_job_config_example.yaml
+    job_name: daily_user_aggregation
+    input_source:
+      type: kafka
+      topic: platform_user_activity_events
+      schema_id: user_activity_v1 # ссылка на схему события
+    output_sink:
+      type: clickhouse
+      table: daily_aggregated_user_metrics
+    processing_logic:
+      - type: filter
+        condition: "event_type = 'USER_LOGIN'"
+      - type: aggregate
+        group_by_fields: ["date(event_timestamp)", "country"]
+        metrics:
+          - name: dau
+            function: countDistinct
+            field: user_id
+          - name: total_logins
+            function: count
+            field: event_id
+    # event_schema_example.json (может быть отдельным файлом или частью общей конфигурации)
+    # {
+    #   "schema_id": "user_activity_v1",
+    #   "fields": [
+    #     {"name": "event_timestamp", "type": "timestamp", "required": true},
+    #     {"name": "user_id", "type": "uuid", "required": true},
+    #     {"name": "event_type", "type": "string", "required": true},
+    #     {"name": "country", "type": "string"},
+    #     {"name": "event_details", "type": "json"}
+    #   ]
+    # }
+    ```
+*   Детальная структура конфигурационных файлов для ETL-задач (Spark/Flink) и схем событий будет определена в соответствующих технических спецификациях этих компонентов.
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -293,7 +382,7 @@ Analytics Service интегрируется со всеми сервисами 
 *   **Алертинг**: Настроены для критических ситуаций (сбои обработки, недоступность данных, превышение порогов метрик).
 
 ### 11.3. Трассировка
-*   TODO: Уточнить интеграцию с системой распределенной трассировки, особенно для API и запросов к другим сервисам.
+*   Интеграция с системой распределенной трассировки (например, Jaeger/OpenTelemetry) будет реализована для API эндпоинтов и ключевых этапов обработки данных. Контекст трассировки (trace ID, span ID) будет передаваться при взаимодействии с другими сервисами и включаться в логи для сквозного отслеживания запросов и потоков данных.
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Производительность**: Обработка >= 10,000 событий/сек; генерация отчетов < 30 сек; отклик API < 500 мс.
@@ -304,7 +393,7 @@ Analytics Service интегрируется со всеми сервисами 
 *   (Полный список см. в разделе 2.4 исходной спецификации Analytics Service).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы событий, примеры сложных запросов к API.
+*   Детальные схемы событий (например, для Kafka), полные примеры сложных запросов к API (REST/GraphQL), и DDL для аналитических таблиц будут добавлены по мере финализации дизайна и реализации компонентов сбора и обработки данных.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*

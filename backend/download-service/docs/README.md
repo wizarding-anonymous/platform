@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Download Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -126,13 +126,94 @@
 *   `download.failed`: Ошибка загрузки.
 *   `update.available`: Доступно обновление.
 *   `update.completed`: Обновление завершено.
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "event_id": "uuid_event",
+          "event_type": "update.completed.v1",
+          "timestamp": "ISO8601_timestamp",
+          "source_service": "download-service",
+          "user_id": "uuid_user",
+          "game_id": "uuid_game",
+          "version_id": "uuid_game_version_updated_to",
+          "update_duration_seconds": 600
+        }
+        ```
 *   `verification.completed`: Проверка целостности завершена.
-*   TODO: Детализировать систему сообщений (Kafka/RabbitMQ), топики и структуру Payload. Исходная спецификация не детализирует это.
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "event_id": "uuid_event",
+          "event_type": "verification.completed.v1",
+          "timestamp": "ISO8601_timestamp",
+          "source_service": "download-service",
+          "user_id": "uuid_user",
+          "game_id": "uuid_game",
+          "version_id": "uuid_game_version_verified",
+          "status": "success" | "failed_needs_repair",
+          "corrupted_files_count": 0,
+          "repaired_files_count": 0
+        }
+        ```
+*   **Система сообщений:** Apache Kafka
+*   **Основные топики:** `download.lifecycle.events` (для событий начала, завершения, отмены загрузки), `download.progress.events` (для обновлений прогресса, если не используется исключительно WebSocket).
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   `catalog.game.version.published`: От Catalog Service, информация о новой версии игры, доступной для скачивания.
-*   `library.game.install.requested`: От Library Service, запрос на начало загрузки игры.
-*   TODO: Детализировать другие возможные потребляемые события.
+*   `catalog.game.version.published`:
+    *   **Источник:** Catalog Service
+    *   **Назначение:** Уведомление Download Service о том, что новая версия игры опубликована и готова для загрузки пользователями. Download Service должен обновить свои метаданные, подготовить ссылки на CDN.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "game_id": "uuid_game",
+          "version_id": "uuid_game_version",
+          "version_string": "1.1.0",
+          "manifest_url": "url_to_download_manifest_from_catalog_or_developer_service",
+          "file_hashes": [ { "file_path": "/bin/game.exe", "hash": "sha256_hash_value" } ],
+          "total_size_bytes": 10737418240,
+          "published_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Добавить/обновить метаданные файлов версии в своей базе данных (`file_metadata`). Подготовить информацию для предоставления клиентам ссылок на загрузку через CDN.
+*   `library.game.install.requested`:
+    *   **Источник:** Library Service
+    *   **Назначение:** Уведомление Download Service о том, что пользователь запросил установку игры, и права доступа подтверждены.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "game_id": "uuid_game",
+          "version_id": "uuid_game_version_to_install",
+          "entitlement_id": "uuid_library_item",
+          "requested_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Инициировать процесс загрузки для пользователя, если он еще не начат. Добавить в очередь загрузок.
+*   `catalog.game.version.deleted`:
+    *   **Источник:** Catalog Service
+    *   **Назначение:** Уведомление о том, что определенная версия игры была удалена из каталога. Download Service должен прекратить предоставление этой версии для загрузки.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "game_id": "uuid_game",
+          "version_id": "uuid_game_version",
+          "deleted_at": "ISO8601_timestamp",
+          "reason": "Версия содержит критическую уязвимость"
+        }
+        ```
+    *   **Логика обработки:** Пометить метаданные файлов для данной версии как неактивные. Запретить новые загрузки этой версии.
+*   `user.account.deleted`:
+    *   **Источник:** Account Service
+    *   **Назначение:** Уведомление об удалении аккаунта пользователя. Download Service может потребоваться анонимизировать или удалить историю загрузок этого пользователя.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "deleted_at": "ISO8601_timestamp",
+          "anonymization_required": true
+        }
+        ```
+    *   **Логика обработки:** Анонимизировать или удалить историю загрузок пользователя. Отменить активные загрузки.
 
 ## 6. Интеграции (Integrations)
 
@@ -153,15 +234,29 @@
 *   `DOWNLOAD_SERVICE_HTTP_PORT`, `DOWNLOAD_SERVICE_GRPC_PORT`, `DOWNLOAD_SERVICE_WS_PORT`.
 *   `POSTGRES_DSN`.
 *   `REDIS_ADDR`.
-*   `CDN_BASE_URL_PRIMARY`, `CDN_BASE_URL_SECONDARY`.
-*   Адреса gRPC других сервисов (Catalog, Library, Auth, Account).
-*   `LOG_LEVEL`.
-*   `MAX_PARALLEL_DOWNLOADS_PER_USER`, `GLOBAL_BANDWIDTH_LIMIT`.
-*   TODO: Сформировать полный список.
+*   `CDN_BASE_URL_PRIMARY`
+*   `CDN_SECONDARY_BASE_URL` (optional, for fallback)
+*   `CDN_API_KEY_PRIMARY` (if CDN requires API key for URL signing/management)
+*   `S3_TEMP_STORAGE_ENDPOINT` (if used for temporary storage before CDN distribution)
+*   `S3_TEMP_STORAGE_ACCESS_KEY_ID`
+*   `S3_TEMP_STORAGE_SECRET_ACCESS_KEY`
+*   `S3_TEMP_STORAGE_BUCKET`
+*   `KAFKA_TOPIC_DOWNLOAD_LIFECYCLE_EVENTS` (e.g., `download.lifecycle.events`)
+*   `KAFKA_TOPIC_DOWNLOAD_PROGRESS_EVENTS` (e.g., `download.progress.events`)
+*   `AUTH_SERVICE_GRPC_ADDR`
+*   `CATALOG_SERVICE_GRPC_ADDR`
+*   `LIBRARY_SERVICE_GRPC_ADDR`
+*   `ACCOUNT_SERVICE_GRPC_ADDR` (for user settings)
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `DOWNLOAD_CHUNK_SIZE_MB` (e.g., `10`)
+*   `MAX_CONCURRENT_USER_DOWNLOADS` (e.g., `3`)
+*   `GLOBAL_BANDWIDTH_LIMIT_MBPS` (e.g., `1000`)
+*   `DEFAULT_DOWNLOAD_PRIORITY` (e.g., `5`)
+*   `HASH_VERIFICATION_ALGORITHM` (e.g., `SHA256`)
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT`
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   Может использоваться для настроек CDN провайдеров, стратегий балансировки.
-*   TODO: Детализировать структуру, если используется.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Если потребуются файлы конфигурации для сложных настроек (например, для детализированных правил выбора CDN или стратегий обработки ошибок для разных типов файлов), их структура будет определена здесь.
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -231,7 +326,7 @@
 *   (Детали см. в Спецификации Download Service, раздел 2.4).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы DDL, примеры API запросов/ответов.
+*   Детальные схемы DDL для PostgreSQL, полные примеры REST API и WebSocket сообщений (включая ответы на ошибки), а также форматы событий Kafka будут добавлены по мере финализации дизайна и реализации соответствующих модулей.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*

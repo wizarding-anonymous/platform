@@ -47,10 +47,65 @@
 *   Он взаимодействует с PostgreSQL для постоянного хранения данных, Redis для кэширования и временных данных, и Kafka для асинхронного обмена событиями.
 *   Архитектура ориентирована на безопасность, масштабируемость и надежность.
 *   (Источник: `New Docs/specification/auth_service_overview.md`, раздел 4)
-*   TODO: Детальное описание принципов построения (например, слоистая архитектура) и диаграмма верхнеуровневой архитектуры. Старая спецификация (раздел 3) упоминает API Layer, Business Logic Layer, Data Access Layer, Event Publisher/Consumer.
+
+Сервис Auth Service спроектирован как stateless (не хранящий состояние между запросами) микросервис, написанный на языке Go. В основе его архитектуры лежит многослойный подход, включающий:
+*   **API Layer (Слой Представления):** Отвечает за обработку всех входящих запросов (REST через Gin, gRPC для межсервисного взаимодействия), валидацию данных и вызов соответствующей бизнес-логики.
+*   **Application Layer (Прикладной Слой / Слой Бизнес-Логики):** Содержит основную логику сервиса, включая процессы регистрации, аутентификации (логин/пароль, JWT, 2FA, OAuth, API ключи), авторизации (RBAC), управления сессиями и токенами. Оркестрирует взаимодействие между доменными сущностями и инфраструктурным слоем.
+*   **Infrastructure Layer (Инфраструктурный Слой / Слой Доступа к Данным):** Реализует взаимодействие с внешними системами и хранилищами: PostgreSQL для персистентного хранения данных (пользователи, роли, токены и т.д.), Redis для кэширования сессий и временных данных (например, кодов 2FA, счетчиков ограничения скорости), и Apache Kafka для асинхронной публикации доменных событий (например, `auth.user.registered`).
+
+Такой подход обеспечивает четкое разделение ответственности (separation of concerns) между компонентами, повышает тестируемость каждого слоя в изоляции, облегчает сопровождение и дальнейшее развитие сервиса.
+
+**Диаграмма верхнеуровневой архитектуры:**
+```mermaid
+graph TD
+    subgraph Auth Service
+        direction LR
+        subgraph PresentationLayer [API Layer (Presentation)]
+            direction TB
+            API_REST[REST API (Gin)]
+            API_GRPC[gRPC API]
+        end
+
+        subgraph ApplicationLayer [Business Logic Layer (Application)]
+            direction TB
+            RegSvc[Registration Service]
+            LoginSvc[Login Service]
+            TokenSvc[Token Management (JWT, Refresh)]
+            TwoFASvc[2FA Service (TOTP, SMS/Email)]
+            RBACSvc[RBAC Service (Roles, Permissions)]
+            ApiKeySvc[API Key Management]
+            ExternalAuthSvc[External Auth (OAuth, Telegram)]
+            PasswordSvc[Password Management (Reset, Change)]
+            EmailVerifySvc[Email Verification Service]
+        end
+
+        subgraph InfrastructureLayer [Data Access & Infrastructure Layer]
+            direction TB
+            RepoPostgreSQL[PostgreSQL Repositories (Users, Roles, Tokens, Sessions, etc.)]
+            CacheRedis[Redis Client (Session Cache, 2FA codes, Rate Limits)]
+            ProducerKafka[Kafka Producer (Domain Events)]
+            CryptoUtils[Cryptography (Argon2id, JWT Signing)]
+        end
+
+        PresentationLayer --> ApplicationLayer
+        ApplicationLayer --> InfrastructureLayer
+    end
+
+    Clients[Clients (Web, Mobile, Desktop)] --> APIGateway[API Gateway]
+    APIGateway -- REST/gRPC Requests --> PresentationLayer
+
+    InfrastructureLayer -- CRUD Operations --> DB[(Database: PostgreSQL)]
+    InfrastructureLayer -- Cache Operations --> Cache[(Cache: Redis)]
+
+    ApplicationLayer -- Publishes Domain Events --> KafkaBroker[Kafka Broker]
+    KafkaBroker -- auth.user.registered etc. --> AccountSvc[Account Service]
+    KafkaBroker -- auth.user.verification_code_sent etc. --> NotificationSvc[Notification Service]
+
+    InternalMS[Other Microservices] -- gRPC: ValidateToken, CheckPermission --> API_GRPC
+```
 
 ### 2.2. Слои Сервиса
-(Предполагаемая структура на основе функционала и технологий)
+(Предполагаемая структура на основе функционала и технологий, детализирующая диаграмму выше)
 
 #### 2.2.1. Presentation Layer (Слой Представления)
 *   Ответственность: Обработка входящих REST и gRPC запросов, валидация, вызов Application Layer.

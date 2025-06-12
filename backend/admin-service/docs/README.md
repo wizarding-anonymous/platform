@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Admin Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-24
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -180,17 +180,83 @@
     *   `admin.support.ticket.replied`: (ответ в тикете поддержки) -> Notification Service.
     *   `admin.support.ticket.status.changed`: (статус тикета изменен) -> Notification Service.
     *   `admin.system.setting.changed`: (изменена системная настройка) -> Соответствующие сервисы.
-    *   `admin.marketing.campaign.started_ended`: (старт/конец маркетинговой кампании) -> Catalog Service, Notification Service.
+    *   `admin.marketing.campaign.status.changed`: (статус маркетинговой кампании изменен) -> Catalog Service, Notification Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "campaign_id": "uuid_marketing_campaign",
+              "new_status": "active" | "completed" | "cancelled",
+              "admin_id": "uuid_admin_user",
+              "changed_at": "ISO8601_timestamp"
+            }
+            ```
     *   `admin.security.action.taken`: (предпринято действие по безопасности, например, блокировка IP).
-*   TODO: Детализировать структуру Payload для каждого события.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "action_type": "ip_block" | "user_suspension_security",
+              "target_id": "ip_address_or_user_id",
+              "reason": "Подозрительная активность, связанная с попытками подбора пароля.",
+              "admin_id": "uuid_admin_user",
+              "action_at": "ISO8601_timestamp"
+            }
+            ```
 
 ### 5.2. Потребляемые События (Consumed Events)
 *   **События, которые Admin Service может потреблять:**
-    *   `developer.game.submitted.for.moderation`: от Developer Service -> добавление в очередь модерации.
-    *   `user.content.reported`: от Social Service/Catalog Service (жалоба на контент) -> добавление в очередь модерации.
-    *   `payment.transaction.suspicious`: от Payment Service -> создание инцидента безопасности.
-    *   `system.health.issue`: от системы мониторинга -> создание инцидента или уведомление администратора.
-*   TODO: Детализировать структуру Payload для каждого события и логику обработки.
+    *   `developer.game.submitted.for.moderation.v1`: от Developer Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "game_id": "uuid",
+              "developer_id": "uuid",
+              "game_title": "Новая Супер Игра",
+              "version": "1.0.0",
+              "submitted_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Создание нового `ModerationItem` в очереди модерации игр. Установка статуса "pending".
+    *   `user.content.reported.v1`: от Social Service/Catalog Service (жалоба на контент).
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "report_id": "uuid",
+              "reporter_user_id": "uuid",
+              "content_id": "uuid",
+              "content_type": "review" | "comment" | "user_profile",
+              "reason": "Спам/Оскорбления/Недопустимый контент",
+              "report_details": "Текст жалобы от пользователя...",
+              "reported_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Создание `ModerationItem` в очереди жалоб. Привязка к контенту. Уведомление модераторов.
+    *   `payment.transaction.suspicious.v1`: от Payment Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "transaction_id": "uuid",
+              "user_id": "uuid",
+              "amount": 1999.00,
+              "currency": "RUB",
+              "reason_code": "HIGH_RISK_SCORE",
+              "details": { "payment_method": "card_xxxx" },
+              "detected_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Создание `SecurityIncident`. Уведомление службы безопасности. Возможно, временная блокировка связанных аккаунтов.
+    *   `system.health.issue.v1`: от системы мониторинга.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "service_name": "catalog-service",
+              "issue_type": "HIGH_ERROR_RATE",
+              "severity": "critical",
+              "description": "Error rate for /api/v1/games exceeded 5%",
+              "metrics_snapshot": { "error_rate": "5.2%", "latency_p99": "1500ms" },
+              "detected_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Создание тикета для DevOps/SRE. Уведомление администраторов. Логирование инцидента.
 
 ## 6. Интеграции (Integrations)
 
@@ -209,7 +275,7 @@ Admin Service интегрируется со всеми основными ми
 *   (Детали см. в разделе 1.3 и 6 исходной спецификации Admin Service).
 
 ### 6.2. Внешние Системы
-*   TODO: Определить внешние системы, если есть (например, внешние системы аналитики, маркетинговые платформы). Пока не указаны в исходной спецификации.
+*   На данный момент внешние интеграции не определены. Этот раздел будет дополнен при необходимости.
 
 ## 7. Конфигурация (Configuration)
 
@@ -226,8 +292,18 @@ Admin Service интегрируется со всеми основными ми
 *   `LOG_LEVEL`.
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   Могут использоваться для задания прав доступа по умолчанию, шаблонов отчетов, настроек модулей.
-*   TODO: Детализировать структуру конфигурационных файлов, если они будут использоваться.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Файлы конфигурации на данный момент не используются или их структура не детализирована. При необходимости могут быть введены YAML-файлы для сложных настроек модулей или динамически изменяемых параметров, например:
+    ```yaml
+    # Пример возможной структуры feature_flags.yaml
+    feature_flags:
+      new_moderation_ui_enabled: true
+      ai_content_analysis_active: false
+
+    module_settings:
+      support_ticket:
+        default_priority: "medium"
+        sla_response_hours: 24
+    ```
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -294,7 +370,7 @@ Admin Service интегрируется со всеми основными ми
 *   **Алертинг**: Настроены для критических ситуаций.
 
 ### 11.3. Трассировка
-*   TODO: Уточнить интеграцию с системой распределенной трассировки (Jaeger/OpenTelemetry).
+*   Интеграция с системой распределенной трассировки (например, Jaeger/OpenTelemetry) будет реализована согласно общепроектным стандартам. Контекст трассировки (trace ID, span ID) будет передаваться между сервисами и включаться в логи.
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Безопасность**: Высокий уровень защиты.
@@ -306,7 +382,7 @@ Admin Service интегрируется со всеми основными ми
 *   (Детали см. в разделе 2.4 исходной спецификации Admin Service).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы данных, примеры API запросов/ответов.
+*   Детальные схемы данных (DDL для PostgreSQL, схемы для MongoDB), полные примеры API запросов/ответов и форматы событий будут добавлены по мере финализации дизайна и реализации соответствующих модулей.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*
