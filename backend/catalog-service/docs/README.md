@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Catalog Service
 
 **Версия:** 1.0 (на основе исходной v3.0)
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date, original was 2025-05-25 -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -164,7 +164,39 @@
 *   (Пример события и детали см. в Каталог Спец. v3.0, раздел 6.5)
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   TODO: Определить, если Catalog Service потребляет события от других сервисов (например, для обновления рейтингов от Social Service, или информации о разработчиках от Developer Service). В текущей спецификации не указано.
+Взаимодействие с такими сервисами, как Developer Service (при подаче нового продукта или обновлении) и Admin Service (при изменении статуса модерации), как правило, осуществляется через прямые API вызовы (gRPC/REST) к Catalog Service, а не через потребление им событий от этих сервисов. Однако, Catalog Service может потреблять следующие типы событий для обновления агрегированных или связанных данных:
+
+*   **`social.review.stats.updated.v1`** (название предложено, исходя из логики)
+    *   **Источник:** Social Service
+    *   **Назначение:** Обновление агрегированной информации о рейтингах и количестве отзывов для продукта в каталоге.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "product_id": "uuid_game_or_dlc",
+          "average_rating": 4.75,
+          "review_count": 125,
+          "updated_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Обновить поля `average_rating` и `review_count` для соответствующего продукта в базе данных Catalog Service. Инвалидировать кэш для данного продукта.
+
+*   **`user.preference.changed.v1`** (гипотетическое событие для системы рекомендаций)
+    *   **Источник:** User Profile Service / Personalization Service
+    *   **Назначение:** Уведомление об изменении предпочтений пользователя, что может повлиять на данные, используемые для формирования рекомендаций в каталоге.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "changed_preferences": {
+            "preferred_genres": ["rpg", "strategy"],
+            "ignored_tags": ["horror"]
+          },
+          "timestamp": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Передать информацию в модуль рекомендаций для возможного обновления персонализированных предложений или пересчета весов для пользователя.
+
+*Примечание: Специфичные события, потребляемые сервисом Каталога, будут окончательно детализированы по мере проработки интеграционных сценариев и дизайна системы рекомендаций. Основной поток создания и модерации контента инициируется через API Catalog Service.*
 
 ## 6. Интеграции (Integrations)
 
@@ -194,13 +226,28 @@
 *   `REDIS_ADDR`
 *   `KAFKA_BROKERS`
 *   `CDN_BASE_URL`
-*   `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
-*   `LOG_LEVEL`
-*   Адреса gRPC других сервисов (Auth, Payment и т.д.).
-*   TODO: Сформировать полный список на основе Viper конфигурации из Каталог Спец. v3.0, раздел 4.1.1.
+*   `S3_ENDPOINT`
+*   `S3_ACCESS_KEY_ID`
+*   `S3_SECRET_ACCESS_KEY`
+*   `S3_BUCKET_MEDIA_RAW`
+*   `S3_USE_SSL` (e.g., `true`)
+*   `CDN_BASE_URL`
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `AUTH_SERVICE_GRPC_ADDR` (e.g., `auth-service:9090`)
+*   `PAYMENT_SERVICE_GRPC_ADDR` (e.g., `payment-service:9090`)
+*   `DEVELOPER_SERVICE_GRPC_ADDR` (e.g., `developer-service:9090`)
+*   `ADMIN_SERVICE_GRPC_ADDR` (e.g., `admin-service:9090`)
+*   `DEFAULT_LANGUAGE` (e.g., `ru`)
+*   `DEFAULT_REGION_CODE` (e.g., `RU`)
+*   `DEFAULT_CURRENCY_CODE` (e.g., `RUB`)
+*   `CACHE_PRODUCT_DETAILS_TTL_SECONDS` (e.g., `300`)
+*   `CACHE_GENRE_LIST_TTL_SECONDS` (e.g., `3600`)
+*   `CACHE_TAG_LIST_TTL_SECONDS` (e.g., `3600`)
+*   `CACHE_CATEGORY_LIST_TTL_SECONDS` (e.g., `3600`)
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT` (e.g., `http://jaeger-collector:14268/api/traces`)
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   `config.yaml` (пример структуры в Каталог Спец. v3.0, раздел 4.1.1 - Infrastructure/config).
+*   `config.yaml` (пример структуры в Каталог Спец. v3.0, раздел 4.1.1 - Infrastructure/config). Файлы конфигурации используются для задания структуры, которая может быть переопределена переменными окружения.
 
 ## 8. Обработка Ошибок (Error Handling)
 

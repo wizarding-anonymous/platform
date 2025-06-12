@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Account Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date based on original: 2025-05-24 -->
+**Дата последнего обновления:** 2025-05-24
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -186,7 +186,97 @@
 *   (Полный список полей см. в разделе 3.3.1 исходной спецификации).
 
 ### 4.2. Схема Базы Данных (PostgreSQL)
-*   Диаграмма ERD: TODO: Create or link ERD.
+*   Диаграмма ERD:
+    ```mermaid
+    erDiagram
+        ACCOUNTS {
+            UUID id PK
+            VARCHAR(64) username
+            VARCHAR(20) status
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+            TIMESTAMPTZ deleted_at
+        }
+
+        AUTH_METHODS {
+            UUID id PK
+            UUID account_id FK
+            VARCHAR(20) type
+            VARCHAR(255) identifier
+            TEXT secret
+            BOOLEAN is_verified
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        PROFILES {
+            UUID id PK
+            UUID account_id FK
+            VARCHAR(64) nickname
+            TEXT bio
+            CHAR(2) country
+            VARCHAR(100) city
+            DATE birth_date
+            VARCHAR(10) gender
+            VARCHAR(20) visibility
+            TEXT avatar_url
+            TEXT banner_url
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        CONTACT_INFO {
+            UUID id PK
+            UUID account_id FK
+            VARCHAR(10) type
+            VARCHAR(255) value
+            BOOLEAN is_primary
+            BOOLEAN is_verified
+            VARCHAR(10) verification_code
+            INT verification_attempts
+            TIMESTAMPTZ verification_expires_at
+            VARCHAR(20) visibility
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        USER_SETTINGS {
+            UUID id PK
+            UUID account_id FK
+            VARCHAR(50) category
+            JSONB settings
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        AVATARS {
+            UUID id PK
+            UUID account_id FK
+            TEXT url
+            BOOLEAN is_current
+            TIMESTAMPTZ created_at
+        }
+
+        PROFILE_HISTORY {
+            BIGSERIAL id PK
+            UUID profile_id FK
+            VARCHAR(50) field_name
+            TEXT old_value
+            TEXT new_value
+            UUID changed_by_account_id FK
+            TIMESTAMPTZ changed_at
+        }
+
+        ACCOUNTS ||--o{ AUTH_METHODS : "has"
+        ACCOUNTS ||--|{ PROFILES : "has one"
+        ACCOUNTS ||--o{ CONTACT_INFO : "has"
+        ACCOUNTS ||--o{ USER_SETTINGS : "has"
+        ACCOUNTS ||--o{ AVATARS : "has"
+        PROFILES ||--o{ PROFILE_HISTORY : "has history"
+        ACCOUNTS ||--o{ PROFILE_HISTORY : "changed by (optional)"
+
+
+    ```
 *   DDL (из раздела 3.3.2 исходной спецификации):
     ```sql
     -- Аккаунты
@@ -225,7 +315,57 @@
 *   (Пример события `account.created` и детали см. в разделе 5.4 исходной спецификации).
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   Information not found in existing documentation. <!-- TODO: Detail if any events are consumed -->
+
+Account Service подписывается на следующие события от других микросервисов для поддержания консистентности данных и выполнения зависимых бизнес-процессов:
+
+*   **`auth.user.credentials.created.v1`** (ранее мог называться `auth.user.registered.v1`)
+    *   **Источник:** Auth Service
+    *   **Назначение:** Завершение создания Аккаунта после того, как Auth Service успешно создал основные учетные данные (например, логин/пароль или привязал внешний ID провайдера). Account Service может на основе этого события активировать аккаунт, создать начальный профиль или выполнить другие пост-регистрационные задачи.
+    *   **Ожидаемая структура `data` (пример):**
+        ```json
+        {
+          "auth_method_id": "uuid", // ID метода аутентификации, созданного в Auth Service
+          "account_id": "uuid",     // ID аккаунта, который был создан (или должен быть создан) в Account Service
+          "username": "user123",
+          "email": "user@example.com", // Если email является частью учетных данных
+          "auth_provider": "password", // или "google", "telegram"
+          "registration_timestamp": "ISO8601_timestamp"
+        }
+        ```
+    *   **Действия Account Service:** Создание или обновление записи `accounts` и `auth_methods`, создание `profiles`, установка начального статуса.
+
+*   **`admin.user.status.updated.v1`**
+    *   **Источник:** Admin Service
+    *   **Назначение:** Обновление статуса Аккаунта Пользователя (например, `blocked`, `unblocked`, `deleted_by_admin`) по инициативе администратора.
+    *   **Ожидаемая структура `data` (пример):**
+        ```json
+        {
+          "account_id": "uuid",
+          "new_status": "blocked", // "active", "deleted"
+          "reason": "Нарушение правил платформы, пункт 5.2.", // Опционально
+          "changed_by_admin_id": "uuid",
+          "timestamp": "ISO8601_timestamp"
+        }
+        ```
+    *   **Действия Account Service:** Обновление поля `status` в таблице `accounts`. Может также инициировать анонимизацию данных, если статус `deleted`.
+
+*   **`payment.subscription.status.changed.v1` (Условно/На будущее)**
+    *   **Источник:** Payment Service
+    *   **Назначение:** Обновление статуса Аккаунта или его функций на основе изменения статуса подписки Пользователя (если такая логика будет реализована, например, премиум-аккаунты).
+    *   **Ожидаемая структура `data` (пример):**
+        ```json
+        {
+          "account_id": "uuid",
+          "subscription_id": "uuid",
+          "new_status": "active", // "expired", "cancelled"
+          "plan_type": "premium",
+          "valid_until": "ISO8601_timestamp", // Опционально
+          "timestamp": "ISO8601_timestamp"
+        }
+        ```
+    *   **Действия Account Service:** Потенциально, обновление специальных полей в `accounts` или `user_settings`, влияющих на доступные функции. *На данный момент, детальная логика обработки этого события не определена и требует дальнейшей проработки при внедрении соответствующего функционала.*
+
+*Примечание: Точные имена событий, их версии и структура полезной нагрузки (`data`) должны быть согласованы и задокументированы в рамках общих "Стандартов событий" платформы и спецификаций взаимодействующих сервисов.*
 
 ## 6. Интеграции (Integrations)
 
