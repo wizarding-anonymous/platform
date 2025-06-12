@@ -336,3 +336,7 @@
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*
+
+## 14. Связанные Рабочие Процессы (Related Workflows)
+*   [Game Purchase and Library Update](../../../project_workflows/game_purchase_flow.md)
+*   [Developer Submits a New Game for Moderation](../../../project_workflows/game_submission_flow.md)

@@ -360,3 +360,6 @@ graph TD
 
 ---
 *Этот документ является обобщением и структурированием информации из детализированных спецификаций Auth Service v2.0. Для полной информации следует обращаться к соответствующим файлам в `New Docs/specification/`.*
+
+## 14. Связанные Рабочие Процессы (Related Workflows)
+*   [User Registration and Initial Profile Setup](../../../project_workflows/user_registration_flow.md)
