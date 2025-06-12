@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Social Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -107,10 +107,51 @@
 
 ### 4.2. Схема Базы Данных
 *   **PostgreSQL**: Профили, группы, форумы, отзывы, данные модерации.
+    *   *Примечание: Пример DDL для PostgreSQL (профили, группы, форумы, отзывы) будет включать таблицы `user_social_profiles` (для расширенных данных профиля, если они не полностью в Account Service), `friendships`, `groups`, `group_members`, `forums`, `forum_topics`, `forum_posts`, `reviews`, `comments`, `user_blocks`, `content_reports`. Детальная DDL будет представлена в отдельных файлах миграций или в приложении.*
 *   **Cassandra**: Сообщения чатов, ленты активности (для высокой нагрузки на запись/чтение).
+    ```cql
+    // Пример таблицы для сообщений чата в Cassandra (концептуальный)
+    // CREATE TABLE IF NOT EXISTS chat_messages (
+    //   chat_room_id uuid, // Может быть ID пользователя для личного чата или ID группы
+    //   message_id timeuuid,
+    //   sender_id uuid,
+    //   sender_nickname text, // Денормализация для отображения
+    //   content text,
+    //   attachments list<text>, // Ссылки на медиа
+    //   created_at timestamp,
+    //   PRIMARY KEY ((chat_room_id), message_id)
+    // ) WITH CLUSTERING ORDER BY (message_id DESC);
+
+    // Пример таблицы для ленты активности в Cassandra (концептуальный)
+    // CREATE TABLE IF NOT EXISTS user_activity_feed (
+    //   user_id uuid, // ID пользователя, чья это лента
+    //   event_time timeuuid, // Время события, для сортировки
+    //   event_id uuid,
+    //   actor_id uuid,
+    //   actor_nickname text, // Денормализация
+    //   action_type text, // e.g., 'posted_review', 'added_friend', 'achieved_goal'
+    //   object_id uuid,
+    //   object_type text, // e.g., 'game', 'review', 'user'
+    //   object_name text, // Денормализация (название игры, ник друга)
+    //   content_preview text,
+    //   PRIMARY KEY (user_id, event_time)
+    // ) WITH CLUSTERING ORDER BY (event_time DESC);
+    // Примечание: Детальные схемы CQL для Cassandra будут определены в соответствующей технической документации.
+    ```
 *   **Neo4j**: Социальный граф (друзья).
+    ```cypher
+    // Пример создания узлов и связей в Neo4j (концептуальный)
+    // CREATE CONSTRAINT user_unique_id IF NOT EXISTS FOR (u:User) REQUIRE u.userId IS UNIQUE;
+    // CREATE (u1:User {userId: 'user-uuid-1', nickname: 'UserOne'}),
+    //        (u2:User {userId: 'user-uuid-2', nickname: 'UserTwo'}),
+    //        (u3:User {userId: 'user-uuid-3', nickname: 'UserThree'})
+    // CREATE (u1)-[:FRIENDS_WITH {since: timestamp(), status: 'accepted'}]->(u2)
+    // CREATE (u1)-[:SENT_FRIEND_REQUEST_TO {requested_at: timestamp()}]->(u3)
+    // CREATE (g1:Game {gameId: 'game-uuid-1', title: 'Awesome Game'})
+    // CREATE (u1)-[:PLAYED {last_played: timestamp(), playtime_hours: 120}]->(g1)
+    // Примечание: Детальная модель данных и индексы для Neo4j будут определены в соответствующей технической документации.
+    ```
 *   **Redis**: Кэш, статусы онлайн, WebSocket соединения.
-*   TODO: Предоставить DDL для каждой из используемых БД или ссылки на них. Исходная спецификация не содержит DDL.
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
@@ -121,11 +162,62 @@
 *   (Детали см. в Спецификации Social Service, раздел 5.5).
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   `account.user.created`: От Account Service, для создания социального профиля.
-*   `library.achievement.unlocked`: От Library Service, для добавления в ленту активности.
-*   `library.game.purchased`: От Library/Payment Service, для добавления в ленту.
-*   `catalog.game.new_review_possible`: От Catalog Service, когда пользователь может оставить отзыв.
-*   TODO: Детализировать другие потребляемые события.
+*   `account.user.created.v1`:
+    *   **Источник:** Account Service
+    *   **Назначение:** Создание начального социального профиля пользователя.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "username": "user123",
+          "email": "user@example.com",
+          "registration_date": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Создать запись `UserProfile` с базовыми значениями.
+*   `account.user.profile.updated.v1`:
+    *   **Источник:** Account Service
+    *   **Назначение:** Обновление данных в Social Service, которые дублируются или зависят от Account Service (например, никнейм).
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "updated_fields": {
+            "nickname": "NewUserNick",
+            "avatar_url": "new_avatar_link"
+          },
+          "updated_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Обновить соответствующие поля в `UserProfile`.
+*   `library.achievement.unlocked.v1`:
+    *   **Источник:** Library Service
+    *   **Назначение:** Добавление события о получении достижения в ленту активности.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "game_id": "uuid_game",
+          "achievement_id": "uuid_achievement",
+          "achievement_name": "Мастер Клинка",
+          "achievement_icon_url": "url_to_icon",
+          "unlocked_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Создать `FeedItem` типа `achievement_unlocked`.
+*   `catalog.game.published.v1`:
+    *   **Источник:** Catalog Service
+    *   **Назначение:** Активация возможности оставлять отзывы и создавать обсуждения для новой игры.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "game_id": "uuid_game",
+          "title": "Новая Опубликованная Игра",
+          "release_date": "ISO8601_date"
+        }
+        ```
+    *   **Логика обработки:** Разрешить создание отзывов и форумов для `game_id`.
+*   *(Примечание: События типа `library.game.purchased` также могут использоваться для генерации записей в ленте активности).*
 
 ## 6. Интеграции (Integrations)
 
@@ -148,14 +240,26 @@
 *   `SOCIAL_SERVICE_HTTP_PORT`, `SOCIAL_SERVICE_GRPC_PORT`, `SOCIAL_SERVICE_WS_PORT`.
 *   DSN для PostgreSQL, Cassandra, Neo4j.
 *   `REDIS_ADDR`.
-*   `KAFKA_BROKERS` / `RABBITMQ_URL`.
-*   Адреса других микросервисов.
-*   `LOG_LEVEL`.
-*   Лимиты для чатов, лент, и т.д.
-*   TODO: Сформировать полный список.
+*   `KAFKA_BROKERS` (comma-separated) / `RABBITMQ_URL`
+*   `KAFKA_TOPIC_SOCIAL_EVENTS` (e.g., `social.events`)
+*   `ACCOUNT_SERVICE_GRPC_ADDR`
+*   `AUTH_SERVICE_GRPC_ADDR`
+*   `LIBRARY_SERVICE_GRPC_ADDR`
+*   `CATALOG_SERVICE_GRPC_ADDR`
+*   `NOTIFICATION_SERVICE_KAFKA_TOPIC` (для отправки уведомлений)
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `MAX_CHAT_HISTORY_DAYS` (e.g., `90`)
+*   `FEED_ITEMS_PER_PAGE` (e.g., `20`)
+*   `MAX_FRIENDS_LIMIT` (e.g., `1000`)
+*   `MAX_GROUPS_JOIN_LIMIT` (e.g., `100`)
+*   `WEBSOCKET_MAX_CONNECTIONS` (e.g., `10000`)
+*   `WEBSOCKET_WRITE_BUFFER_SIZE` (e.g., `1024`)
+*   `WEBSOCKET_READ_BUFFER_SIZE` (e.g., `1024`)
+*   `WEBSOCKET_PING_INTERVAL_SECONDS` (e.g., `30`)
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT`
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   TODO: Детализировать структуру, если используется.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Если потребуются файлы конфигурации для сложных настроек (например, для правил модерации, параметров алгоритмов рекомендаций друзей, или настроек WebSocket), их структура будет определена здесь.
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -181,7 +285,7 @@
 
 ### 9.3. Защита Данных
 *   Соблюдение настроек приватности пользователя.
-*   Шифрование личных сообщений (TODO: уточнить необходимость end-to-end).
+*   На данный момент end-to-end шифрование для личных сообщений не планируется в первой версии, будет использоваться шифрование на транспортном уровне (TLS) и шифрование в покое для данных чатов. Вопрос внедрения E2EE может быть рассмотрен в будущем.
 *   Защита от спама и вредоносного контента (автоматическая и ручная модерация).
 
 ### 9.4. Управление Секретами
@@ -225,7 +329,7 @@
 *   (Детали см. в Спецификации Social Service, раздел 2.4).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы DDL для Cassandra/Neo4j, примеры API запросов/ответов, форматы событий.
+*   Детальные схемы DDL для PostgreSQL, CQL для Cassandra, и модель данных для Neo4j, а также полные примеры REST API, WebSocket сообщений, и форматы событий Kafka/RabbitMQ будут добавлены по мере финализации дизайна и реализации соответствующих модулей.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*

@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Developer Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -127,17 +127,103 @@
     *   `developer.game.submitted`: Новая игра/версия отправлена на модерацию -> Admin Service.
     *   `developer.game.published`: Игра опубликована -> Catalog Service, Download Service, Notification Service.
     *   `developer.game.updated`: Метаданные/цена игры обновлены -> Catalog Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "developer_id": "uuid_developer_account",
+              "game_id": "uuid_game",
+              "updated_at": "ISO8601_timestamp",
+              "updated_fields": ["metadata", "pricing"]
+            }
+            ```
     *   `developer.payout.requested`: Запрошена выплата -> Payment Service.
-*   TODO: Детализировать структуру Payload для каждого события.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "payout_request_id": "uuid_payout_request",
+              "developer_id": "uuid_developer_account",
+              "amount": 150000.75,
+              "currency": "RUB",
+              "requested_at": "ISO8601_timestamp",
+              "payment_details_snapshot": {
+                "account_type": "bank_transfer",
+                "beneficiary_name": "ООО Разработчик Игр"
+              }
+            }
+            ```
 
 ### 5.2. Потребляемые События (Consumed Events)
 *   **События, которые Developer Service может потреблять:**
     *   `admin.game.moderation.approved`: Игра одобрена модерацией <- Admin Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "game_id": "uuid_game",
+              "version_id": "uuid_game_version",
+              "moderator_id": "uuid_admin_user",
+              "decision": "approved",
+              "approved_at": "ISO8601_timestamp",
+              "comments": "Игра соответствует всем правилам."
+            }
+            ```
+        *   `Логика обработки:` Обновить статус игры/версии в Developer Service на "approved" или "ready_for_publish". Отправить уведомление разработчику.
     *   `admin.game.moderation.rejected`: Игра отклонена модерацией <- Admin Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "game_id": "uuid_game",
+              "version_id": "uuid_game_version",
+              "moderator_id": "uuid_admin_user",
+              "decision": "rejected",
+              "rejected_at": "ISO8601_timestamp",
+              "reason": "Ненормативный контент в описании.",
+              "detailed_feedback_url": "link_to_admin_panel_feedback"
+            }
+            ```
+        *   `Логика обработки:` Обновить статус игры/версии на "rejected". Сохранить причину отклонения. Отправить уведомление разработчику.
     *   `payment.payout.status.changed`: Статус выплаты изменен <- Payment Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "payout_request_id": "uuid_payout_request_in_developer_service",
+              "developer_id": "uuid_developer_account",
+              "payment_service_transaction_id": "uuid_payment_service_transaction",
+              "new_status": "completed" | "failed" | "processing",
+              "processed_at": "ISO8601_timestamp",
+              "failure_reason": "Неверные реквизиты"
+            }
+            ```
+        *   `Логика обработки:` Обновить статус запроса на выплату. Уведомить разработчика.
     *   `analytics.report.ready`: Отчет по аналитике готов <- Analytics Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "report_id": "uuid_report_instance",
+              "developer_id": "uuid_developer_account",
+              "report_type": "monthly_sales_summary",
+              "game_id": "uuid_game",
+              "period_start": "ISO8601_date",
+              "period_end": "ISO8601_date",
+              "report_url": "url_to_download_or_view_report",
+              "generated_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Сохранить ссылку на отчет. Уведомить разработчика о готовности отчета.
     *   `notification.message.received`: Ответ от техподдержки или важное системное уведомление <- Notification Service.
-*   TODO: Детализировать структуру Payload и логику обработки.
+        *   `Структура Payload (пример):`
+             ```json
+            {
+              "notification_id": "uuid",
+              "recipient_type": "developer_team",
+              "recipient_id": "uuid_developer_account_or_team_member_user_id",
+              "category": "support_reply" | "platform_announcement" | "game_status_update",
+              "title": "Получен ответ от службы поддержки по тикету #12345",
+              "short_message": "Специалист поддержки ответил на ваш запрос...",
+              "details_url": "/developer/support/tickets/12345",
+              "sent_at": "ISO8601_timestamp"
+            }
+            ```
+        *   `Логика обработки:` Отобразить уведомление в интерфейсе портала разработчика.
 
 ## 6. Интеграции (Integrations)
 
@@ -159,14 +245,32 @@
 ### 7.1. Переменные Окружения
 *   `DEVELOPER_SERVICE_PORT`: Порт сервиса.
 *   `POSTGRES_DSN`: Строка подключения к PostgreSQL.
-*   `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET_BUILDS`, `S3_BUCKET_MEDIA`: Параметры S3.
-*   `KAFKA_BROKERS` / `RABBITMQ_URL`.
-*   Адреса других микросервисов.
-*   `LOG_LEVEL`.
-*   TODO: Сформировать полный список.
+*   `S3_ENDPOINT`
+*   `S3_ACCESS_KEY_ID`
+*   `S3_SECRET_ACCESS_KEY`
+*   `S3_BUCKET_GAME_BUILDS`
+*   `S3_BUCKET_GAME_MEDIA`
+*   `S3_REGION` (optional)
+*   `S3_USE_SSL` (e.g., `true`)
+*   `KAFKA_BROKERS` (comma-separated) / `RABBITMQ_URL`
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `ACCOUNT_SERVICE_GRPC_ADDR`
+*   `PAYMENT_SERVICE_GRPC_ADDR`
+*   `CATALOG_SERVICE_GRPC_ADDR`
+*   `DOWNLOAD_SERVICE_GRPC_ADDR`
+*   `ANALYTICS_SERVICE_GRPC_ADDR`
+*   `ADMIN_SERVICE_GRPC_ADDR`
+*   `NOTIFICATION_SERVICE_GRPC_ADDR`
+*   `AUTH_SERVICE_GRPC_ADDR`
+*   `MAX_BUILD_FILE_SIZE_BYTES` (e.g., `10737418240` for 10GB)
+*   `MAX_MEDIA_FILE_SIZE_BYTES` (e.g., `104857600` for 100MB)
+*   `TEMPORARY_UPLOAD_DIR` (e.g., `/tmp/uploads`)
+*   `REDIS_ADDR` (e.g., `redis:6379`)
+*   `REDIS_PASSWORD` (optional)
+*   `REDIS_DB_DEVELOPER` (e.g., `1`)
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   TODO: Детализировать структуру, если используется.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Если в будущем потребуются файлы конфигурации для сложных настроек (например, для определения специфических правил валидации для разных типов продуктов или детализированных настроек API), их структура будет определена здесь.
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -227,7 +331,7 @@
 *   Метрики: запросы, ошибки, производительность загрузок, использование ресурсов.
 
 ### 11.3. Трассировка
-*   TODO: Уточнить интеграцию с Jaeger/OpenTelemetry.
+*   Интеграция с системой распределенной трассировки (например, Jaeger/OpenTelemetry) будет реализована согласно общепроектным стандартам. Контекст трассировки будет передаваться для всех входящих API запросов и исходящих вызовов к другим сервисам, а также включаться в логи.
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Безопасность**: Защита билдов и данных разработчиков, RBAC.
@@ -238,7 +342,7 @@
 *   (Детали см. в Спецификации Developer Service, раздел 2.4).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы DDL, примеры API запросов/ответов.
+*   Детальные схемы DDL для PostgreSQL, полные примеры API запросов/ответов (включая структуры для загрузки медиа-файлов и билдов), а также форматы событий Kafka/RabbitMQ будут добавлены по мере финализации дизайна и реализации соответствующих модулей.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*

@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Payment Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -115,7 +115,84 @@
 *   (Детали см. в Спецификации Payment Service, раздел 5.4).
 
 ### 3.4. gRPC API
-*   TODO: Определить gRPC API для внутреннего высокопроизводительного взаимодействия, если требуется (например, для проверки статуса транзакции, получения цены). Исходная спецификация упоминает gRPC в технологическом стеке.
+*   Для внутреннего взаимодействия, например, для проверки статуса транзакции или получения деталей платежного метода другими сервисами, может быть определен следующий gRPC сервис. Детальное определение `.proto` будет предоставлено по мере необходимости.
+    ```protobuf
+    // Примерный сервис PaymentInternalService
+    service PaymentInternalService {
+      // Проверить статус транзакции
+      rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+      // Получить доступные платежные методы для пользователя
+      rpc GetUserPaymentMethods(GetUserPaymentMethodsRequest) returns (GetUserPaymentMethodsResponse);
+      // Инициировать удержание средств (холдирование)
+      rpc HoldPayment(HoldPaymentRequest) returns (HoldPaymentResponse);
+      // Подтвердить списание удержанных средств
+      rpc ConfirmHold(ConfirmHoldRequest) returns (ConfirmHoldResponse);
+      // Отменить удержание средств
+      rpc CancelHold(CancelHoldRequest) returns (CancelHoldResponse);
+    }
+
+    message GetTransactionStatusRequest {
+      string transaction_id = 1;
+    }
+
+    message GetTransactionStatusResponse {
+      string transaction_id = 1;
+      string status = 2; // e.g., "created", "processing", "completed", "failed"
+      string payment_method_type = 3; // e.g., "card", "sbp"
+      google.protobuf.Timestamp completed_at = 4;
+    }
+
+    message GetUserPaymentMethodsRequest {
+      string user_id = 1;
+    }
+
+    message PaymentMethod {
+      string payment_method_id = 1;
+      string type = 2; // "card", "sbp", "yoomoney"
+      string masked_identifier = 3; // "•••• 1234" for card, or phone for SBP
+      bool is_default = 4;
+    }
+
+    message GetUserPaymentMethodsResponse {
+      repeated PaymentMethod payment_methods = 1;
+    }
+
+    message HoldPaymentRequest {
+      string user_id = 1;
+      string order_id = 2; // ID заказа из другого сервиса
+      string payment_method_id = 3; // опционально, если пользователь выбирает
+      int64 amount_kop = 4; // сумма в копейках
+      string currency_code = 5; // "RUB"
+      string description = 6;
+    }
+
+    message HoldPaymentResponse {
+      string transaction_id = 1;
+      string status = 2; // "hold_pending", "hold_success", "hold_failed"
+      string payment_gateway_reference_id = 3; // ID операции в платежном шлюзе
+    }
+
+    message ConfirmHoldRequest {
+      string transaction_id = 1; // ID транзакции холдирования
+      int64 final_amount_kop = 2; // может отличаться от суммы холда
+    }
+
+    message ConfirmHoldResponse {
+      string transaction_id = 1;
+      string status = 2; // "completed", "failed"
+    }
+
+    message CancelHoldRequest {
+      string transaction_id = 1; // ID транзакции холдирования
+      string reason = 2;
+    }
+
+    message CancelHoldResponse {
+      string transaction_id = 1;
+      string status = 2; // "cancelled", "failed"
+    }
+    // Другие необходимые сообщения должны быть определены дополнительно
+    ```
 
 ## 4. Модели Данных (Data Models)
 
@@ -153,15 +230,130 @@
     *   `payment.transaction.completed`: Транзакция успешно завершена (оплачена). -> Library Service, Notification Service, Analytics Service.
     *   `payment.transaction.failed`: Ошибка транзакции. -> Notification Service.
     *   `payment.refund.processed`: Возврат обработан. -> Library Service, Notification Service, Analytics Service.
-    *   `payment.developer.payout.completed`: Выплата разработчику произведена. -> Developer Service, Notification Service.
+    *   `payment.payout.initiated`: Инициирована выплата разработчику.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "event_id": "uuid_event",
+              "event_type": "payment.payout.initiated.v1",
+              "timestamp": "ISO8601_timestamp",
+              "source_service": "payment-service",
+              "payout_id": "uuid_payout_operation",
+              "developer_id": "uuid_developer",
+              "amount": 50000.00,
+              "currency": "RUB",
+              "payout_method_type": "bank_transfer"
+            }
+            ```
+    *   `payment.payout.status.updated`: Статус выплаты разработчику изменен. -> Developer Service, Notification Service.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "event_id": "uuid_event",
+              "event_type": "payment.payout.status.updated.v1",
+              "timestamp": "ISO8601_timestamp",
+              "source_service": "payment-service",
+              "payout_id": "uuid_payout_operation",
+              "developer_id": "uuid_developer",
+              "new_status": "completed" | "failed" | "processing",
+              "processed_at": "ISO8601_timestamp",
+              "external_transaction_id": "id_in_payment_system",
+              "failure_reason": "Ошибка обработки банком"
+            }
+            ```
     *   `payment.fiscal.receipt.created`: Фискальный чек создан. -> Notification Service (для отправки пользователю).
-*   TODO: Детализировать структуру Payload для каждого события.
+        *   `Структура Payload (пример):`
+            ```json
+            {
+              "event_id": "uuid_event",
+              "event_type": "payment.fiscal.receipt.created.v1",
+              "timestamp": "ISO8601_timestamp",
+              "source_service": "payment-service",
+              "transaction_id": "uuid_transaction",
+              "receipt_id": "uuid_fiscal_receipt",
+              "fiscal_document_number": "1234567890",
+              "receipt_url_or_data": "url_to_ofd_receipt_or_base64_data"
+            }
+            ```
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   `catalog.price.changed`: От Catalog Service, для обновления информации о ценах, если есть активные корзины.
-*   `user.account.deleted`: От Account Service, для обработки данных пользователя.
-*   `admin.refund.request.manual`: От Admin Service, для ручного инициирования возврата.
-*   TODO: Детализировать другие возможные потребляемые события.
+*   `user.account.created`:
+    *   **Источник:** Account Service
+    *   **Назначение:** Создание профиля платежных данных для нового пользователя, если это требуется (например, инициализация внутреннего баланса, если есть).
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "user_id": "uuid_user",
+          "email": "user@example.com",
+          "username": "user123",
+          "registration_date": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Payment Service может создать внутреннюю запись для пользователя, подготовить структуру для хранения его будущих платежных методов или транзакций.
+*   `developer.payout.requested`:
+    *   **Источник:** Developer Service
+    *   **Назначение:** Инициирование процесса выплаты разработчику.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "payout_request_id": "uuid_dev_service_payout_request",
+          "developer_id": "uuid_developer",
+          "amount": 75000.00,
+          "currency": "RUB",
+          "requested_payout_method_id": "uuid_developer_payout_method",
+          "requested_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Валидировать запрос, проверить баланс разработчика, создать транзакцию типа "payout" со статусом "processing", инициировать взаимодействие с платежной системой для осуществления выплаты.
+*   `admin.refund.request.manual`:
+    *   **Источник:** Admin Service
+    *   **Назначение:** Ручное инициирование возврата средств пользователю.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "original_transaction_id": "uuid_purchase_transaction",
+          "user_id": "uuid_user",
+          "amount_to_refund": 1000.00,
+          "reason": "Решение администратора",
+          "admin_id": "uuid_admin_user",
+          "requested_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Проверить исходную транзакцию, создать транзакцию возврата, инициировать возврат через платежную систему, создать фискальный чек возврата.
+*   `order.created.v1`:
+    *   **Источник:** Order Service (или Catalog/Library Service)
+    *   **Назначение:** Уведомление о создании нового заказа, для которого необходимо инициировать платеж.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "order_id": "uuid_order",
+          "user_id": "uuid_user",
+          "total_amount": 2499.00,
+          "currency": "RUB",
+          "items": [
+            { "item_id": "uuid_game1", "item_type": "game", "price": 1999.00, "quantity": 1 },
+            { "item_id": "uuid_dlc1", "item_type": "dlc", "price": 500.00, "quantity": 1 }
+          ],
+          "created_at": "ISO8601_timestamp"
+        }
+        ```
+    *   **Логика обработки:** Создать новую транзакцию типа "purchase" со статусом "created".
+*   `user.subscription.renewal_due.v1`:
+    *   **Источник:** Account Service или Subscription Service
+    *   **Назначение:** Уведомление о необходимости произвести периодический платеж за подписку.
+    *   **Структура Payload (пример):**
+        ```json
+        {
+          "subscription_id": "uuid_subscription",
+          "user_id": "uuid_user",
+          "plan_id": "uuid_subscription_plan",
+          "renewal_amount": 499.00,
+          "currency": "RUB",
+          "next_billing_date": "ISO8601_date"
+        }
+        ```
+    *   **Логика обработки:** Инициировать рекуррентный платеж, используя сохраненный платежный метод пользователя.
+*   *(Примечание: Событие `catalog.price.changed` также может потребляться для аннулирования/обновления "корзин" или отложенных платежей, если такая функциональность предусмотрена. Событие `user.account.deleted` от Account Service также должно обрабатываться для анонимизации или удаления платежных данных пользователя).*
 
 ## 6. Интеграции (Integrations)
 
@@ -184,17 +376,30 @@
 
 ### 7.1. Переменные Окружения
 *   `PAYMENT_SERVICE_PORT`: Порт сервиса.
-*   `POSTGRES_DSN`.
-*   `REDIS_ADDR`.
-*   `KAFKA_BROKERS`.
-*   API ключи и эндпоинты для платежных систем и ОФД (хранятся в Secrets).
-*   Параметры комиссии платформы.
-*   `LOG_LEVEL`.
-*   TODO: Сформировать полный список.
+*   `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DBNAME`, `POSTGRES_SSLMODE`
+*   `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB_PAYMENT`
+*   `KAFKA_BROKERS` (comma-separated)
+*   `KAFKA_TOPIC_PAYMENT_EVENTS` (e.g., `payment.transactions`)
+*   `SBP_GATEWAY_URL`, `SBP_GATEWAY_API_KEY_SECRET` (имя секрета в Kubernetes)
+*   `MIR_GATEWAY_URL`, `MIR_GATEWAY_MERCHANT_ID_SECRET`, `MIR_GATEWAY_API_KEY_SECRET`
+*   `YOOMONEY_SHOP_ID_SECRET`, `YOOMONEY_SECRET_KEY_SECRET`
+*   `OFD_API_URL`, `OFD_API_KEY_SECRET`, `OFD_INN`, `OFD_KKT_REG_NUMBER`
+*   `PLATFORM_COMMISSION_PERCENT` (e.g., `30.0`)
+*   `MIN_PAYOUT_AMOUNT_RUB` (e.g., `1000.00`)
+*   `DEFAULT_CURRENCY` (e.g., `RUB`)
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `AUTH_SERVICE_GRPC_ADDR` (e.g., `auth-service:9090`)
+*   `ACCOUNT_SERVICE_GRPC_ADDR` (e.g., `account-service:9090`)
+*   `CATALOG_SERVICE_GRPC_ADDR` (e.g., `catalog-service:9090`)
+*   `NOTIFICATION_SERVICE_KAFKA_TOPIC` (e.g., `notification.send.request`)
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT` (e.g., `http://jaeger-collector:14268/api/traces`)
+*   `HTTP_SERVER_PORT` (e.g., `8080`)
+*   `GRPC_SERVER_PORT` (e.g., `9090`)
+*   `TRANSACTION_LOCK_TIMEOUT_SECONDS` (e.g., `60`)
+*   `PAYMENT_SESSION_TTL_SECONDS` (e.g., `900` for 15 minutes)
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   Могут использоваться для настроек правил фискализации, лимитов операций.
-*   TODO: Детализировать структуру, если используется.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Если потребуются файлы конфигурации для сложных настроек (например, для правил маршрутизации между разными платежными шлюзами или детализированных параметров фискализации для разных типов товаров/услуг), их структура будет определена здесь.
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -256,7 +461,7 @@
 *   Метрики: количество и суммы транзакций (успешных/неуспешных), время обработки платежей, ошибки интеграции с платежными системами/ОФД, размеры очередей.
 
 ### 11.3. Трассировка
-*   TODO: Уточнить интеграцию с Jaeger/OpenTelemetry для отслеживания полных циклов финансовых операций.
+*   Интеграция с системой распределенной трассировки (например, Jaeger/OpenTelemetry) будет реализована для отслеживания полного жизненного цикла финансовых операций, включая вызовы к внешним платежным системам и ОФД. Контекст трассировки будет логироваться и передаваться.
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Производительность:** API P95 < 500мс, обработка >= 100 транзакций/сек.
@@ -266,7 +471,7 @@
 *   (Детали см. в Спецификации Payment Service, раздел 2.4).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы DDL, примеры API запросов/ответов, форматы фискальных чеков.
+*   Детальные схемы DDL для PostgreSQL, полные примеры REST API запросов/ответов (включая обработку вебхуков и ошибок), форматы событий Kafka, а также примеры фискальных чеков (в соответствии с 54-ФЗ) будут добавлены по мере финализации дизайна и реализации интеграций с платежными системами.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*

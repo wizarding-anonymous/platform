@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Notification Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- TODO: Update date -->
+**Дата последнего обновления:** 2025-05-25
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -134,11 +134,98 @@
 ### 5.1. Публикуемые События (Produced Events)
 *   **Система сообщений:** Kafka.
 *   **Формат событий:** CloudEvents JSON.
-*   **Топики:** `notification.events` (статусы: отправлено, доставлено, открыто, ошибка), `notification.stats` (агрегированная статистика).
-*   (Примеры см. в Спецификации Notification Service, раздел 5.2.2).
+*   **Основные топики:** `notification.status.events` (для статусов доставки, открытий, ошибок), `notification.campaign.stats` (для агрегированной статистики по кампаниям).
+
+#### Примеры структур Payload для публикуемых событий:
+
+*   **`notification.message.status.updated.v1`**
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "event_id": "uuid_event",
+          "event_type": "notification.message.status.updated.v1",
+          "timestamp": "ISO8601_timestamp",
+          "source_service": "notification-service",
+          "message_id": "uuid_notification_message",
+          "user_id": "uuid_user",
+          "channel_type": "email" | "push" | "sms" | "in_app",
+          "new_status": "sent" | "delivered" | "failed" | "opened" | "clicked",
+          "provider_name": "sendgrid" | "fcm" | "smsc",
+          "status_details": "Текст ошибки от провайдера или дополнительная информация",
+          "campaign_id": "uuid_campaign"
+        }
+        ```
+*   **`notification.campaign.stats.aggregated.v1`**
+    *   `Структура Payload (пример):`
+        ```json
+        {
+          "event_id": "uuid_event",
+          "event_type": "notification.campaign.stats.aggregated.v1",
+          "timestamp": "ISO8601_timestamp",
+          "source_service": "notification-service",
+          "campaign_id": "uuid_campaign",
+          "aggregation_period_hours": 1,
+          "metrics": {
+            "sent_count": 10000,
+            "delivered_count": 9500,
+            "failed_count": 500,
+            "opened_count": 3000,
+            "clicked_count": 500
+          }
+        }
+        ```
+*   *(Примечание: Исходная спецификация упоминает топики `notification.events` и `notification.stats`. Предложенные выше события и их структура детализируют это.)*
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   **Топики:** `notification.send.request` (запросы на отправку), `user.events`, `payment.events`, `social.events`, `library.events` и др.
+*   **Основные топики и типы событий:**
+    *   **`notification.send.request.v1`** (из любого сервиса, через Kafka)
+        *   **Источник:** Любой микросервис платформы.
+        *   **Назначение:** Запрос на отправку уведомления пользователю или группе пользователей.
+        *   **Структура Payload (пример):**
+            ```json
+            {
+              "request_id": "uuid_unique_request_id",
+              "user_id": "uuid_user",
+              "notification_type": "order_confirmation",
+              "preferred_channels": ["email", "push"],
+              "data": {
+                "order_id": "ORD12345",
+                "total_amount": "1999.00 RUB",
+                "game_name": "Супер Игра"
+              },
+              "priority": "high",
+              "send_at": "ISO8601_timestamp"
+            }
+            ```
+        *   **Логика обработки:** Notification Orchestrator получает событие. Проверяет пользовательские предпочтения (`UserPreferences`). Выбирает соответствующий шаблон (`NotificationTemplate`) для языка пользователя и доступных/предпочтительных каналов. Рендерит шаблон с предоставленными `data`. Ставит задачи в очереди для соответствующих `ChannelDispatchers`.
+    *   **`catalog.game.version.deleted.v1`**
+        *   **Источник:** Catalog Service
+        *   **Назначение:** Уведомление пользователей, которые могли быть заинтересованы в удаленной версии игры.
+        *   **Структура Payload (пример):**
+            ```json
+            {
+              "game_id": "uuid_game",
+              "version_id": "uuid_game_version",
+              "game_title": "Удаленная Игра",
+              "reason_for_deletion": "Юридические ограничения"
+            }
+            ```
+        *   **Логика обработки:** Определить затронутых пользователей. Создать и отправить им уведомление (тип `system.game.version.removed`).
+    *   **`user.account.security.alert.v1`**
+        *   **Источник:** Account Service или Auth Service
+        *   **Назначение:** Уведомление пользователя о важном событии безопасности.
+        *   **Структура Payload (пример):**
+            ```json
+            {
+              "user_id": "uuid_user",
+              "alert_type": "suspicious_login_attempt",
+              "ip_address": "192.168.1.100",
+              "device_info": "Chrome on Windows",
+              "timestamp": "ISO8601_timestamp"
+            }
+            ```
+        *   **Логика обработки:** Создать уведомление высокого приоритета (тип `account.security.alert`) и немедленно отправить его пользователю.
+*   Также потребляются события из топиков: `user.events`, `payment.events`, `social.events`, `library.events` и др. для инициирования соответствующих уведомлений.
 *   **Логика обработки:** Получение запроса/события, определение типа уведомления, проверка предпочтений, выбор шаблона и канала, отправка.
 *   (Примеры см. в Спецификации Notification Service, раздел 5.2.1).
 
@@ -164,13 +251,30 @@
 *   `NOTIFICATION_SERVICE_HTTP_PORT`, `NOTIFICATION_SERVICE_GRPC_PORT`.
 *   `POSTGRES_DSN` / `CLICKHOUSE_URL`.
 *   `REDIS_ADDR`.
-*   `KAFKA_BROKERS`.
-*   API ключи и учетные данные для Email, Push, SMS провайдеров (хранятся в Secrets).
-*   `LOG_LEVEL`.
-*   TODO: Сформировать полный список.
+*   `KAFKA_BROKERS` (comma-separated, e.g., `kafka1:9092,kafka2:9092`)
+*   `KAFKA_CONSUMER_GROUP_ID` (e.g., `notification-service-group`)
+*   `KAFKA_TOPIC_SEND_REQUESTS` (e.g., `notification.send.request`)
+*   `KAFKA_TOPIC_STATUS_EVENTS` (e.g., `notification.status.events`)
+*   `EMAIL_PROVIDER_PRIMARY_API_KEY` (из Secrets)
+*   `EMAIL_PROVIDER_PRIMARY_TYPE` (e.g., `sendgrid`, `mailgun`)
+*   `EMAIL_SENDER_DEFAULT_FROM` (e.g., `noreply@gameplatform.ru`)
+*   `SMS_PROVIDER_PRIMARY_API_KEY` (из Secrets)
+*   `SMS_PROVIDER_PRIMARY_SENDER_ID` (e.g., `GamePlatform`)
+*   `FCM_SERVER_KEY` (из Secrets)
+*   `APNS_KEY_ID` (из Secrets)
+*   `APNS_TEAM_ID` (из Secrets)
+*   `APNS_PRIVATE_KEY_PATH` (путь к .p8 файлу, смонтированному из Secrets)
+*   `APNS_BUNDLE_ID` (e.g., `com.gameplatform.client`)
+*   `WEBSOCKET_GATEWAY_URL` (для In-App уведомлений, e.g., `ws://websocket-gateway/notifications`)
+*   `LOG_LEVEL` (e.g., `info`, `debug`)
+*   `DEFAULT_RETRY_ATTEMPTS` (e.g., `3`)
+*   `DEFAULT_RETRY_DELAY_SECONDS` (e.g., `60`)
+*   `ACCOUNT_SERVICE_GRPC_ADDR` (e.g., `account-service:9090`)
+*   `ANALYTICS_SERVICE_GRPC_ADDR` (e.g., `analytics-service:9090`)
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT` (e.g., `http://jaeger-collector:14268/api/traces`)
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   Могут использоваться для настроек провайдеров, шаблонов по умолчанию.
+*   Конфигурация сервиса осуществляется преимущественно через переменные окружения. Если потребуются файлы конфигурации для сложных настроек (например, для детализированных правил выбора провайдеров уведомлений для разных сценариев или сложных структур шаблонов, не хранящихся в БД), их структура будет определена здесь.
 *   (Источник: Спецификация Notification Service, раздел 8.2.4).
 
 ## 8. Обработка Ошибок (Error Handling)
@@ -242,7 +346,7 @@
 *   (Детали см. в Спецификации Notification Service, раздел 2.3).
 
 ## 13. Приложения (Appendices) (Опционально)
-*   TODO: Детальные схемы DDL, примеры API запросов/ответов, форматы событий.
+*   Детальные схемы DDL для PostgreSQL/ClickHouse (для хранения шаблонов, статистики, логов доставки, токенов устройств, предпочтений), полные примеры REST API запросов/ответов (включая ответы на ошибки), а также форматы событий Kafka (для запросов на отправку и статусов доставки) будут добавлены по мере финализации дизайна и реализации соответствующих модулей.
 
 ---
 *Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*
