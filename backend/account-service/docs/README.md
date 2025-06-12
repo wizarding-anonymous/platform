@@ -1,493 +1,698 @@
 # Спецификация Микросервиса: Account Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2025-05-24
+**Дата последнего обновления:** 2023-10-28
 
 ## 1. Обзор Сервиса (Overview)
 
 ### 1.1. Назначение и Роль
-*   **Назначение документа:** Данный документ представляет собой полную спецификацию микросервиса "Account Service". Он описывает назначение, архитектуру, функциональные возможности, структуру данных, API, интеграции и нефункциональные требования, необходимые для реализации и эксплуатации сервиса управления Аккаунтами (Accounts) и Профилями Пользователей (User Profiles).
-*   **Роль в общей архитектуре платформы:** Account Service является корневым и фундаментальным микросервисом платформы, отвечающим за управление Аккаунтами Пользователей, Профилями Пользователей и связанными с ними данными (настройки, верификации, контактная информация). Он выступает в качестве единого источника достоверной информации о Пользователях.
-*   **Основные бизнес-задачи:**
-    *   Регистрация и управление жизненным циклом Аккаунтов.
-    *   Хранение и управление данными Профилей Пользователей.
-    *   Управление контактной информацией и ее верификация.
-    *   Управление настройками Пользователей.
-    *   Предоставление API для доступа к данным Аккаунтов и Профилей.
-    *   Генерация Событий об изменениях состояния Аккаунтов и Профилей.
+*   Account Service является основным микросервисом платформы "Российский Аналог Steam", отвечающим за управление учетными записями пользователей, их профилями и связанными данными, такими как настройки, информация для верификации и контактная информация.
+*   Он служит авторитетным источником данных, связанных с пользователями, предоставляя эту информацию другим сервисам и обеспечивая целостность и безопасность данных.
+*   Основные бизнес-задачи: управление жизненным циклом аккаунта пользователя, управление профильной информацией, управление контактными данными и их верификацией, управление пользовательскими настройками.
 
 ### 1.2. Ключевые Функциональности
-*   **Управление Аккаунтами:** Регистрация, хранение и управление базовой информацией (ID, Username, статус), обновление статуса, блокировка/разблокировка, удаление (мягкое), поиск.
-*   **Управление Профилями Пользователей:** Создание, редактирование (Nickname, bio, страна, город и т.д.), управление изображениями (Avatar, баннеры), настройка видимости, история изменений.
-*   **Верификация Пользователей:** Управление контактной информацией (email, телефон), запрос и подтверждение верификации, управление статусами верификации.
-*   **Управление Настройками:** Хранение и обновление пользовательских настроек по категориям (приватность, уведомления, интерфейс, безопасность).
+*   **Управление учетными записями:** Регистрация новых пользователей (координируется с Auth Service), хранение и управление основной информацией об аккаунте (ID, статус), поддержка изменения статуса аккаунта (активация, блокировка, удаление).
+*   **Управление профилями пользователей:** Создание и редактирование деталей профиля (никнейм, биография, страна, аватар), управление настройками видимости профиля.
+*   **Управление контактной информацией и верификацией:** Хранение и управление контактными данными пользователя (email, телефон), обработка процесса верификации.
+*   **Управление настройками:** Хранение и обновление пользовательских настроек, разделенных по категориям (например, приватность, уведомления, интерфейс).
+*   **Генерация событий:** Публикация событий, связанных с изменениями в аккаунтах и профилях (например, создание аккаунта, обновление профиля) в брокер сообщений Kafka.
 
 ### 1.3. Основные Технологии
-*   **Backend:** Go (версия 1.21+), Gin или Echo (REST), google.golang.org/grpc (gRPC), Gorilla WebSocket.
-*   **Базы данных:** PostgreSQL (версия 15+), Redis (кэш/сессии).
-*   **Сообщения:** Kafka.
-*   **Frontend (Клиент):** Flutter, Dart.
-*   **Инфраструктура:** Docker, Kubernetes, Prometheus, Grafana, ELK Stack/Loki, Jaeger.
+*   **Язык программирования:** Go (версия 1.21+)
+*   **REST Framework:** Gin или Echo (согласно `project_technology_stack.md`, предпочтительно Echo)
+*   **gRPC Framework:** google.golang.org/grpc
+*   **База данных:** PostgreSQL (версия 15+)
+*   **Кэширование/Управление сессиями:** Redis
+*   **Брокер сообщений:** Kafka (например, confluent-kafka-go или sarama)
+*   **Валидация:** go-playground/validator
+*   **ORM/DB Driver:** GORM или sqlx (согласно `project_technology_stack.md`, предпочтительно GORM или pgx)
+*   (Ссылки на `project_technology_stack.md`, `project_glossary.md`)
 
 ### 1.4. Термины и Определения (Glossary)
-*   **Аккаунт (Account)**: Учетная запись Пользователя.
-*   **Профиль пользователя (User Profile)**: Публичная или частично публичная информация о Пользователе.
-*   **Событие (Event)**: Сообщение о произошедшем действии (CloudEvents формат).
-*   (Полный глоссарий см. в "Едином глоссарии терминов и определений для российского аналога Steam.txt" и разделе 1.3 исходной спецификации Account Service).
+*   См. `project_glossary.md`.
+*   **Аккаунт (Account):** Основная учетная запись пользователя.
+*   **Профиль (Profile):** Публичная и приватная информация пользователя.
+*   **Контактная информация (ContactInfo):** Email, телефон пользователя.
+*   **Настройки (Settings):** Пользовательские конфигурации.
 
 ## 2. Внутренняя Архитектура (Internal Architecture)
 
 ### 2.1. Общее Описание
-*   Account Service построен на принципах чистой архитектуры (Clean Architecture) и микросервисного подхода.
-*   Диаграмма слоев (из исходной спецификации):
-    ```mermaid
-    graph TD
-        subgraph "API Layer"
-            A[REST API]
-            B[gRPC API]
-            C[WebSocket API]
-        end
-        subgraph "Use Case Layer"
-            D[RegisterAccountUseCase]
-            E[UpdateProfileUseCase]
-            F[VerifyEmailUseCase]
-            G[GetSettingsUseCase]
-        end
-        subgraph "Domain Layer"
-            H[Account Entity]
-            I[Profile Entity]
-            J[Verification Entity]
-            K[Settings Entity]
-            L[Repository Interfaces]
-        end
-        subgraph "Infrastructure Layer"
-            M[PostgreSQL Repositories]
-            N[Redis Cache]
-            O[Kafka Producer/Consumer]
-            P[gRPC Clients]
-            Q[External Service Clients]
-        end
-
-        A --> D; B --> E; C --> F
-        D --> L; E --> L; F --> L; G --> L
-        L -- Implemented by --> M
-        L -- Implemented by --> N
-        D --> O; E --> O; D --> P
-        M --> R[(PostgreSQL)]; N --> S[(Redis)]; O --> T[(Kafka)]
-        P --> U[Other Microservices]; Q --> V[External Systems]
-    ```
+*   Сервис построен с использованием принципов чистой архитектуры (Clean Architecture) или слоистой архитектуры для разделения ответственностей.
+*   Основные модули: управление аккаунтами, управление профилями, управление контактами, управление настройками.
+*   [TODO: Добавить диаграмму верхнеуровневой архитектуры сервиса, если необходимо]
 
 ### 2.2. Слои Сервиса
 
-#### 2.2.1. Presentation Layer (Слой Представления / API Layer)
-*   Ответственность: Обработка входящих запросов (REST, gRPC, WebSocket), валидация данных, преобразование DTO, вызов Use Case Layer.
+#### 2.2.1. Presentation Layer (Слой Представления)
+*   Ответственность: Обработка входящих HTTP (REST) и gRPC запросов, валидация DTO, вызов Application Layer.
 *   Ключевые компоненты/модули:
-    *   HTTP Handlers/Controllers: Gin или Echo для REST.
-    *   gRPC Service Implementations: Стандартные библиотеки Go для gRPC.
-    *   WebSocket Handlers: Gorilla WebSocket.
-    *   DTOs: Для преобразования данных между API и Use Case слоями.
-    *   Валидаторы: go-playground/validator.
+    *   HTTP Handlers (Echo/Gin): Эндпоинты для CRUD операций над аккаунтами, профилями, контактами, настройками.
+    *   gRPC Service Implementations: Методы для межсервисного взаимодействия (например, `GetAccount`, `GetProfile`).
+    *   DTOs: Структуры для передачи данных (например, `CreateAccountRequest`, `UserProfileResponse`).
+    *   Валидаторы: Для проверки корректности входных данных.
 
-#### 2.2.2. Application Layer (Прикладной Слой / Use Case Layer)
-*   Ответственность: Содержит основную бизнес-логику сервиса, оркестрируя взаимодействие между различными компонентами и репозиториями для выполнения конкретных сценариев (например, регистрация Аккаунта, обновление Профиля).
+#### 2.2.2. Application Layer (Прикладной Слой / Слой Сценариев Использования)
+*   Ответственность: Координация бизнес-логики, реализация use cases.
 *   Ключевые компоненты/модули:
-    *   Use Case Services: `RegisterAccountUseCase`, `UpdateProfileUseCase`, `VerifyEmailUseCase`, `GetSettingsUseCase`.
-    *   Интерфейсы для репозиториев и внешних сервисов.
+    *   Use Case Services: `AccountUseCaseService`, `ProfileUseCaseService`, `ContactUseCaseService`, `SettingsUseCaseService`.
+    *   Интерфейсы для репозиториев (`AccountRepository`, `ProfileRepository`) и внешних сервисов (например, `NotificationService`).
 
 #### 2.2.3. Domain Layer (Доменный Слой)
-*   Ответственность: Содержит основные доменные сущности (Аккаунт, Профиль, Верификация, Настройки), их бизнес-правила и интерфейсы репозиториев.
+*   Ответственность: Бизнес-сущности, агрегаты, доменные события.
 *   Ключевые компоненты/модули:
-    *   Entities: `Account`, `AuthMethod`, `Profile`, `ContactInfo`, `Setting`, `Avatar`, `ProfileHistory`.
-    *   Repository Interfaces.
+    *   Entities: `Account` (ID, UserID (из Auth Service), Status, Timestamps), `Profile` (Nickname, Bio, AvatarURL, Country), `ContactInfo` (Email, Phone, VerifiedStatus), `Setting` (Category, ValuesJSONB).
+    *   Domain Events: `AccountCreatedEvent`, `ProfileUpdatedEvent`, `ContactVerifiedEvent`.
+    *   Интерфейсы репозиториев.
 
 #### 2.2.4. Infrastructure Layer (Инфраструктурный Слой)
-*   Ответственность: Реализация интерфейсов, определенных в Domain и Application Layers, для взаимодействия с PostgreSQL, Redis, Kafka и другими микросервисами.
+*   Ответственность: Взаимодействие с PostgreSQL, Redis, Kafka.
 *   Ключевые компоненты/модули:
-    *   PostgreSQL Repositories: GORM или sqlx.
-    *   Redis Cache: go-redis/redis.
-    *   Kafka Producer/Consumer: confluent-kafka-go или sarama.
-    *   gRPC Clients: Для взаимодействия с другими микросервисами.
-    *   External Service Clients: (например, для SMS-шлюза, S3).
+    *   PostgreSQL Repositories: Реализации `AccountRepository`, `ProfileRepository` etc.
+    *   Redis Cache: Для кэширования профилей, настроек.
+    *   Kafka Producer: Для отправки `AccountCreatedEvent`, `ProfileUpdatedEvent`.
+    *   Клиенты для других сервисов (например, gRPC клиент для Auth Service для получения UserID по необходимости).
 
 ## 3. API Endpoints
 
 ### 3.1. REST API
-*   **Базовый URL**: `/api/v1`
-*   **Формат данных**: JSON
-*   **Аутентификация**: JWT Bearer Token (валидируется через API Gateway / Auth Service).
-*   **Стандарт ответа (Успех)**: (см. раздел 5.1 исходной спецификации)
-*   **Стандарт ответа (Ошибка)**: (см. раздел 5.1 исходной спецификации)
+*   **Базовый URL (через API Gateway):** `/api/v1/users` или `/api/v1/accounts` (будет уточнено в `project_api_standards.md` или конфигурации API Gateway).
+*   **Версионирование:** `/v1/`.
+*   **Формат данных:** `application/json`.
+*   **Аутентификация:** JWT Bearer Token (проверяется API Gateway, UserID передается в заголовке, например, `X-User-ID`).
+*   **Стандартные заголовки:** `X-Request-ID`.
+*   (Общие принципы см. `project_api_standards.md`)
 
-#### 3.1.1. Ресурс: Аккаунты (`/accounts`)
-*   **`POST /accounts`**: Регистрация нового Аккаунта.
-    *   Запрос: `{ "username": "...", "email": "...", "password": "..." }` (пароль передается в Auth Service) или `{ "provider": "google", "token": "..." }`.
-    *   Ответ: `201 Created`, `data: { "id": "...", "username": "...", "status": "pending" }`.
-*   **`GET /accounts/{id}`**: Получение информации об Аккаунте.
-*   **`GET /accounts/me`**: Получение информации о текущем Аккаунте.
-*   **`PUT /accounts/{id}/status`**: Обновление статуса Аккаунта (только Admin).
-*   **`DELETE /accounts/{id}`**: Удаление Аккаунта (мягкое).
-*   **`GET /accounts`**: Поиск Аккаунтов (только Admin).
+#### 3.1.1. Ресурс: Аккаунты (Accounts)
+*   **`GET /me`**
+    *   Описание: Получение информации о текущем аутентифицированном пользователе (его аккаунте).
+    *   Query параметры: `include=profile,settings` (опционально, для включения связанных данных).
+    *   Пример ответа (Успех 200 OK):
+        ```json
+        {
+          "data": {
+            "id": "uuid-account-id",
+            "type": "account",
+            "attributes": {
+              "user_id": "uuid-auth-user-id",
+              "status": "active",
+              "created_at": "2023-10-28T10:00:00Z",
+              "updated_at": "2023-10-28T10:00:00Z"
+            },
+            "relationships": { // если запрошено через include
+              "profile": { "data": { "type": "profile", "id": "uuid-profile-id" } },
+              "settings": { "data": { "type": "settings", "id": "uuid-settings-id" } }
+            }
+          }
+        }
+        ```
+    *   Требуемые права доступа: Аутентифицированный пользователь.
+*   **`PUT /me`**
+    *   Описание: Обновление основной информации аккаунта текущего пользователя (например, смена основного email после верификации нового, если это разрешено здесь, а не в Auth). [Подлежит уточнению, какие поля аккаунта изменяемы].
+    *   Тело запроса:
+        ```json
+        {
+          "data": {
+            "type": "account",
+            "attributes": {
+              // Поля для обновления
+            }
+          }
+        }
+        ```
+    *   Требуемые права доступа: Владелец аккаунта.
+*   **`DELETE /me`**
+    *   Описание: Запрос на удаление аккаунта текущего пользователя (может инициировать процесс удаления или деактивации).
+    *   Требуемые права доступа: Владелец аккаунта.
+*   **Административные эндпоинты (префикс `/admin/accounts`):**
+    *   `GET /admin/accounts/{user_id}`: Получение аккаунта пользователя по UserID (из Auth Service).
+    *   `PUT /admin/accounts/{user_id}/status`: Обновление статуса аккаунта (например, `active`, `blocked`, `pending_deletion`).
+        *   Тело запроса: `{"data": {"type": "accountStatus", "attributes": {"status": "blocked", "reason": "Violation of terms"}}}`.
+    *   Требуемые права доступа: `admin`.
 
-#### 3.1.2. Ресурс: Профили (`/accounts/{id}/profile`)
-*   **`GET /accounts/{id}/profile`**: Получение Профиля Пользователя.
-*   **`GET /accounts/me/profile`**: Получение Профиля текущего Пользователя.
-*   **`PUT /accounts/{id}/profile`**: Обновление Профиля.
-*   **`POST /accounts/{id}/avatar`**: Загрузка Аватара.
-*   **`GET /accounts/{id}/profile/history`**: Получение истории изменений Профиля.
+#### 3.1.2. Ресурс: Профили (Profiles)
+*   **`GET /me/profile`**
+    *   Описание: Получение профиля текущего пользователя.
+    *   Пример ответа (Успех 200 OK):
+        ```json
+        {
+          "data": {
+            "id": "uuid-profile-id",
+            "type": "profile",
+            "attributes": {
+              "nickname": "User123",
+              "bio": "Hello world!",
+              "avatar_url": "https://example.com/avatar.jpg",
+              "country": "RU",
+              "custom_url": "user123_profile",
+              "privacy_settings": { "show_real_name": false, "inventory_public": true }
+            }
+          }
+        }
+        ```
+    *   Требуемые права доступа: Владелец профиля.
+*   **`PUT /me/profile`**
+    *   Описание: Обновление профиля текущего пользователя.
+    *   Тело запроса: (Аналогично структуре ответа, но только изменяемые поля).
+    *   Требуемые права доступа: Владелец профиля.
+*   **`POST /me/profile/avatar`**
+    *   Описание: Загрузка нового аватара для текущего пользователя. (multipart/form-data).
+    *   Требуемые права доступа: Владелец профиля.
+*   **`GET /profiles/{profile_id_or_custom_url}`**
+    *   Описание: Получение публичного профиля пользователя по его ID профиля или кастомному URL.
+    *   Требуемые права доступа: `anonymous` (для публичных данных), `user` (для данных, видимых другим пользователям).
 
-#### 3.1.3. Ресурс: Контактная информация (`/accounts/{id}/contact-info`)
-*   **`GET /accounts/{id}/contact-info`**: Получение списка контактной информации.
-*   **`POST /accounts/{id}/contact-info`**: Добавление новой контактной информации.
-*   **`PUT /accounts/{id}/contact-info/{contact_id}`**: Обновление контактной информации.
-*   **`DELETE /accounts/{id}/contact-info/{contact_id}`**: Удаление контактной информации.
-*   **`POST /accounts/{id}/contact-info/{type}/verification-request`**: Запрос кода верификации.
-*   **`POST /accounts/{id}/contact-info/{type}/verify`**: Подтверждение кода верификации.
+#### 3.1.3. Ресурс: Контактная Информация (Contact Info)
+*   **`GET /me/contact-info`**
+    *   Описание: Получение контактной информации текущего пользователя.
+    *   Пример ответа (Успех 200 OK):
+        ```json
+        {
+          "data": [
+            {"type": "email", "id": "uuid-email-id", "attributes": {"value": "user@example.com", "verified": true, "is_primary": true}},
+            {"type": "phone", "id": "uuid-phone-id", "attributes": {"value": "+79001234567", "verified": false, "is_primary": false}}
+          ]
+        }
+        ```
+    *   Требуемые права доступа: Владелец.
+*   **`POST /me/contact-info`**
+    *   Описание: Добавление нового контактного метода (email/телефон). Инициирует процесс верификации.
+    *   Тело запроса: `{"data": {"type": "email/phone", "attributes": {"value": "new@example.com"}}}`.
+    *   Требуемые права доступа: Владелец.
+*   **`DELETE /me/contact-info/{contact_id}`**
+    *   Описание: Удаление контактного метода.
+    *   Требуемые права доступа: Владелец.
+*   **`POST /me/contact-info/{contact_id}/set-primary`**
+    *   Описание: Установка контактного метода как основного (если он верифицирован).
+    *   Требуемые права доступа: Владелец.
+*   **`POST /me/contact-info/{contact_id}/request-verification`**
+    *   Описание: Повторный запрос кода верификации.
+    *   Требуемые права доступа: Владелец.
+*   **`POST /me/contact-info/{contact_id}/verify`**
+    *   Описание: Подтверждение контактного метода с помощью кода.
+    *   Тело запроса: `{"data": {"type": "verification", "attributes": {"code": "123456"}}}`.
+    *   Требуемые права доступа: Владелец.
 
-#### 3.1.4. Ресурс: Настройки (`/accounts/{id}/settings`)
-*   **`GET /accounts/{id}/settings`**: Получение всех категорий настроек.
-*   **`GET /accounts/{id}/settings/{category}`**: Получение настроек конкретной категории.
-*   **`PUT /accounts/{id}/settings/{category}`**: Обновление настроек категории.
-*   (Более детальное описание см. в разделе 5.1 исходной спецификации)
+#### 3.1.4. Ресурс: Настройки (Settings)
+*   **`GET /me/settings`**
+    *   Описание: Получение всех настроек текущего пользователя.
+    *   Пример ответа (Успех 200 OK):
+        ```json
+        {
+          "data": {
+            "type": "settings",
+            "id": "uuid-user-settings-id",
+            "attributes": {
+              "privacy": {"inventory_visibility": "friends_only", "activity_feed_visibility": "public"},
+              "notifications": {"new_friend_request_email": true, "game_update_push": false},
+              "interface": {"language": "ru", "theme": "dark"}
+            }
+          }
+        }
+        ```
+    *   Требуемые права доступа: Владелец.
+*   **`PUT /me/settings`**
+    *   Описание: Обновление настроек текущего пользователя.
+    *   Тело запроса: (Аналогично структуре ответа, но только изменяемые поля).
+    *   Требуемые права доступа: Владелец.
+*   **`GET /me/settings/{category}`** (например, `/me/settings/privacy`)
+    *   Описание: Получение настроек для конкретной категории.
+    *   Требуемые права доступа: Владелец.
+*   **`PUT /me/settings/{category}`**
+    *   Описание: Обновление настроек для конкретной категории.
+    *   Требуемые права доступа: Владелец.
 
 ### 3.2. gRPC API
-*   Используется для синхронного взаимодействия между микросервисами.
-*   Пример `.proto` файла (`account.proto` из раздела 5.2 исходной спецификации):
-    ```protobuf
-    syntax = "proto3";
-    package account.v1;
-    // ... (содержимое proto файла) ...
-    service AccountService {
-      rpc GetAccount(GetAccountRequest) returns (AccountResponse);
-      rpc GetAccounts(GetAccountsRequest) returns (GetAccountsResponse);
-      rpc GetProfile(GetProfileRequest) returns (ProfileResponse);
-      // ... и другие методы ...
-    }
-    // ... (определения сообщений) ...
-    ```
-*   (Полные определения см. в разделе 5.2 исходной спецификации).
+*   **Пакет:** `account.v1`
+*   **Файл .proto:** `proto/account/v1/account_service.proto` (предполагаемое расположение)
+*   **Аутентификация:** mTLS для межсервисного взаимодействия.
+
+#### 3.2.1. Сервис: AccountService
+*   **`rpc GetAccountInfo(GetAccountInfoRequest) returns (GetAccountInfoResponse)`**
+    *   Описание: Получение основной информации об аккаунте пользователя.
+    *   `GetAccountInfoRequest`: `{ string user_id }` (UserID из Auth Service)
+    *   `GetAccountInfoResponse`: `{ Account account }` (содержит ID аккаунта, статус и т.д.)
+*   **`rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse)`**
+    *   Описание: Получение профиля пользователя.
+    *   `GetUserProfileRequest`: `{ string user_id }`
+    *   `GetUserProfileResponse`: `{ Profile profile }`
+*   **`rpc GetUserProfiles(GetUserProfilesRequest) returns (GetUserProfilesResponse)`**
+    *   Описание: Получение профилей нескольких пользователей.
+    *   `GetUserProfilesRequest`: `{ repeated string user_ids }`
+    *   `GetUserProfilesResponse`: `{ repeated Profile profiles }`
+*   **`rpc CheckUsernameAvailability(CheckUsernameAvailabilityRequest) returns (CheckUsernameAvailabilityResponse)`**
+    *   Описание: Проверка, доступен ли никнейм (кастомный URL профиля).
+    *   `CheckUsernameAvailabilityRequest`: `{ string username }`
+    *   `CheckUsernameAvailabilityResponse`: `{ bool is_available }`
+*   **`rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse)`**
+    *   Описание: Получение настроек пользователя для использования другими сервисами (например, Notification Service для проверки предпочтений).
+    *   `GetUserSettingsRequest`: `{ string user_id, repeated string categories }`
+    *   `GetUserSettingsResponse`: `{ map<string, google.protobuf.Struct> settings_by_category }`
 
 ### 3.3. WebSocket API (если применимо)
-*   Используется для отправки уведомлений об изменениях состояния в реальном времени клиентам (Flutter).
-*   Эндпоинт: `/ws/v1/notifications` (может быть предоставлен отдельным сервисом или API Gateway).
-*   Аутентификация: JWT токен.
-*   Примеры типов уведомлений: `profile.updated`, `account.status.changed`, `contact.verified`.
-*   (Детали см. в разделе 5.3 исходной спецификации).
+*   Не предполагается для основного функционала Account Service. Обновления статуса пользователя или профиля могут передаваться через события Kafka другим сервисам, которые поддерживают WebSocket (например, Social Service).
 
 ## 4. Модели Данных (Data Models)
 
 ### 4.1. Основные Сущности
-*   **Account**: Базовая информация об Аккаунте (ID, Username, Status, Timestamps).
-*   **AuthMethod**: Способ аутентификации (ID, AccountID, Type, Identifier, IsVerified).
-*   **Profile**: Расширенная информация Профиля (ID, AccountID, Nickname, Bio, AvatarURL).
-*   **ContactInfo**: Контактная информация (ID, AccountID, Type, Value, IsVerified).
-*   **Setting**: Пользовательские настройки (ID, AccountID, Category, SettingsJSON).
-*   **Avatar**: Загруженные изображения профиля (ID, AccountID, URL, IsCurrent).
-*   **ProfileHistory**: История изменений Профиля.
-*   (Полный список полей см. в разделе 3.3.1 исходной спецификации).
+*   **Account**:
+    *   `id` (UUID, PK): Уникальный идентификатор аккаунта в Account Service.
+    *   `user_id` (UUID, FK, Unique): Идентификатор пользователя из Auth Service.
+    *   `status` (ENUM: `active`, `inactive`, `blocked`, `pending_deletion`, `deleted`): Статус аккаунта.
+    *   `created_at` (TIMESTAMPTZ).
+    *   `updated_at` (TIMESTAMPTZ).
+*   **Profile**:
+    *   `id` (UUID, PK).
+    *   `account_id` (UUID, FK, Unique): Ссылка на Account.
+    *   `nickname` (VARCHAR, Nullable, Unique): Отображаемое имя.
+    *   `bio` (TEXT, Nullable).
+    *   `avatar_url` (VARCHAR, Nullable).
+    *   `country_code` (CHAR(2), Nullable): ISO 3166-1 alpha-2.
+    *   `custom_url_slug` (VARCHAR, Nullable, Unique): Кастомный URL для профиля.
+    *   `privacy_settings` (JSONB): Настройки приватности профиля (например, `{"inventory_visibility": "public", "friends_list_visibility": "private"}`).
+    *   `created_at` (TIMESTAMPTZ).
+    *   `updated_at` (TIMESTAMPTZ).
+*   **ContactInfo**:
+    *   `id` (UUID, PK).
+    *   `account_id` (UUID, FK): Ссылка на Account.
+    *   `type` (ENUM: `email`, `phone`).
+    *   `value` (VARCHAR, Not Null).
+    *   `is_verified` (BOOLEAN, Default: false).
+    *   `is_primary` (BOOLEAN, Default: false).
+    *   `verification_code` (VARCHAR, Nullable): Хэш кода верификации.
+    *   `verification_code_expires_at` (TIMESTAMPTZ, Nullable).
+    *   `created_at` (TIMESTAMPTZ).
+    *   `updated_at` (TIMESTAMPTZ).
+    *   (Constraint: Unique(account_id, type, value))
+*   **UserSetting**:
+    *   `id` (UUID, PK).
+    *   `account_id` (UUID, FK, Unique): Ссылка на Account.
+    *   `settings_data` (JSONB): Все настройки пользователя, сгруппированные по категориям (например, `{"notifications": {"email_updates": true}, "interface": {"language": "ru"}}`).
+    *   `created_at` (TIMESTAMPTZ).
+    *   `updated_at` (TIMESTAMPTZ).
+*   **Avatar**: (Может быть частью Profile или отдельной сущностью если требуется история/управление)
+    *   `id` (UUID, PK).
+    *   `account_id` (UUID, FK).
+    *   `file_path_s3` (VARCHAR).
+    *   `uploaded_at` (TIMESTAMPTZ).
 
 ### 4.2. Схема Базы Данных (PostgreSQL)
-*   Диаграмма ERD:
+*   Диаграмма ERD: [TODO: Добавить Mermaid ERD диаграмму]
     ```mermaid
     erDiagram
-        ACCOUNTS {
-            UUID id PK
-            VARCHAR(64) username
-            VARCHAR(20) status
-            TIMESTAMPTZ created_at
-            TIMESTAMPTZ updated_at
-            TIMESTAMPTZ deleted_at
-        }
+        ACCOUNT ||--o{ PROFILE : "has one"
+        ACCOUNT ||--o{ CONTACT_INFO : "has many"
+        ACCOUNT ||--o{ USER_SETTING : "has one"
 
-        AUTH_METHODS {
+        ACCOUNT {
             UUID id PK
-            UUID account_id FK
-            VARCHAR(20) type
-            VARCHAR(255) identifier
-            TEXT secret
-            BOOLEAN is_verified
+            UUID user_id FK "Refers to Auth Service User"
+            VARCHAR status
             TIMESTAMPTZ created_at
             TIMESTAMPTZ updated_at
         }
-
-        PROFILES {
+        PROFILE {
             UUID id PK
             UUID account_id FK
-            VARCHAR(64) nickname
+            VARCHAR nickname
             TEXT bio
-            CHAR(2) country
-            VARCHAR(100) city
-            DATE birth_date
-            VARCHAR(10) gender
-            VARCHAR(20) visibility
-            TEXT avatar_url
-            TEXT banner_url
+            VARCHAR avatar_url
+            CHAR(2) country_code
+            VARCHAR custom_url_slug
+            JSONB privacy_settings
             TIMESTAMPTZ created_at
             TIMESTAMPTZ updated_at
         }
-
         CONTACT_INFO {
             UUID id PK
             UUID account_id FK
-            VARCHAR(10) type
-            VARCHAR(255) value
-            BOOLEAN is_primary
+            VARCHAR type "ENUM('email', 'phone')"
+            VARCHAR value
             BOOLEAN is_verified
-            VARCHAR(10) verification_code
-            INT verification_attempts
-            TIMESTAMPTZ verification_expires_at
-            VARCHAR(20) visibility
+            BOOLEAN is_primary
+            VARCHAR verification_code_hash
+            TIMESTAMPTZ verification_code_expires_at
             TIMESTAMPTZ created_at
             TIMESTAMPTZ updated_at
         }
-
-        USER_SETTINGS {
+        USER_SETTING {
             UUID id PK
             UUID account_id FK
-            VARCHAR(50) category
-            JSONB settings
+            JSONB settings_data
             TIMESTAMPTZ created_at
             TIMESTAMPTZ updated_at
         }
-
-        AVATARS {
-            UUID id PK
-            UUID account_id FK
-            TEXT url
-            BOOLEAN is_current
-            TIMESTAMPTZ created_at
-        }
-
-        PROFILE_HISTORY {
-            BIGSERIAL id PK
-            UUID profile_id FK
-            VARCHAR(50) field_name
-            TEXT old_value
-            TEXT new_value
-            UUID changed_by_account_id FK
-            TIMESTAMPTZ changed_at
-        }
-
-        ACCOUNTS ||--o{ AUTH_METHODS : "has"
-        ACCOUNTS ||--|{ PROFILES : "has one"
-        ACCOUNTS ||--o{ CONTACT_INFO : "has"
-        ACCOUNTS ||--o{ USER_SETTINGS : "has"
-        ACCOUNTS ||--o{ AVATARS : "has"
-        PROFILES ||--o{ PROFILE_HISTORY : "has history"
-        ACCOUNTS ||--o{ PROFILE_HISTORY : "changed by (optional)"
-
-
     ```
-*   DDL (из раздела 3.3.2 исходной спецификации):
+*   Описание основных таблиц:
     ```sql
-    -- Аккаунты
-    CREATE TABLE accounts ( id UUID PRIMARY KEY ..., username VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(20) ...);
-    -- Методы аутентификации
-    CREATE TABLE auth_methods ( id UUID PRIMARY KEY ..., account_id UUID NOT NULL REFERENCES accounts(id) ...);
-    -- Профили пользователей
-    CREATE TABLE profiles ( id UUID PRIMARY KEY ..., account_id UUID NOT NULL UNIQUE REFERENCES accounts(id) ...);
-    -- Контактная информация
-    CREATE TABLE contact_info ( id UUID PRIMARY KEY ..., account_id UUID NOT NULL REFERENCES accounts(id) ...);
-    -- Настройки пользователей
-    CREATE TABLE user_settings ( id UUID PRIMARY KEY ..., account_id UUID NOT NULL REFERENCES accounts(id) ...);
-    -- Аватары
-    CREATE TABLE avatars ( id UUID PRIMARY KEY ..., account_id UUID NOT NULL REFERENCES accounts(id) ...);
-    -- История изменений профилей
-    CREATE TABLE profile_history ( id BIGSERIAL PRIMARY KEY ..., profile_id UUID NOT NULL REFERENCES profiles(id) ...);
+    -- Таблица: accounts
+    CREATE TABLE accounts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL UNIQUE, -- Внешний ключ на Auth Service (логическая связь)
+        status VARCHAR(50) NOT NULL DEFAULT 'pending_verification_email', -- e.g., pending_verification_email, active, blocked, deleted
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX idx_accounts_user_id ON accounts(user_id);
+
+    -- Таблица: profiles
+    CREATE TABLE profiles (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        account_id UUID NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+        nickname VARCHAR(255) UNIQUE,
+        bio TEXT,
+        avatar_url VARCHAR(2048),
+        country_code CHAR(2),
+        custom_url_slug VARCHAR(100) UNIQUE,
+        privacy_settings JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX idx_profiles_nickname ON profiles(nickname);
+    CREATE INDEX idx_profiles_custom_url_slug ON profiles(custom_url_slug);
+
+    -- Таблица: contact_infos
+    CREATE TABLE contact_infos (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        type VARCHAR(20) NOT NULL, -- 'email', 'phone'
+        value VARCHAR(255) NOT NULL,
+        is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+        is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+        verification_code_hash VARCHAR(255),
+        verification_code_expires_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (account_id, type, value),
+        UNIQUE (account_id, type, is_primary) WHERE is_primary = TRUE -- Только один основной email/телефон
+    );
+    CREATE INDEX idx_contact_infos_account_id_type ON contact_infos(account_id, type);
+
+    -- Таблица: user_settings
+    CREATE TABLE user_settings (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        account_id UUID NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+        settings_data JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
     ```
-*   (Полную схему см. в разделе 3.3.2 исходной спецификации).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
 ### 5.1. Публикуемые События (Produced Events)
-*   **Система сообщений**: Kafka.
-*   **Формат событий**: CloudEvents JSON.
-*   **Топики Kafka**: `account-events`, `profile-events`.
-*   **Основные типы событий**:
-    *   `account.created`
-    *   `account.status.updated` (включая blocked, deleted, activated)
-    *   `account.contact.added`
-    *   `account.contact.updated`
-    *   `account.contact.verified`
-    *   `account.contact.verification.requested`
-    *   `profile.updated`
-    *   `profile.avatar.updated`
-    *   `account.settings.updated`
-*   (Пример события `account.created` и детали см. в разделе 5.4 исходной спецификации).
+*   **Система сообщений:** Kafka (согласно `project_technology_stack.md`).
+*   **Формат событий:** CloudEvents JSON (согласно `project_api_standards.md`).
+*   **Основные топики:** `account.events` (или более гранулярные, например, `account.profile.events`, `account.settings.events`).
 
-### 5.2. Потребляемые События (Consumed Events)
-
-Account Service подписывается на следующие события от других микросервисов для поддержания консистентности данных и выполнения зависимых бизнес-процессов:
-
-*   **`auth.user.credentials.created.v1`** (ранее мог называться `auth.user.registered.v1`)
-    *   **Источник:** Auth Service
-    *   **Назначение:** Завершение создания Аккаунта после того, как Auth Service успешно создал основные учетные данные (например, логин/пароль или привязал внешний ID провайдера). Account Service может на основе этого события активировать аккаунт, создать начальный профиль или выполнить другие пост-регистрационные задачи.
-    *   **Ожидаемая структура `data` (пример):**
+*   **`account.created.v1`**
+    *   Описание: Публикуется после успешного создания базовой записи аккаунта (обычно после события `auth.user.registered` от Auth Service).
+    *   Топик: `account.events`
+    *   Структура Payload:
         ```json
         {
-          "auth_method_id": "uuid", // ID метода аутентификации, созданного в Auth Service
-          "account_id": "uuid",     // ID аккаунта, который был создан (или должен быть создан) в Account Service
-          "username": "user123",
-          "email": "user@example.com", // Если email является частью учетных данных
-          "auth_provider": "password", // или "google", "telegram"
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user-id",
+          "status": "pending_verification_email", // Начальный статус
+          "created_at": "ISO8601_timestamp"
+        }
+        ```
+*   **`account.status.updated.v1`**
+    *   Описание: Статус аккаунта изменен (например, активирован, заблокирован).
+    *   Топик: `account.events`
+    *   Структура Payload:
+        ```json
+        {
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user-id",
+          "old_status": "active",
+          "new_status": "blocked",
+          "reason": "Violation of terms", // Опционально
+          "updated_at": "ISO8601_timestamp"
+        }
+        ```
+*   **`account.profile.updated.v1`**
+    *   Описание: Профиль пользователя обновлен.
+    *   Топик: `account.events` (или `account.profile.events`)
+    *   Структура Payload:
+        ```json
+        {
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user_id",
+          "profile_id": "uuid-profile-id",
+          "updated_fields": ["nickname", "avatar_url"], // Список измененных полей
+          "updated_at": "ISO8601_timestamp"
+        }
+        ```
+*   **`account.contact.added.v1`**
+    *   Описание: Добавлен новый контактный метод.
+    *   Топик: `account.events`
+    *   Структура Payload:
+        ```json
+        {
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user_id",
+          "contact_id": "uuid-contact-id",
+          "type": "email", // "email" or "phone"
+          "value": "new_contact@example.com",
+          "added_at": "ISO8601_timestamp"
+        }
+        ```
+*   **`account.contact.verified.v1`**
+    *   Описание: Контактный метод успешно верифицирован.
+    *   Топик: `account.events`
+    *   Структура Payload:
+        ```json
+        {
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user_id",
+          "contact_id": "uuid-contact-id",
+          "type": "email",
+          "value": "verified_contact@example.com",
+          "verified_at": "ISO8601_timestamp"
+        }
+        ```
+*   **`account.settings.updated.v1`**
+    *   Описание: Настройки пользователя обновлены.
+    *   Топик: `account.events` (или `account.settings.events`)
+    *   Структура Payload:
+        ```json
+        {
+          "account_id": "uuid-account-id",
+          "user_id": "uuid-auth-user_id",
+          "updated_categories": ["privacy", "notifications"], // Список обновленных категорий настроек
+          "updated_at": "ISO8601_timestamp"
+        }
+        ```
+
+### 5.2. Потребляемые События (Consumed Events)
+*   **`auth.user.registered.v1`**
+    *   Описание: От Auth Service. Инициирует создание аккаунта и профиля по умолчанию.
+    *   Топик: `auth.events` (или аналогичный)
+    *   Структура Payload (ожидаемая):
+        ```json
+        {
+          "user_id": "uuid-auth-user-id",
+          "email": "user@example.com", // Опционально, если email используется как username
+          "username": "User123", // Опционально
           "registration_timestamp": "ISO8601_timestamp"
         }
         ```
-    *   **Действия Account Service:** Создание или обновление записи `accounts` и `auth_methods`, создание `profiles`, установка начального статуса.
-
-*   **`admin.user.status.updated.v1`**
-    *   **Источник:** Admin Service
-    *   **Назначение:** Обновление статуса Аккаунта Пользователя (например, `blocked`, `unblocked`, `deleted_by_admin`) по инициативе администратора.
-    *   **Ожидаемая структура `data` (пример):**
+    *   Логика обработки: Создать новую запись `Account` и связанную `Profile` (с дефолтными значениями). Опубликовать событие `account.created.v1`.
+*   **`auth.user.email.updated.v1`** (Если email управляется в Auth Service и может меняться)
+    *   Описание: От Auth Service. Обновление основного email пользователя.
+    *   Топик: `auth.events`
+    *   Структура Payload (ожидаемая):
         ```json
         {
-          "account_id": "uuid",
-          "new_status": "blocked", // "active", "deleted"
-          "reason": "Нарушение правил платформы, пункт 5.2.", // Опционально
-          "changed_by_admin_id": "uuid",
-          "timestamp": "ISO8601_timestamp"
+          "user_id": "uuid-auth-user-id",
+          "new_email": "new_primary@example.com",
+          "old_email": "old_primary@example.com"
         }
         ```
-    *   **Действия Account Service:** Обновление поля `status` в таблице `accounts`. Может также инициировать анонимизацию данных, если статус `deleted`.
-
-*   **`payment.subscription.status.changed.v1` (Условно/На будущее)**
-    *   **Источник:** Payment Service
-    *   **Назначение:** Обновление статуса Аккаунта или его функций на основе изменения статуса подписки Пользователя (если такая логика будет реализована, например, премиум-аккаунты).
-    *   **Ожидаемая структура `data` (пример):**
-        ```json
-        {
-          "account_id": "uuid",
-          "subscription_id": "uuid",
-          "new_status": "active", // "expired", "cancelled"
-          "plan_type": "premium",
-          "valid_until": "ISO8601_timestamp", // Опционально
-          "timestamp": "ISO8601_timestamp"
-        }
-        ```
-    *   **Действия Account Service:** Потенциально, обновление специальных полей в `accounts` или `user_settings`, влияющих на доступные функции. *На данный момент, детальная логика обработки этого события не определена и требует дальнейшей проработки при внедрении соответствующего функционала.*
-
-*Примечание: Точные имена событий, их версии и структура полезной нагрузки (`data`) должны быть согласованы и задокументированы в рамках общих "Стандартов событий" платформы и спецификаций взаимодействующих сервисов.*
+    *   Логика обработки: Обновить соответствующий `ContactInfo` типа `email`, пометить его как основной и верифицированный.
+*   **`admin.user.action.v1`** (Общее событие от Admin Service)
+    *   Описание: От Admin Service, например, для принудительного обновления профиля или блокировки.
+    *   Топик: `admin.events`
+    *   Структура Payload: [Подлежит уточнению в зависимости от действий Admin Service]
+    *   Логика обработки: Выполнить соответствующее действие над аккаунтом/профилем.
 
 ## 6. Интеграции (Integrations)
 
 ### 6.1. Внутренние Микросервисы
-*   **Auth Service**: Делегирование создания/проверки учетных данных (gRPC/REST).
-*   **Notification Service**: Отправка email/SMS уведомлений (Kafka события или API).
-*   **Social Service**: Предоставление данных профилей, получение событий об изменениях соц. связей (gRPC, Kafka).
-*   **Payment Service**: Предоставление информации об аккаунте для транзакций (gRPC).
-*   **Library Service / Catalog Service / etc.**: Предоставление информации об аккаунте/профиле (gRPC).
-*   **Admin Service**: Предоставление API для административных действий (REST/gRPC).
-*   **API Gateway**: Проксирование REST-запросов, обогащение запросов.
-*   (Детали см. в разделе 3.4 и 6.1 исходной спецификации).
+*   **Auth Service:**
+    *   Тип интеграции: Потребление событий Kafka (`auth.user.registered`), gRPC вызовы (опционально, для получения деталей пользователя по UserID, если они не приходят в событии).
+    *   Назначение: Получение информации о зарегистрированных пользователях для создания аккаунтов. Account Service предоставляет UserID, полученный от Auth Service, во всех своих событиях и API для связи.
+    *   Контракт: Событие `auth.user.registered.v1`.
+*   **Notification Service:**
+    *   Тип интеграции: Публикация событий Kafka (например, `account.contact.added` для отправки верификационного письма/SMS) или прямые gRPC вызовы к Notification Service.
+    *   Назначение: Отправка уведомлений пользователю (например, о необходимости верификации email/телефона, об изменении статуса аккаунта).
+    *   Контракт: События, публикуемые Account Service (см. 5.1), или gRPC методы Notification Service (например, `SendVerificationEmail`).
+*   **Social Service:**
+    *   Тип интеграции: Social Service потребляет события `account.profile.updated.v1` от Account Service. Account Service может вызывать gRPC Social Service для получения расширенных социальных данных профиля, если это необходимо для каких-то агрегированных представлений (маловероятно, обычно Social Service сам обогащает данные).
+    *   Назначение: Обмен информацией о профиле пользователя.
+    *   Контракт: Событие `account.profile.updated.v1`.
+*   **Payment Service:**
+    *   Тип интеграции: Payment Service может вызывать gRPC Account Service для получения базовой информации о пользователе (например, страна для определения региональных цен или налогов, если это не решается на уровне Auth или Catalog).
+    *   Назначение: Предоставление информации о пользователе для финансовых операций.
+    *   Контракт: gRPC `GetAccountInfo` или `GetUserProfile`.
+*   **Admin Service:**
+    *   Тип интеграции: Admin Service вызывает REST/gRPC эндпоинты Account Service для управления аккаунтами и профилями. Account Service может публиковать события об административных действиях для аудита.
+    *   Назначение: Администрирование пользователей.
+    *   Контракт: Административные REST/gRPC эндпоинты Account Service.
+*   **API Gateway:**
+    *   Тип интеграции: Проксирование REST запросов.
+    *   Назначение: Единая точка входа для клиентских приложений.
+    *   Контракт: Публичные REST API эндпоинты Account Service.
 
 ### 6.2. Внешние Системы
-*   **SMS-шлюз**: Отправка SMS с кодами верификации (через Notification Service или напрямую).
-*   **Email-провайдер**: Отправка email с кодами верификации (через Notification Service).
-*   **Хранилище файлов (S3-совместимое)**: Загрузка/удаление Аватаров и баннеров.
-*   **Системы аутентификации (Google, Telegram, etc.)**: Через Auth Service.
-*   (Детали см. в разделе 6.2 исходной спецификации).
+*   Не предполагается прямых интеграций с внешними системами, кроме тех, что опосредованы другими микросервисами (например, S3 для аватаров через API Gateway или клиентское приложение).
 
 ## 7. Конфигурация (Configuration)
 
 ### 7.1. Переменные Окружения
-*   `SERVICE_PORT_HTTP`: Порт для HTTP REST API.
-*   `SERVICE_PORT_GRPC`: Порт для gRPC API.
-*   `DATABASE_URL` / `DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME`: Параметры подключения к PostgreSQL.
-*   `REDIS_ADDR, REDIS_PASSWORD`: Параметры подключения к Redis.
-*   `KAFKA_BROKERS`: Список брокеров Kafka.
-*   `AUTH_SERVICE_GRPC_ADDR`: Адрес gRPC Auth Service.
-*   `NOTIFICATION_SERVICE_ADDR`: Адрес Notification Service (API/gRPC).
-*   `LOG_LEVEL`: Уровень логирования.
-*   `JAEGER_AGENT_HOST`: Адрес Jaeger агента.
-*   (Полный список см. в разделе 9.2 исходной спецификации).
+*   `ACCOUNT_HTTP_PORT`: (например, `8081`)
+*   `ACCOUNT_GRPC_PORT`: (например, `9091`)
+*   `POSTGRES_DSN`: (например, `postgres://user:pass@host:port/dbname?sslmode=disable`)
+*   `REDIS_ADDR`: (например, `redis-host:6379`)
+*   `REDIS_PASSWORD`: (если есть)
+*   `REDIS_DB_ACCOUNT`: (например, `0`)
+*   `KAFKA_BROKERS`: (например, `kafka1:9092,kafka2:9092`)
+*   `KAFKA_TOPIC_ACCOUNT_EVENTS`: (например, `account.events`)
+*   `KAFKA_CONSUMER_GROUP_ACCOUNT`: (например, `account-service-group`)
+*   `JWT_PUBLIC_KEY_PATH`: (Путь к публичному ключу для валидации токенов от API Gateway, если валидация дублируется. Обычно не нужно, если API Gateway полностью берет на себя проверку JWT).
+*   `LOG_LEVEL`: (например, `info`, `debug`)
+*   `AVATAR_MAX_SIZE_MB`: (например, `5`)
+*   `AVATAR_S3_BUCKET`: (Если аватары хранятся в S3 и Account Service управляет загрузкой)
+*   `AVATAR_S3_REGION`
+*   `AVATAR_S3_ENDPOINT`
+*   `AVATAR_S3_ACCESS_KEY_ID`
+*   `AVATAR_S3_SECRET_ACCESS_KEY`
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT`: (например, `http://jaeger-collector:14268/api/traces`)
 
 ### 7.2. Файлы Конфигурации (если применимо)
-*   Обычно конфигурация через переменные окружения, но может использоваться YAML файл, как указано в разделе 9.2 исходной спецификации.
+*   Расположение: `configs/config.yaml` (стандартное для проекта).
+*   Структура:
+    ```yaml
+    http_server:
+      port: ${ACCOUNT_HTTP_PORT}
+    grpc_server:
+      port: ${ACCOUNT_GRPC_PORT}
+    postgres:
+      dsn: ${POSTGRES_DSN}
+    redis:
+      address: ${REDIS_ADDR}
+      password: ${REDIS_PASSWORD}
+      db: ${REDIS_DB_ACCOUNT}
+    kafka:
+      brokers: ${KAFKA_BROKERS}
+      topics:
+        account_events: ${KAFKA_TOPIC_ACCOUNT_EVENTS}
+      consumer_groups:
+         account_group: ${KAFKA_CONSUMER_GROUP_ACCOUNT}
+    logging:
+      level: ${LOG_LEVEL}
+    # ... другие настройки
+    ```
 
 ## 8. Обработка Ошибок (Error Handling)
 
 ### 8.1. Общие Принципы
-*   REST API: Стандартные коды HTTP, JSON-формат ошибки (см. раздел 5.1 исходной спецификации).
-*   gRPC API: Стандартные коды gRPC.
-*   Логирование всех ошибок с контекстом.
+*   Следование `project_api_standards.md` для форматов ошибок REST и gRPC.
+*   Подробное логирование ошибок с `trace_id`.
 
-### 8.2. Распространенные Коды Ошибок
-*   `VALIDATION_ERROR` (HTTP 400): Невалидные данные.
-*   `RESOURCE_NOT_FOUND` (HTTP 404): Ресурс не найден.
-*   `UNAUTHENTICATED` (HTTP 401): Ошибка аутентификации (делегировано Auth Service / API Gateway).
-*   `PERMISSION_DENIED` (HTTP 403): Недостаточно прав.
-*   `CONFLICT` (HTTP 409): Конфликт данных (например, Username/Email уже занят).
-*   `INTERNAL_SERVER_ERROR` (HTTP 500): Внутренняя ошибка сервера.
-*   (Детали и примеры см. в разделе 4 и 5.6 исходной спецификации).
+### 8.2. Распространенные Коды Ошибок (в дополнение к стандартным)
+*   **`ACCOUNT_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`)
+*   **`PROFILE_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`)
+*   **`CONTACT_INFO_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`)
+*   **`SETTINGS_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`)
+*   **`NICKNAME_TAKEN`** (HTTP 409, gRPC `ALREADY_EXISTS`)
+*   **`CUSTOM_URL_TAKEN`** (HTTP 409, gRPC `ALREADY_EXISTS`)
+*   **`EMAIL_ALREADY_EXISTS_FOR_USER`** (HTTP 409, gRPC `ALREADY_EXISTS`)
+*   **`PHONE_ALREADY_EXISTS_FOR_USER`** (HTTP 409, gRPC `ALREADY_EXISTS`)
+*   **`VERIFICATION_CODE_INVALID`** (HTTP 400, gRPC `INVALID_ARGUMENT`)
+*   **`VERIFICATION_CODE_EXPIRED`** (HTTP 400, gRPC `INVALID_ARGUMENT`)
+*   **`CANNOT_DELETE_PRIMARY_CONTACT`** (HTTP 400, gRPC `FAILED_PRECONDITION`)
+*   **`CONTACT_NOT_VERIFIED`** (HTTP 400, gRPC `FAILED_PRECONDITION`): Например, при попытке сделать не верифицированный контакт основным.
 
 ## 9. Безопасность (Security)
 
 ### 9.1. Аутентификация
-*   JWT (Access Token + Refresh Token), выдаваемые Auth Service. Валидация через API Gateway / Auth Service.
-*   (Детали см. в разделе 7.1 исходной спецификации).
+*   Все запросы к API (кроме, возможно, публичного GET profile) требуют JWT аутентификации, проверяемой API Gateway. UserID извлекается из токена.
+*   Межсервисное gRPC взаимодействие защищено mTLS.
 
 ### 9.2. Авторизация
-*   RBAC. Роли из JWT. Проверка разрешений через middleware или Casbin.
-*   Матрица доступа приведена в Приложении 10.1 исходной спецификации.
-*   (Детали см. в разделе 7.2 исходной спецификации).
+*   Проверка владения ресурсом (пользователь может редактировать только свой профиль, свои настройки и т.д.).
+*   Административные эндпоинты требуют роль `admin` (проверяется на основе информации из JWT).
+*   (Ссылка на `project_roles_and_permissions.md`)
 
 ### 9.3. Защита Данных
-*   Шифрование TLS для внешних и внутренних коммуникаций.
-*   Шифрование чувствительных данных в покое (если применимо).
-*   Соответствие ФЗ-152, анонимизация при удалении.
-*   Валидация ввода.
-*   (Детали см. в разделе 7.3 исходной спецификации).
+*   Соблюдение ФЗ-152 "О персональных данных".
+*   Шифрование при передаче (TLS).
+*   Хеширование кодов верификации.
+*   Валидация всех входных данных для предотвращения XSS, SQL Injection (через ORM).
+*   Ограничение на размер загружаемых аватаров.
+*   (Ссылка на `project_security_standards.md`)
 
 ### 9.4. Управление Секретами
-*   Kubernetes Secrets.
-*   (Детали см. в разделе 7.4 исходной спецификации).
-*   **Защита от атак**: Rate limiting (API Gateway), защита от брутфорса (Auth Service), CSRF, XSS. (см. раздел 7.5 исходной спецификации).
+*   Пароли к БД, Redis, ключи Kafka хранятся в Kubernetes Secrets или Vault.
+*   (Ссылка на `project_security_standards.md`)
 
 ## 10. Развертывание (Deployment)
 
 ### 10.1. Инфраструктурные Файлы
-*   **Dockerfile**: Многоэтапная сборка (golang -> alpine/distroless), non-root пользователь. (см. раздел 9.1 исходной спецификации).
-*   **Kubernetes Manifests (Helm Chart)**: Deployment, Service, ConfigMap, Secret, HPA, PDB, Probes. (см. раздел 9.1 исходной спецификации).
+*   Dockerfile: `backend/account-service/Dockerfile` (стандартный многоэтапный для Go).
+*   Helm-чарты/Kubernetes манифесты: `deploy/charts/account-service/` (предполагаемое расположение).
+*   (Ссылка на `project_deployment_standards.md`)
 
 ### 10.2. Зависимости при Развертывании
-*   PostgreSQL, Redis, Kafka, Auth Service, Notification Service.
-*   (Детали см. в разделе 3.5 исходной спецификации).
+*   PostgreSQL, Redis, Kafka.
+*   Auth Service (для получения UserID и событий о регистрации).
+*   API Gateway.
 
 ### 10.3. CI/CD
-*   GitLab CI. Этапы: Build, Test, Lint, Security Scan, Push, Deploy. Семантическое версионирование.
-*   (Детали см. в разделе 9.3 исходной спецификации).
+*   Стандартный пайплайн: сборка, unit-тесты, интеграционные тесты, SAST/DAST сканирование, сборка Docker-образа, деплой на окружения.
+*   (Ссылка на `project_deployment_standards.md` и `.github/workflows/`)
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
 
 ### 11.1. Логирование
-*   **Формат**: Структурированные логи JSON (Zap/Logrus).
-*   **Содержание**: Timestamp, level, message, trace ID, span ID, контекст.
-*   **Интеграция**: ELK/EFK.
-*   (Детали см. в разделе 8.2 исходной спецификации).
+*   Формат: JSON (Zap).
+*   Ключевые события: CRUD операции, ошибки, важные изменения статуса.
+*   Интеграция: ELK/Loki.
+*   (Ссылка на `project_observability_standards.md`)
 
 ### 11.2. Мониторинг
-*   **Метрики**: Prometheus (`/metrics`). Запросы API/gRPC (количество, задержка, ошибки), активные WebSocket, события Kafka, ресурсы (CPU, RAM), зависимости.
-*   **Дашборды**: Grafana (RED).
-*   **Алертинг**: Alertmanager для критических ситуаций.
-*   (Детали см. в разделе 8.1 исходной спецификации).
+*   Метрики (Prometheus):
+    *   `http_requests_total{handler="/me/profile", method="GET", status="200"}`
+    *   `http_request_duration_seconds{handler="/me/profile", method="GET"}`
+    *   `grpc_requests_total{service="AccountService", method="GetAccountInfo", status="OK"}`
+    *   `db_query_duration_seconds{query="select_profile"}`
+    *   `kafka_messages_produced_total{topic="account.events"}`
+    *   `cache_hits_total{cache_name="profile"}`
+    *   `cache_misses_total{cache_name="profile"}`
+*   Дашборды (Grafana): Обзор состояния сервиса, производительность API, использование БД/кэша.
+*   Алерты (AlertManager): Высокий % ошибок, большая задержка ответов, проблемы с подключением к БД/Kafka.
+*   (Ссылка на `project_observability_standards.md`)
 
 ### 11.3. Трассировка
-*   **Инструментация**: OpenTelemetry.
-*   **Контекст**: Передача Trace ID, Span ID.
-*   **Экспорт**: Jaeger.
-*   (Детали см. в разделе 8.3 исходной спецификации).
-*   **Аудит**: Логирование важных событий безопасности и бизнеса. (см. раздел 8.4 исходной спецификации).
+*   Интеграция: OpenTelemetry, Jaeger.
+*   Контекст трассировки передается через все запросы и события.
+*   (Ссылка на `project_observability_standards.md`)
 
 ## 12. Нефункциональные Требования (NFRs)
-*   **Производительность**: P95 < 100мс (чтение), < 200мс (запись); P99 < 200мс (чтение), < 400мс (запись); RPS: 2000+ (чтение), 500+ (запись).
-*   **Надежность**: Доступность 99.99%; RTO < 5 мин; RPO < 1 мин.
-*   **Масштабируемость**: 10-50 млн. аккаунтов, горизонтальное масштабирование.
-*   **Безопасность**: ФЗ-152, шифрование, OWASP Top 10.
-*   **Сопровождаемость**: Чистый код, тесты > 80%, CI/CD.
-*   **Совместимость**: Flutter клиент, другие микросервисы.
-*   (Полный список см. в разделе 2.3 исходной спецификации).
+*   **Производительность**: API чтения (GET /me/profile) P95 < 100мс; API записи (PUT /me/profile) P95 < 200мс.
+*   **Масштабируемость**: Горизонтальное масштабирование для поддержки >1 млн активных пользователей.
+*   **Надежность**: Доступность > 99.95%.
+*   **Сопровождаемость**: Покрытие тестами > 80%.
+*   [TODO: Уточнить конкретные цифры NFR для Account Service]
 
 ## 13. Приложения (Appendices) (Опционально)
-*   Матрица доступа (см. Приложение 10.1 в исходной спецификации Account Service).
+*   [TODO: Добавить полные примеры JSON для всех DTO, если это необходимо сверх примеров в разделе API]
+*   [TODO: Добавить детальные схемы Protobuf, если они не вынесены в отдельный репозиторий]
 
 ---
-*Этот шаблон является отправной точкой и может быть адаптирован под конкретные нужды проекта и сервиса.*
+*Этот документ является отправной точкой и должен регулярно обновляться по мере развития сервиса.*
+
+## 14. Связанные Рабочие Процессы (Related Workflows)
+*   [User Registration and Initial Profile Setup](../../../project_workflows/user_registration_flow.md)
