@@ -1,7 +1,7 @@
-# Спецификация Микросервиса: Auth Service (Сервис Аутентификации и Авторизации)
+# Спецификация Микросервиса: Auth Service
 
 **Версия:** 2.0
-**Дата последнего обновления:** 2024-03-15
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -383,14 +383,29 @@ graph TD
           "data": {
             "type": "backupCodes",
             "attributes": {
-              "codes": ["abcdef01", "uvwxyz02", "..."]
+              "codes": ["abcdef01", "uvwxyz02", "..."] // Резервные коды генерируются и возвращаются ОДИН РАЗ
             }
           }
         }
         ```
     *   Требуемые права доступа: Аутентифицированный пользователь.
+*   **`POST /me/2fa/disable`**
+    *   Описание: Отключение 2FA для пользователя (требует текущего 2FA кода или пароля в зависимости от политики).
+    *   Тело запроса: `{"data": {"type": "2faDisableRequest", "attributes": {"verification_code": "123456_or_password"}}}`
+    *   Требуемые права доступа: Аутентифицированный пользователь.
 
-#### 3.1.6. Управление API Ключами (Пример)
+#### 3.1.6. Управление Сессиями
+*   **`GET /me/sessions`**
+    *   Описание: Получение списка активных сессий пользователя.
+    *   Требуемые права доступа: Аутентифицированный пользователь.
+*   **`DELETE /me/sessions/{session_id}`**
+    *   Описание: Отзыв конкретной сессии пользователя (кроме текущей, если не предусмотрен специальный механизм).
+    *   Требуемые права доступа: Аутентифицированный пользователь.
+*   **`DELETE /me/sessions/all-others`**
+    *   Описание: Отзыв всех сессий пользователя, кроме текущей.
+    *   Требуемые права доступа: Аутентифицированный пользователь.
+
+#### 3.1.7. Управление API Ключами (Пример)
 *   **`POST /me/api-keys`**
     *   Описание: Создание нового API ключа.
     *   Тело запроса:
@@ -746,20 +761,38 @@ COMMENT ON TABLE external_accounts IS 'Связанные внешние акк�
         }
         ```
 *   **`com.platform.auth.session.revoked.v1`**
-    *   Описание: Сессия пользователя была отозвана.
+    *   Описание: Сессия пользователя была отозвана (включая отзыв refresh token).
     *   `data` Payload:
         ```json
         {
           "userId": "user-uuid-123",
-          "sessionId": "session-uuid-abc",
-          "revocationReason": "user_logout",
+          "sessionId": "session-uuid-abc", // ID сессии, если применимо
+          "refreshTokenId": "refresh-token-jti-xyz", // JTI отозванного refresh token
+          "revocationReason": "user_logout", // "user_logout", "admin_action", "token_compromised", "idle_timeout"
           "revokedAt": "2024-03-15T11:00:00Z"
         }
         ```
-*   Другие события: `com.platform.auth.user.password_reset_requested.v1`, `com.platform.auth.user.login_failed.v1`, `com.platform.auth.user.account_locked.v1`, `com.platform.auth.user.roles_changed.v1`, `com.platform.auth.api_key.created.v1`, `com.platform.auth.api_key.revoked.v1`.
+*   **`com.platform.auth.user.password_reset_requested.v1`**
+    * Описание: Пользователь запросил сброс пароля.
+    * `data` Payload: `{"userId": "user-uuid-123", "email": "user@example.com", "resetTokenId": "opaque-token-id", "requestTimestamp": "ISO8601"}`
+*   **`com.platform.auth.user.login_failed.v1`**
+    * Описание: Неудачная попытка входа.
+    * `data` Payload: `{"loginAttempt": "user@example.com", "reason": "invalid_password", "ipAddress": "1.2.3.4", "userAgent": "...", "failTimestamp": "ISO8601"}`
+*   **`com.platform.auth.user.account_locked.v1`**
+    * Описание: Аккаунт пользователя заблокирован из-за множества неудачных попыток входа.
+    * `data` Payload: `{"userId": "user-uuid-123", "reason": "too_many_failed_login_attempts", "lockTimestamp": "ISO8601"}`
+*   **`com.platform.auth.user.roles_changed.v1`**
+    * Описание: Роли пользователя были изменены (например, администратором).
+    * `data` Payload: `{"userId": "user-uuid-123", "oldRoles": ["user"], "newRoles": ["user", "developer"], "adminId": "admin-uuid-xyz", "changeTimestamp": "ISO8601"}`
+*   **`com.platform.auth.api_key.created.v1`**
+    * Описание: Создан новый API ключ для пользователя.
+    * `data` Payload: `{"userId": "user-uuid-123", "apiKeyId": "apikey-uuid-789", "keyName": "My App Key", "prefix": "pak_", "permissions": ["read_catalog"], "creationTimestamp": "ISO8601"}`
+*   **`com.platform.auth.api_key.revoked.v1`**
+    * Описание: API ключ был отозван.
+    * `data` Payload: `{"userId": "user-uuid-123", "apiKeyId": "apikey-uuid-789", "revocationTimestamp": "ISO8601"}`
 
 ### 5.2. Потребляемые События (Consumed Events)
-*   **`com.platform.account.user.profile_updated.v1`** (из Account Service)
+*   **`com.platform.account.user.profile_updated.v1`** (от Account Service)
     *   Логика обработки: Обновить кэшированную информацию о пользователе. Если изменен email и он является основным логином - может потребовать дополнительных действий. Если статус изменен на `deleted` или `blocked` не через Auth Service, отозвать все сессии и токены.
 *   **`com.platform.admin.user.force_logout.v1`** (из Admin Service)
     *   Ожидаемый `data` Payload:
@@ -830,10 +863,315 @@ COMMENT ON TABLE external_accounts IS 'Связанные внешние акк�
 ## 12. Нефункциональные Требования (NFRs)
 (Описание NFRs остается как в существующем документе).
 
-## 13. Дополнительные материалы
-Все детальные примеры API запросов/ответов, схемы Protobuf, JSON Schemas для событий и моделей данных, а также детальные DDL теперь интегрированы в соответствующие разделы этого документа или будут доступны через OpenAPI спецификацию и репозиторий Protobuf-схем (`platform-protos`).
+## 13. Приложения (Appendices)
+*   **JWT Claims (Пример структуры Access Token Payload):**
+    ```json
+    {
+      "iss": "https://auth.mygameplatform.ru", // Issuer
+      "sub": "user-uuid-123",                 // Subject (User ID)
+      "aud": ["https://api.mygameplatform.ru"], // Audience (Ресурсы, для которых предназначен токен)
+      "exp": 1678886400,                      // Expiration Time (Unix timestamp)
+      "nbf": 1678882800,                      // Not Before (Unix timestamp)
+      "iat": 1678882800,                      // Issued At (Unix timestamp)
+      "jti": "jwt-unique-id-abc",             // JWT ID (для отзыва)
+      "username": "new_user",                 // Имя пользователя
+      "email": "user@example.com",            // Email
+      "roles": ["user", "beta_tester"],       // Роли пользователя
+      "permissions": ["read:game_catalog", "write:game_review"], // Опционально, детальные разрешения
+      "amr": ["pwd", "mfa_totp"],             // Authentication Methods References (как пользователь был аутентифицирован)
+      "sid": "session-uuid-xyz"               // Опционально, ID сессии, если токены привязаны к сессиям
+    }
+    ```
+*   Детальные схемы Protobuf для gRPC API находятся в репозитории `platform-protos` (или локально `proto/auth/v1/`).
+*   Примеры полных JSON для всех REST DTO могут быть добавлены при необходимости или генерироваться из OpenAPI спецификации.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
+
+В этом разделе описаны ключевые пользовательские сценарии, связанные с Auth Service.
+
+### 14.1. Регистрация Нового Пользователя (Email/Пароль, Верификация Email)
+*   **Описание:** Пользователь регистрируется в системе, предоставляя email и пароль. На указанный email отправляется письмо с кодом/ссылкой для верификации.
+*   **Связанный основной воркфлоу:** [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md)
+*   **Диаграмма (фокус на Auth Service):**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant UserDB as База Данных (PostgreSQL)
+        participant NotificationSvc as Notification Service (через Kafka)
+        participant Kafka as Kafka
+
+        User->>ClientApp: Заполняет форму регистрации (username, email, password)
+        ClientApp->>APIGW: POST /api/v1/auth/register (payload)
+        APIGW->>AuthSvc: Forward /register
+        AuthSvc->>AuthSvc: Валидация данных (формат, уникальность username/email)
+        alt Данные валидны
+            AuthSvc->>UserDB: Создание пользователя (статус: pending_verification), хеширование пароля (Argon2id)
+            AuthSvc->>UserDB: Генерация и сохранение кода верификации email (VerificationCode)
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.registered.v1` (userId, email, username)
+            AuthSvc-->>Kafka: Publish `com.platform.auth.email.verification_requested.v1` (userId, email, verification_code)
+            Kafka-->>NotificationSvc: Consume `email.verification_requested`
+            NotificationSvc->>User: Отправка email с кодом/ссылкой верификации
+            AuthSvc-->>APIGW: HTTP 201 Created (userId, status)
+            APIGW-->>ClientApp: HTTP 201 Created
+            ClientApp-->>User: Сообщение об успешной регистрации и необходимости верификации
+        else Ошибка валидации
+            AuthSvc-->>APIGW: HTTP 400/409 (Ошибка валидации/Конфликт)
+            APIGW-->>ClientApp: HTTP 400/409
+            ClientApp-->>User: Отображение ошибки
+        end
+
+        User->>ClientApp: Переход по ссылке из email или ввод кода
+        ClientApp->>APIGW: POST /api/v1/auth/verify-email (verification_code)
+        APIGW->>AuthSvc: Forward /verify-email
+        AuthSvc->>UserDB: Проверка кода верификации
+        alt Код верен
+            AuthSvc->>UserDB: Обновление статуса пользователя на 'active', email_verified_at
+            AuthSvc->>UserDB: Удаление/пометка использованным кода верификации
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.email_verified.v1` (userId, email)
+            AuthSvc-->>APIGW: HTTP 200 OK
+            APIGW-->>ClientApp: HTTP 200 OK
+            ClientApp-->>User: Email успешно подтвержден
+        else Код не верен или истек
+            AuthSvc-->>APIGW: HTTP 400 Bad Request (INVALID_VERIFICATION_CODE)
+            APIGW-->>ClientApp: HTTP 400
+            ClientApp-->>User: Ошибка подтверждения email
+        end
+    ```
+
+### 14.2. Вход Пользователя (Email/Пароль) и Выдача JWT
+*   **Описание:** Пользователь входит в систему, используя свой email и пароль. Auth Service проверяет учетные данные и выдает пару JWT (Access Token и Refresh Token).
+*   **Диаграмма:** (См. диаграмму "Login with Password & JWT Issuance" в разделе 2 или 3 данной документации, если она там размещена, или продублировать/адаптировать сюда).
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant UserDB as База Данных Пользователей (PostgreSQL)
+        participant SessionCache as Кэш Сессий (Redis)
+
+        User->>ClientApp: Ввод логина и пароля
+        ClientApp->>APIGW: POST /api/v1/auth/login (login, password)
+        APIGW->>AuthSvc: Forward login request
+        AuthSvc->>UserDB: Поиск пользователя по логину
+        UserDB-->>AuthSvc: Данные пользователя (включая хеш пароля, статус, 2FA статус)
+        alt Пользователь найден и активен
+            AuthSvc->>AuthSvc: Проверка пароля (Argon2id.Verify(password, hash))
+            alt Пароль верен
+                alt 2FA не включен
+                    AuthSvc->>AuthSvc: Генерация Access Token (JWT RS256)
+                    AuthSvc->>AuthSvc: Генерация Refresh Token
+                    AuthSvc->>SessionCache: Сохранение сессии (опционально)
+                    AuthSvc->>UserDB: Сохранение Refresh Token (хешированный, связан с сессией)
+                    AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_success.v1`
+                    AuthSvc-->>APIGW: HTTP 200 OK (Access Token, Refresh Token в HttpOnly cookie)
+                    APIGW-->>ClientApp: HTTP 200 OK (Access Token)
+                    ClientApp-->>User: Успешный вход
+                else 2FA включен
+                    AuthSvc->>AuthSvc: Генерация временного токена/сессии для шага 2FA
+                    AuthSvc-->>APIGW: HTTP 202 Accepted (требуется 2FA, временный токен)
+                    APIGW-->>ClientApp: HTTP 202 Accepted
+                    ClientApp-->>User: Запрос 2FA кода
+                end
+            else Пароль не верен
+                AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_failed.v1`
+                AuthSvc-->>APIGW: HTTP 401 Unauthorized (INVALID_CREDENTIALS)
+                APIGW-->>ClientApp: HTTP 401
+                ClientApp-->>User: Ошибка: Неверный логин или пароль
+            end
+        else Пользователь не найден, не активен или заблокирован
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_failed.v1`
+            AuthSvc-->>APIGW: HTTP 401 Unauthorized (INVALID_CREDENTIALS или USER_INACTIVE/BLOCKED)
+            APIGW-->>ClientApp: HTTP 401
+            ClientApp-->>User: Ошибка входа
+        end
+    ```
+
+### 14.3. Вход Пользователя с 2FA (TOTP)
+*   **Описание:** После успешного ввода пароля, если у пользователя включена 2FA (TOTP), система запрашивает TOTP код.
+*   **Диаграмма:** (См. диаграмму "Login with 2FA (TOTP)" в разделе 2 или 3, или продублировать/адаптировать сюда).
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant UserDB as База Данных Пользователей (PostgreSQL)
+
+        User->>ClientApp: Ввод TOTP кода (после шага с паролем)
+        ClientApp->>APIGW: POST /api/v1/auth/login/2fa-verify (временный_токен_сессии, totp_code)
+        APIGW->>AuthSvc: Forward 2FA verification request
+        AuthSvc->>UserDB: Получение секрета TOTP для пользователя (связанного с временным токеном)
+        alt Секрет найден
+            AuthSvc->>AuthSvc: Валидация TOTP кода
+            alt TOTP код верен
+                AuthSvc->>AuthSvc: Завершение процесса логина: генерация Access/Refresh токенов
+                AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_success.v1` (mfaMethodUsed="totp")
+                AuthSvc-->>APIGW: HTTP 200 OK (Access Token, Refresh Token в HttpOnly cookie)
+                APIGW-->>ClientApp: HTTP 200 OK (Access Token)
+                ClientApp-->>User: Успешный вход
+            else TOTP код не верен
+                AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_failed.v1` (reason="invalid_2fa_code")
+                AuthSvc-->>APIGW: HTTP 401 Unauthorized (INVALID_2FA_CODE)
+                APIGW-->>ClientApp: HTTP 401
+                ClientApp-->>User: Ошибка: Неверный 2FA код
+            end
+        else Ошибка (например, временная сессия не найдена)
+            AuthSvc-->>APIGW: HTTP 400 Bad Request
+            APIGW-->>ClientApp: HTTP 400
+            ClientApp-->>User: Ошибка
+        end
+    ```
+
+### 14.4. Обновление Access Token с Использованием Refresh Token
+*   **Описание:** Access token пользователя истек. Клиентское приложение использует Refresh Token для получения нового Access Token без повторного ввода пароля.
+*   **Диаграмма:** (См. диаграмму "Access Token Refresh" в разделе 2 или 3, или продублировать/адаптировать сюда).
+    ```mermaid
+    sequenceDiagram
+        actor ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant TokenDB as Хранилище Refresh Токенов (PostgreSQL/Redis JTI Blacklist)
+
+        ClientApp->>APIGW: POST /api/v1/auth/refresh-token (с Refresh Token из HttpOnly cookie)
+        APIGW->>AuthSvc: Forward refresh token request
+        AuthSvc->>TokenDB: Поиск и валидация Refresh Token (проверка хеша, срока действия, не отозван ли JTI)
+        alt Refresh Token валиден и не отозван
+            AuthSvc->>AuthSvc: Генерация нового Access Token (JWT RS256)
+            AuthSvc->>AuthSvc: (Опционально, если настроена ротация) Генерация нового Refresh Token, отзыв старого JTI и сохранение нового JTI.
+            AuthSvc->>TokenDB: (Опционально) Обновление/сохранение нового Refresh Token, добавление старого JTI в blacklist.
+            AuthSvc-->>APIGW: HTTP 200 OK (новый Access Token; новый Refresh Token в HttpOnly cookie если ротация)
+            APIGW-->>ClientApp: HTTP 200 OK (новый Access Token)
+        else Refresh Token невалиден или отозван
+            AuthSvc-->>APIGW: HTTP 401 Unauthorized (INVALID_REFRESH_TOKEN)
+            APIGW-->>ClientApp: HTTP 401 Unauthorized (требуется повторный логин)
+        end
+    ```
+
+### 14.5. Сброс Пароля
+*   **Описание:** Пользователь забыл пароль и инициирует процедуру сброса через email.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant UserDB as База Данных (PostgreSQL)
+        participant NotificationSvc as Notification Service (через Kafka)
+        participant Kafka as Kafka
+
+        User->>ClientApp: Нажимает "Забыли пароль?"
+        ClientApp->>APIGW: POST /api/v1/auth/forgot-password (email: "user@example.com")
+        APIGW->>AuthSvc: Forward /forgot-password
+        AuthSvc->>UserDB: Поиск пользователя по email
+        alt Пользователь найден и email верифицирован
+            AuthSvc->>UserDB: Генерация и сохранение токена/кода сброса пароля (VerificationCode type='password_reset')
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.password_reset_requested.v1` (userId, email, reset_token_or_code)
+            Kafka-->>NotificationSvc: Consume `password_reset_requested`
+            NotificationSvc->>User: Отправка email с инструкцией и ссылкой/кодом для сброса
+        end
+        AuthSvc-->>APIGW: HTTP 200 OK (общее сообщение, не раскрывающее существование email)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp-->>User: Сообщение об отправке инструкции (если email существует)
+
+        User->>ClientApp: Переход по ссылке из email / Ввод кода и нового пароля
+        ClientApp->>APIGW: POST /api/v1/auth/reset-password (reset_token_or_code, new_password, confirm_password)
+        APIGW->>AuthSvc: Forward /reset-password
+        AuthSvc->>UserDB: Проверка токена/кода сброса
+        alt Токен/код верен и не истек
+            AuthSvc->>UserDB: Обновление хеша пароля пользователя (Argon2id)
+            AuthSvc->>UserDB: Удаление/пометка использованным токена/кода сброса
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.password_changed.v1` (userId, method="password_reset")
+            AuthSvc->>UserDB: (Опционально) Отзыв всех активных сессий пользователя
+            AuthSvc-->>APIGW: HTTP 200 OK (Пароль успешно изменен)
+            APIGW-->>ClientApp: HTTP 200 OK
+            ClientApp-->>User: Пароль изменен, предложение войти
+        else Токен/код не верен или истек
+            AuthSvc-->>APIGW: HTTP 400 Bad Request (INVALID_RESET_TOKEN)
+            APIGW-->>ClientApp: HTTP 400
+            ClientApp-->>User: Ошибка сброса пароля
+        end
+    ```
+
+### 14.6. Валидация Access Token Другим Микросервисом (gRPC)
+*   **Описание:** Внутренний микросервис (например, Catalog Service) получает запрос от API Gateway с Access Token и обращается к Auth Service для его валидации и получения информации о пользователе.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        participant APIGW as API Gateway
+        participant CatalogSvc as Catalog Service
+        participant AuthSvcGRPC as Auth Service (gRPC API)
+
+        APIGW->>CatalogSvc: Запрос к Catalog Service (с `Authorization: Bearer <access_token>`)
+        CatalogSvc->>AuthSvcGRPC: ValidateTokenRequest (access_token)
+        AuthSvcGRPC->>AuthSvcGRPC: Валидация подписи, срока действия, JTI (если используется blacklist в Redis)
+        alt Токен валиден
+            AuthSvcGRPC-->>CatalogSvc: ValidateTokenResponse (user_id, username, roles, permissions, is_valid=true)
+            CatalogSvc->>CatalogSvc: Обработка запроса с учетом прав пользователя
+            CatalogSvc-->>APIGW: Ответ Catalog Service
+        else Токен невалиден
+            AuthSvcGRPC-->>CatalogSvc: ValidateTokenResponse (is_valid=false, error_message)
+            CatalogSvc-->>APIGW: HTTP 401/403 Unauthorized/Forbidden
+        end
+    ```
+
+### 14.7. Вход Пользователя через Внешнего OAuth2/OIDC Провайдера (например, VK)
+*   **Описание:** Пользователь выбирает вход через VK. Происходит редирект на VK, пользователь аутентифицируется там, затем редирект обратно на платформу с кодом авторизации. Auth Service обменивает код на токен VK, получает данные пользователя VK и создает/связывает аккаунт на платформе, выпуская JWT для сессии на платформе.
+*   **Диаграмма:** (См. диаграмму "OAuth 2.0 Authorization Code Grant Flow" в разделе 2 или 3, или продублировать/адаптировать сюда).
+     ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant VKAuth as VK Authorization Server
+        participant UserDB as База Данных Пользователей (PostgreSQL)
+        participant Kafka as Kafka
+
+        User->>ClientApp: Нажимает "Войти через VK"
+        ClientApp->>APIGW: GET /api/v1/auth/oauth/vk/login-url
+        APIGW->>AuthSvc: Forward /oauth/vk/login-url
+        AuthSvc-->>APIGW: HTTP 200 OK (redirect_url_to_vk)
+        APIGW-->>ClientApp: HTTP 200 OK (redirect_url_to_vk)
+        ClientApp->>User: Редирект на VK Authorization Server (redirect_url_to_vk)
+
+        User->>VKAuth: Аутентификация на стороне VK, предоставление разрешений
+        VKAuth-->>ClientApp: Редирект на callback URL платформы (с authorization_code)
+
+        ClientApp->>APIGW: GET /api/v1/auth/oauth/vk/callback?code=<authorization_code>&state=<state_param_if_used>
+        APIGW->>AuthSvc: Forward /oauth/vk/callback
+        AuthSvc->>VKAuth: Обмен authorization_code на access_token VK (с использованием client_id, client_secret)
+        VKAuth-->>AuthSvc: VK access_token, VK refresh_token (если есть), user_id_vk
+        AuthSvc->>VKAuth: Запрос информации о пользователе VK (используя VK access_token)
+        VKAuth-->>AuthSvc: Информация о пользователе VK (email, имя и т.д.)
+
+        AuthSvc->>UserDB: Поиск пользователя по provider_name='vk' и provider_user_id
+        alt Пользователь VK уже привязан
+            AuthSvc->>UserDB: Обновление данных пользователя из VK (если необходимо)
+            AuthSvc->>AuthSvc: Генерация JWT (Access/Refresh) для существующего пользователя
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_success.v1` (method="oauth_vk")
+        else Новый пользователь VK (или существующий пользователь по email, но без привязки VK)
+            AuthSvc->>UserDB: Поиск пользователя по email из VK (если есть)
+            alt Пользователь с таким email существует
+                AuthSvc->>UserDB: Привязка VK аккаунта к существующему пользователю (создание ExternalAccount)
+            else Новый пользователь платформы
+                AuthSvc->>UserDB: Создание нового пользователя (статус 'active', email_verified_at из VK если есть)
+                AuthSvc->>UserDB: Создание ExternalAccount
+                AuthSvc-->>Kafka: Publish `com.platform.auth.user.registered.v1` (source="oauth_vk")
+            end
+            AuthSvc->>AuthSvc: Генерация JWT (Access/Refresh)
+            AuthSvc-->>Kafka: Publish `com.platform.auth.user.login_success.v1` (method="oauth_vk")
+        end
+        AuthSvc-->>APIGW: HTTP 200 OK (Access Token, Refresh Token в HttpOnly cookie)
+        APIGW-->>ClientApp: HTTP 200 OK (Access Token)
+        ClientApp-->>User: Успешный вход / Регистрация через VK
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
 
 ### 14.1. PostgreSQL (Данные пользователей, ролей, токенов и т.д.)
 *   **Процедура резервного копирования:**
@@ -862,10 +1200,33 @@ COMMENT ON TABLE external_accounts IS 'Связанные внешние акк�
 *   Мониторинг процессов резервного копирования обязателен.
 *   Ключи шифрования, используемые для защиты данных в Auth Service (например, для `mfa_secrets`), должны быть частью стратегии резервного копирования и восстановления системы управления секретами (Vault/Kubernetes Secrets).
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+## 16. Приложения (Appendices)
+*   **JWT Claims (Пример структуры Access Token Payload):**
+    ```json
+    {
+      "iss": "https://auth.mygameplatform.ru", // Issuer
+      "sub": "user-uuid-123",                 // Subject (User ID)
+      "aud": ["https://api.mygameplatform.ru"], // Audience (Ресурсы, для которых предназначен токен)
+      "exp": 1678886400,                      // Expiration Time (Unix timestamp)
+      "nbf": 1678882800,                      // Not Before (Unix timestamp)
+      "iat": 1678882800,                      // Issued At (Unix timestamp)
+      "jti": "jwt-unique-id-abc",             // JWT ID (для отзыва)
+      "username": "new_user",                 // Имя пользователя
+      "email": "user@example.com",            // Email
+      "roles": ["user", "beta_tester"],       // Роли пользователя
+      "permissions": ["read:game_catalog", "write:game_review"], // Опционально, детальные разрешения
+      "amr": ["pwd", "mfa_totp"],             // Authentication Methods References (как пользователь был аутентифицирован)
+      "sid": "session-uuid-xyz"               // Опционально, ID сессии, если токены привязаны к сессиям
+    }
+    ```
+*   Детальные схемы Protobuf для gRPC API находятся в репозитории `platform-protos` (или локально `proto/auth/v1/`).
+*   Примеры полных JSON для всех REST DTO могут быть добавлены при необходимости или генерироваться из OpenAPI спецификации.
+
+
+## 17. Связанные Рабочие Процессы (Related Workflows)
 *   [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md)
-*   [Аутентификация пользователя (логин, 2FA, OAuth)](../../../../project_workflows/user_authentication_flow.md) <!-- Будет создан и описан в project_workflows/user_authentication_flow.md -->
-*   [Сброс и восстановление пароля](../../../../project_workflows/password_recovery_flow.md) <!-- Будет создан и описан в project_workflows/password_recovery_flow.md -->
+*   [Аутентификация пользователя (логин, 2FA, OAuth)](../../../../project_workflows/user_authentication_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/user_authentication_flow.md}} -->
+*   [Сброс и восстановление пароля](../../../../project_workflows/password_recovery_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/password_recovery_flow.md}} -->
 
 ---
 *Этот документ является основной спецификацией для Auth Service и должен поддерживаться в актуальном состоянии.*

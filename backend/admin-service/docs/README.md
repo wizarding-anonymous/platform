@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Admin Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-03-15
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -56,73 +56,63 @@
 ```mermaid
 graph TD
     APIGateway[API Gateway] --> AdminPanelUI[Admin Panel UI (Frontend)]
-    AdminPanelUI --> AdminServiceAPI[Admin Service REST API]
+    AdminPanelUI --> AdminServiceAPI{Admin Service REST API}
 
-    subgraph AdminService [Admin Service]
+    subgraph AdminService ["Admin Service (Чистая Архитектура)"]
         direction LR
-        AdminServiceAPI
 
-        subgraph Modules
+        AdminServiceAPI --> PresentationLayer[Presentation Layer (HTTP Handlers)]
+        PresentationLayer --> ApplicationLayer[Application Layer (Use Cases / Services)]
+        ApplicationLayer --> DomainLayer[Domain Layer (Entities, Business Logic)]
+        ApplicationLayer -- Интерфейсы репозиториев --> InfrastructureLayer[Infrastructure Layer]
+        DomainLayer -- Интерфейсы репозиториев --> InfrastructureLayer
+
+        subgraph Modules [Функциональные Модули (в Application/Domain Layers)]
             direction TB
             Mod[Модерация]
-            UserMgmt[Управление пользователями платформы]
-            AdminUserMgmt[Управление администраторами]
-            Support[Техническая поддержка]
-            SecurityMon[Мониторинг безопасности]
-            SettingsMgmt[Управление настройками платформы]
-            AnalyticsAccess[Доступ к Аналитике]
-            MarketingMgmt[Управление маркетингом]
+            UserMgmt[Управление Пользователями]
+            AdminUserMgmt[Управление Администраторами]
+            Support[Тех. Поддержка]
+            SettingsMgmt[Настройки Платформы]
+            AnalyticsMod[Аналитика (доступ)]
+            MarketingMod[Маркетинг]
+            SecurityMod[Безопасность (мониторинг)]
         end
+        ApplicationLayer --> Modules
 
-        AdminServiceAPI --> Mod
-        AdminServiceAPI --> UserMgmt
-        AdminServiceAPI --> AdminUserMgmt
-        AdminServiceAPI --> Support
-        AdminServiceAPI --> SecurityMon
-        AdminServiceAPI --> SettingsMgmt
-        AdminServiceAPI --> AnalyticsAccess
-        AdminServiceAPI --> MarketingMgmt
-
-        CoreLogic[Application & Domain Layers]
-
-        Mod --> CoreLogic
-        UserMgmt --> CoreLogic
-        AdminUserMgmt --> CoreLogic
-        Support --> CoreLogic
-        SecurityMon --> CoreLogic
-        SettingsMgmt --> CoreLogic
-        AnalyticsAccess --> CoreLogic
-        MarketingMgmt --> CoreLogic
-
-        subgraph DataStores [Хранилища Данных]
-            direction TB
+        subgraph DataStoresAdapter ["Адаптеры к Хранилищам Данных (в Infrastructure Layer)"]
             PostgresDB[(PostgreSQL)]
             MongoDB[(MongoDB)]
             Elasticsearch[(Elasticsearch)]
             RedisCache[(Redis)]
         end
+        InfrastructureLayer --> DataStoresAdapter
 
-        CoreLogic --> PostgresDB
-        CoreLogic --> MongoDB
-        CoreLogic --> Elasticsearch
-        CoreLogic --> RedisCache
+        subgraph ExternalServicesAdapter ["Клиенты Внешних Сервисов (в Infrastructure Layer)"]
+            AccountServiceExt[Account Service Client]
+            CatalogServiceExt[Catalog Service Client]
+            AuthServiceExt[Auth Service Client]
+            NotificationServiceExt[Notification Service Client]
+            AnalyticsServiceExt[Analytics Service Client]
+            PaymentServiceExt[Payment Service Client]
+        end
+        InfrastructureLayer --> ExternalServicesAdapter
 
-        KafkaProducerConsumer[Kafka Producer/Consumer]
-        CoreLogic --> KafkaProducerConsumer
-
-        ExtServiceClients[Клиенты Внешних Сервисов]
-        CoreLogic --> ExtServiceClients
+        subgraph MessageQueueAdapter ["Адаптеры к Брокеру Сообщений (в Infrastructure Layer)"]
+            KafkaClient[Kafka Producer/Consumer]
+        end
+        InfrastructureLayer --> MessageQueueAdapter
     end
 
-    ExtServiceClients --> AccountService[Account Service (gRPC/REST)]
-    ExtServiceClients --> CatalogService[Catalog Service (gRPC/REST)]
-    ExtServiceClients --> PaymentService[Payment Service (gRPC/REST)]
-    ExtServiceClients --> AuthService[Auth Service (gRPC/REST)]
-    ExtServiceClients --> NotificationService[Notification Service (gRPC/Kafka)]
-    ExtServiceClients --> AnalyticsService[Analytics Service (REST/Kafka)]
+    ExternalServicesAdapter --> AccountService[Account Service (gRPC/REST)]
+    ExternalServicesAdapter --> CatalogService[Catalog Service (gRPC/REST)]
+    ExternalServicesAdapter --> AuthService[Auth Service (gRPC/REST)]
+    ExternalServicesAdapter --> NotificationService[Notification Service (gRPC/Kafka)]
+    ExternalServicesAdapter --> AnalyticsService[Analytics Service (REST/Kafka)]
+    ExternalServicesAdapter --> PaymentService[Payment Service (gRPC/REST)]
 
-    KafkaProducerConsumer --> KafkaBroker[Apache Kafka]
-    KafkaBroker --> KafkaProducerConsumer
+    MessageQueueAdapter --> KafkaBroker[Apache Kafka]
+    KafkaBroker --> MessageQueueAdapter
 
     classDef service fill:#D6EAF8,stroke:#3498DB,stroke-width:2px;
     classDef module fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px;
@@ -454,31 +444,205 @@ graph TD
 ## 4. Модели Данных (Data Models)
 См. также `../../../../project_database_structure.md`.
 
-### 4.1. Основные Сущности
-*   **`AdminUser` (Администратор)**: Учетная запись администратора/сотрудника. Хранится в PostgreSQL.
-*   **`ModerationItem` (Элемент модерации)**: Объект, требующий модерации (жалоба, контент). Основная информация в PostgreSQL, детали могут быть в MongoDB.
-*   **`ModerationRule` (Правило модерации)**: Автоматическое правило. Хранится в PostgreSQL.
-*   **`SupportTicket` (Тикет поддержки)**: Запрос пользователя. Хранится в PostgreSQL.
-*   **`SupportTicketResponse` (Ответ в тикете)**: Ответ/комментарий в тикете. Хранится в PostgreSQL.
-*   **`SupportTicketCategory` (Категория тикета)**: Категория для классификации тикетов. Хранится в PostgreSQL.
-*   **`KnowledgeBaseArticle` (Статья базы знаний)**: Статья для самопомощи. Хранится в PostgreSQL, индексируется в Elasticsearch.
-*   **`KnowledgeBaseCategory` (Категория статьи БЗ)**: Категория для статей. Хранится в PostgreSQL.
-*   **`PlatformSetting` (Настройка платформы)**: Глобальный параметр конфигурации. Хранится в PostgreSQL, кэшируется в Redis.
-*   **`AuditLogAdmin` (Лог действий администраторов)**: Запись о действии администратора. Хранится в MongoDB или PostgreSQL.
-*   **`ModerationItemDetail` (Детали элемента модерации)**: Расширенные данные для элемента модерации. Хранится в MongoDB.
+### 4.1. Основные Сущности (PostgreSQL)
+*   **`AdminUser` (Администратор)**: Учетная запись администратора/сотрудника.
+    *   Поля: `id` (UUID, PK), `username` (VARCHAR, UK), `password_hash` (VARCHAR), `email` (VARCHAR, UK), `full_name` (VARCHAR), `roles` (ARRAY_TEXT), `is_active` (BOOLEAN), `created_at`, `updated_at`.
+*   **`SupportTicket` (Тикет поддержки)**: Запрос пользователя.
+    *   Поля: `id` (UUID, PK), `subject` (VARCHAR), `description` (TEXT), `platform_user_id` (UUID, FK на пользователя платформы), `assignee_admin_id` (UUID, FK на `AdminUser`, Nullable), `category_id` (UUID, FK на `SupportTicketCategory`), `status` (VARCHAR ENUM), `priority` (VARCHAR ENUM), `custom_fields` (JSONB, Nullable), `created_at`, `updated_at`, `resolved_at` (Nullable), `closed_at` (Nullable).
+*   **`SupportTicketResponse` (Ответ в тикете)**: Ответ/комментарий в тикете.
+    *   Поля: `id` (UUID, PK), `ticket_id` (UUID, FK), `admin_user_id` (UUID, FK на `AdminUser`, Nullable), `platform_user_id` (UUID, Nullable), `body` (TEXT), `is_internal_note` (BOOLEAN), `created_at`.
+*   **`SupportTicketCategory` (Категория тикета)**: Категория для классификации тикетов.
+    *   Поля: `id` (UUID, PK), `name` (VARCHAR, UK), `description` (TEXT, Nullable), `is_active` (BOOLEAN).
+*   **`KnowledgeBaseArticle` (Статья базы знаний)**: Статья для самопомощи.
+    *   Поля: `id` (UUID, PK), `title` (VARCHAR), `content_markdown` (TEXT), `category_id` (UUID, FK на `KnowledgeBaseCategory`), `author_admin_id` (UUID, FK на `AdminUser`), `is_published` (BOOLEAN), `view_count` (INTEGER), `language_code` (VARCHAR), `created_at`, `updated_at`.
+*   **`KnowledgeBaseCategory` (Категория статьи БЗ)**: Категория для статей.
+    *   Поля: `id` (UUID, PK), `name` (VARCHAR, UK), `description` (TEXT, Nullable), `parent_category_id` (UUID, FK, Nullable).
+*   **`ModerationItem` (Элемент модерации - основная запись)**: Объект, требующий модерации.
+    *   Поля: `id` (UUID, PK), `item_reference_id` (VARCHAR), `item_type` (VARCHAR ENUM), `status` (VARCHAR ENUM), `reason_for_submission` (TEXT), `content_snapshot_summary` (TEXT), `submitter_user_id` (UUID, Nullable), `assigned_moderator_id` (UUID, FK на `AdminUser`, Nullable), `created_at`, `updated_at`, `decision_at` (Nullable), `decision` (VARCHAR ENUM, Nullable), `decision_reason_code` (VARCHAR, Nullable), `moderator_comment` (TEXT, Nullable).
+*   **`ModerationRule` (Правило модерации)**: Автоматическое правило.
+    *   Поля: `id` (UUID, PK), `name` (VARCHAR, UK), `description` (TEXT), `item_type` (VARCHAR ENUM), `condition_script` (TEXT), `action_to_take` (VARCHAR ENUM), `priority` (INTEGER), `is_active` (BOOLEAN), `created_at`, `updated_at`.
+*   **`PlatformSetting` (Настройка платформы)**: Глобальный параметр конфигурации.
+    *   Поля: `key` (VARCHAR, PK), `value` (TEXT), `description` (TEXT, Nullable), `value_type` (VARCHAR ENUM), `updated_at`, `updated_by_admin_id` (UUID, FK на `AdminUser`).
 
-### 4.2. Схема Базы Данных
-*   ERD-диаграмма и DDL для PostgreSQL таблиц приведены выше в тексте документа.
-*   **MongoDB Коллекции:**
-    *   `audit_logs_admin`: Хранит документы `AuditLogAdmin`. Поля: `admin_user_id`, `timestamp`, `action_type`, `target_entity_type`, `target_entity_id`, `details` (JSONB), `ip_address`.
-        *   Индексы: `admin_user_id`, `timestamp`, `action_type`, `target_entity_id`.
-    *   `moderation_item_details`: Хранит расширенные данные для `ModerationItem` (например, полный текст переписки, если модерируется чат, или детализированный отчет системы анализа контента). Поля: `_id` (соответствует `ModerationItem.id`), `full_content_snapshot`, `external_analysis_reports`.
-        *   Индексы: `_id`.
-*   **Elasticsearch Индексы:**
-    *   `support_tickets_idx`: Поля: `id`, `subject`, `description`, `responses.text`, `user_id`, `status`, `priority`, `tags`, `created_at`.
-    *   `knowledge_base_articles_idx`: Поля: `id`, `title`, `content_markdown`, `tags`, `category_name`, `is_published`.
-    *   `admin_audit_log_idx` (если логи аудита также индексируются для поиска): Поля `id`, `admin_username`, `action_type`, `target_entity_type`, `target_entity_id`, `timestamp`, текстовый поиск по `details`.
-    *   `moderation_items_idx`: Поля `id`, `item_type`, `status`, `priority`, текстовый поиск по `content_snapshot`, `user_id`.
+### 4.2. Схема Базы Данных (PostgreSQL)
+*   ERD Диаграмма (PostgreSQL):
+    ```mermaid
+    erDiagram
+        ADMIN_USER ||--o{ SUPPORT_TICKET : "assigns/handles"
+        ADMIN_USER ||--o{ MODERATION_ITEM : "moderates"
+        ADMIN_USER ||--o{ KNOWLEDGE_BASE_ARTICLE : "authors"
+        ADMIN_USER ||--o{ PLATFORM_SETTING : "updates"
+        ADMIN_USER ||--o{ SUPPORT_TICKET_RESPONSE : "responds"
+
+        SUPPORT_TICKET }o--|| SUPPORT_TICKET_CATEGORY : "belongs to"
+        SUPPORT_TICKET ||--o{ SUPPORT_TICKET_RESPONSE : "has many"
+
+        KNOWLEDGE_BASE_ARTICLE }o--|| KNOWLEDGE_BASE_CATEGORY : "belongs to"
+
+        MODERATION_ITEM ||--o{ MODERATION_RULE : "can be affected by"
+
+        ADMIN_USER {
+            UUID id PK
+            VARCHAR username UK
+            VARCHAR password_hash
+            VARCHAR email UK
+            VARCHAR full_name
+            ARRAY_TEXT roles "e.g. ['superuser', 'content_moderator']"
+            BOOLEAN is_active
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        SUPPORT_TICKET {
+            UUID id PK
+            VARCHAR subject
+            TEXT description
+            UUID platform_user_id "FK to Platform User (Account Service)"
+            UUID assignee_admin_id FK "Nullable, Refers to ADMIN_USER(id)"
+            UUID category_id FK "Refers to SUPPORT_TICKET_CATEGORY(id)"
+            VARCHAR status "ENUM('new', 'open', 'pending_user', 'pending_agent', 'resolved', 'closed')"
+            VARCHAR priority "ENUM('low', 'medium', 'high', 'urgent')"
+            JSONB custom_fields "Nullable"
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+            TIMESTAMPTZ resolved_at "Nullable"
+            TIMESTAMPTZ closed_at "Nullable"
+        }
+
+        SUPPORT_TICKET_RESPONSE {
+            UUID id PK
+            UUID ticket_id FK "Refers to SUPPORT_TICKET(id)"
+            UUID admin_user_id FK "Nullable, if response from admin, Refers to ADMIN_USER(id)"
+            UUID platform_user_id "Nullable, if response from platform user"
+            TEXT body
+            BOOLEAN is_internal_note "Default false"
+            TIMESTAMPTZ created_at
+        }
+
+        SUPPORT_TICKET_CATEGORY {
+            UUID id PK
+            VARCHAR name UK
+            TEXT description "Nullable"
+            BOOLEAN is_active "Default true"
+        }
+
+        KNOWLEDGE_BASE_ARTICLE {
+            UUID id PK
+            VARCHAR title
+            TEXT content_markdown
+            UUID category_id FK "Refers to KNOWLEDGE_BASE_CATEGORY(id)"
+            UUID author_admin_id FK "Refers to ADMIN_USER(id)"
+            BOOLEAN is_published "Default false"
+            INTEGER view_count "Default 0"
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+            VARCHAR language_code "e.g. 'ru', 'en'"
+        }
+
+        KNOWLEDGE_BASE_CATEGORY {
+            UUID id PK
+            VARCHAR name UK
+            TEXT description "Nullable"
+            UUID parent_category_id FK "Nullable, self-referencing for subcategories"
+        }
+
+        MODERATION_ITEM {
+            UUID id PK
+            VARCHAR item_reference_id "ID of the content in another service, e.g. review_id, game_id"
+            VARCHAR item_type "ENUM('game_review', 'user_comment', 'game_submission', 'user_profile_customization')"
+            VARCHAR status "ENUM('pending_auto', 'pending_manual', 'approved', 'rejected', 'escalated')"
+            TEXT reason_for_submission "Why this item is in moderation"
+            TEXT content_snapshot_summary "Snapshot of content being moderated"
+            UUID submitter_user_id "Nullable, FK to Platform User"
+            UUID assigned_moderator_id FK "Nullable, Refers to ADMIN_USER(id)"
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+            TIMESTAMPTZ decision_at "Nullable"
+            VARCHAR decision "Nullable, ENUM('approved', 'rejected')"
+            VARCHAR decision_reason_code "Nullable"
+            TEXT moderator_comment "Nullable"
+        }
+
+        MODERATION_RULE {
+            UUID id PK
+            VARCHAR name UK
+            TEXT description
+            VARCHAR item_type "ENUM matching MODERATION_ITEM.item_type or 'any'"
+            TEXT condition_script "e.g., Groovy, Python, or specific DSL for rule engine"
+            VARCHAR action_to_take "ENUM('auto_approve', 'auto_reject', 'escalate_to_human', 'flag_for_review')"
+            INTEGER priority "Higher priority rules evaluated first"
+            BOOLEAN is_active "Default true"
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        PLATFORM_SETTING {
+            VARCHAR key PK "e.g. 'user_registration.allow_new_registrations'"
+            TEXT value
+            TEXT description "Nullable"
+            VARCHAR value_type "ENUM('string', 'integer', 'boolean', 'json')"
+            TIMESTAMPTZ updated_at
+            UUID updated_by_admin_id FK "Refers to ADMIN_USER(id)"
+        }
+    ```
+*   Описание основных таблиц и индексов (DDL-подобное описание для PostgreSQL):
+    ```sql
+    -- Таблица: admin_users
+    CREATE TABLE admin_users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        full_name VARCHAR(255),
+        roles TEXT[] NOT NULL, -- Массив ролей, например: '{superuser,content_moderator}'
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX idx_admin_users_roles ON admin_users USING GIN (roles);
+
+    -- Таблица: support_ticket_categories
+    CREATE TABLE support_ticket_categories (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE
+    );
+
+    -- Таблица: support_tickets
+    CREATE TABLE support_tickets (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        subject VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        platform_user_id UUID, -- ID пользователя из Account Service
+        assignee_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+        category_id UUID REFERENCES support_ticket_categories(id) ON DELETE RESTRICT,
+        status VARCHAR(50) NOT NULL DEFAULT 'new', -- new, open, pending_user, pending_agent, resolved, closed
+        priority VARCHAR(50) NOT NULL DEFAULT 'medium', -- low, medium, high, urgent
+        custom_fields JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        resolved_at TIMESTAMPTZ,
+        closed_at TIMESTAMPTZ
+    );
+    CREATE INDEX idx_support_tickets_status ON support_tickets(status);
+    CREATE INDEX idx_support_tickets_assignee_admin_id ON support_tickets(assignee_admin_id);
+    CREATE INDEX idx_support_tickets_platform_user_id ON support_tickets(platform_user_id);
+
+    -- (Другие таблицы: support_ticket_responses, knowledge_base_categories, knowledge_base_articles, moderation_items, moderation_rules, platform_settings - аналогично с полями, индексами и FK)
+    ```
+
+### 4.3. MongoDB Коллекции
+*   **`audit_log_admin`**: Хранит документы `AuditLogAdmin`. Поля: `_id` (ObjectId), `admin_user_id` (UUID), `admin_username` (String), `timestamp` (Date), `action_type` (String, например, "update_user_status", "resolve_ticket"), `target_entity_type` (String, например, "PlatformUser", "SupportTicket"), `target_entity_id` (String), `details_before` (Object, опционально), `details_after` (Object, опционально), `ip_address` (String), `user_agent` (String).
+    *   Индексы: `{admin_user_id: 1, timestamp: -1}`, `{timestamp: -1}`, `{action_type: 1}`, `{target_entity_id: 1}`.
+*   **`moderation_item_details`**: Хранит расширенные данные для `ModerationItem`. Поля: `_id` (UUID, соответствует `ModerationItem.id` из PostgreSQL), `full_content_snapshot` (Object/String), `external_analysis_reports` (Array of Objects), `attachments` (Array of Objects).
+    *   Индексы: `{_id: 1}`.
+
+### 4.4. Elasticsearch Индексы
+*   **`support_tickets_idx`**: Поля: `id` (keyword), `subject` (text), `description` (text), `responses_text` (text, агрегированные ответы), `platform_user_id` (keyword), `assignee_admin_username` (keyword), `category_name` (keyword), `status` (keyword), `priority` (keyword), `tags` (keyword[]), `created_at` (date), `updated_at` (date).
+*   **`knowledge_base_articles_idx`**: Поля: `id` (keyword), `title` (text), `content_text` (text, из markdown), `tags` (keyword[]), `category_name` (keyword), `author_username` (keyword), `language_code` (keyword), `is_published` (boolean), `created_at` (date).
+*   **`admin_audit_log_idx`** (если логи аудита также индексируются для детального поиска): Поля `id` (keyword, из MongoDB _id), `admin_username` (keyword), `action_type` (keyword), `target_entity_type` (keyword), `target_entity_id` (keyword), `timestamp` (date), `details_text` (text, для поиска по содержимому изменений).
+*   **`moderation_items_idx`** (если требуется сложный поиск по элементам модерации): Поля `id` (keyword, из PostgreSQL ModerationItem.id), `item_type` (keyword), `status` (keyword), `content_summary_text` (text), `submitter_user_id` (keyword), `assigned_moderator_username` (keyword), `created_at` (date).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
@@ -576,7 +740,73 @@ Admin Service активно взаимодействует с большинс�
 *   Если в будущем потребуется интеграция с внешними системами аналитики контента, анти-фрод системами или государственными информационными системами (ГИС) для отчетности, это будет задокументировано дополнительно.
 
 ## 7. Конфигурация (Configuration)
-Общие стандарты конфигурационных файлов (формат YAML, структура, управление переменными окружения и секретами) определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6). Специфичные для Admin Service переменные и структура файла `configs/admin_config.yaml` приведены в разделе 3.1.4 примера API.
+Общие стандарты конфигурационных файлов (формат YAML, структура, управление переменными окружения и секретами) определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6).
+
+### 7.1. Переменные Окружения (Примеры)
+*   `ADMIN_HTTP_PORT`: Порт для REST API Admin Service (например, `8085`)
+*   `ADMIN_GRPC_PORT`: Порт для внутреннего gRPC API, если используется (например, `9095`)
+*   `POSTGRES_DSN_ADMIN`: Строка подключения к PostgreSQL для Admin Service.
+*   `MONGODB_URI_ADMIN`: Строка подключения к MongoDB для Admin Service.
+*   `ELASTICSEARCH_URLS_ADMIN`: URL(ы) Elasticsearch для Admin Service.
+*   `REDIS_ADDR_ADMIN`: Адрес Redis для Admin Service.
+*   `KAFKA_BROKERS_ADMIN`: Список брокеров Kafka.
+*   `JWT_PUBLIC_KEY_PATH`: Путь к публичному ключу для валидации JWT токенов администраторов (обычно тот же, что и для пользователей, если токены выдаются одним Auth Service).
+*   `LOG_LEVEL_ADMIN`: Уровень логирования для Admin Service (например, `info`, `debug`).
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT_ADMIN`: Endpoint для экспорта трейсов в Jaeger.
+*   `ACCOUNT_SERVICE_GRPC_ADDR`: Адрес gRPC Account Service.
+*   `CATALOG_SERVICE_GRPC_ADDR`: Адрес gRPC Catalog Service.
+*   `AUTH_SERVICE_GRPC_ADDR`: Адрес gRPC Auth Service.
+*   `DEFAULT_MODERATION_QUEUE_SIZE`: Максимальный размер очереди модерации по умолчанию.
+
+### 7.2. Файлы Конфигурации (`configs/admin_service_config.yaml`)
+*   Структура:
+    ```yaml
+    http_server:
+      port: ${ADMIN_HTTP_PORT:"8085"}
+      timeout_seconds: 60
+    # grpc_server: # Если используется внутренний gRPC
+    #   port: ${ADMIN_GRPC_PORT:"9095"}
+    #   timeout_seconds: 60
+    postgres:
+      dsn: ${POSTGRES_DSN_ADMIN}
+      pool_max_conns: 15
+    mongodb:
+      uri: ${MONGODB_URI_ADMIN}
+      database_name: "admin_service_db"
+      pool_max_size: 10
+    elasticsearch:
+      urls: ${ELASTICSEARCH_URLS_ADMIN} # "http://es1:9200,http://es2:9200"
+      username: ${ELASTICSEARCH_USER:""}
+      password: ${ELASTICSEARCH_PASSWORD:""}
+    redis:
+      address: ${REDIS_ADDR_ADMIN}
+      password: ${REDIS_PASSWORD_ADMIN:""}
+      db: ${REDIS_DB_ADMIN:2} # Отдельная база Redis для Admin Service
+    kafka:
+      brokers: ${KAFKA_BROKERS_ADMIN}
+      producer_topics:
+        admin_events: ${KAFKA_TOPIC_ADMIN_EVENTS:"com.platform.admin.events.v1"}
+      consumer_topics:
+        user_complaints: ${KAFKA_TOPIC_USER_COMPLAINTS:"com.platform.user.complaint.submitted.v1"}
+        # ... другие потребляемые топики
+      consumer_group: ${KAFKA_CONSUMER_GROUP_ADMIN:"admin-service-group"}
+    logging:
+      level: ${LOG_LEVEL_ADMIN:"info"}
+      format: "json"
+    security:
+      jwt_public_key_path: ${JWT_PUBLIC_KEY_PATH}
+      # Дополнительные параметры безопасности, например, лимиты на загрузку файлов
+    otel:
+      exporter_jaeger_endpoint: ${OTEL_EXPORTER_JAEGER_ENDPOINT_ADMIN}
+      service_name: "admin-service"
+    integrations:
+      account_service_grpc_addr: ${ACCOUNT_SERVICE_GRPC_ADDR}
+      catalog_service_grpc_addr: ${CATALOG_SERVICE_GRPC_ADDR}
+      # ... адреса других сервисов
+    default_limits:
+      moderation_queue_size: ${DEFAULT_MODERATION_QUEUE_SIZE:1000}
+      max_login_attempts_admin: 5
+    ```
 
 ## 8. Обработка Ошибок (Error Handling)
 *   Используются стандартные HTTP коды состояния для REST API и форматы ошибок согласно `../../../../project_api_standards.md`.
@@ -683,7 +913,192 @@ Admin Service активно взаимодействует с большинс�
 ## 13. Приложения (Appendices)
 *   Детальные JSON схемы для API могут быть предоставлены в виде OpenAPI спецификации, генерируемой из кода или аннотаций.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
+
+В этом разделе описаны ключевые пользовательские сценарии, в которых участвуют администраторы платформы и сотрудники поддержки, используя Admin Service.
+
+### 14.1. Вход Администратора в Админ-Панель
+*   **Описание:** Администратор входит в систему через специальный интерфейс админ-панели, используя свои учетные данные. Auth Service проверяет их и выдает JWT, который затем используется для доступа к Admin Service.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Admin as Администратор
+        participant AdminPanelUI as Админ-Панель (Frontend)
+        participant APIGW as API Gateway
+        participant AuthSvc as Auth Service
+        participant AdminSvc as Admin Service
+
+        Admin->>AdminPanelUI: Вводит логин/пароль
+        AdminPanelUI->>APIGW: POST /api/v1/auth/admin/login (credentials)
+        APIGW->>AuthSvc: Forward admin login request
+        AuthSvc->>AuthSvc: Проверка учетных данных администратора
+        alt Успешная аутентификация
+            AuthSvc->>AuthSvc: Генерация JWT (с ролями администратора)
+            AuthSvc-->>APIGW: HTTP 200 OK (JWT)
+            APIGW-->>AdminPanelUI: HTTP 200 OK (JWT)
+            AdminPanelUI->>AdminPanelUI: Сохранение JWT, загрузка начальной страницы
+            AdminPanelUI->>APIGW: GET /api/v1/admin/dashboard-summary (Authorization: Bearer JWT)
+            APIGW->>AdminSvc: Forward request (X-Admin-UserID, X-Admin-Roles)
+            AdminSvc-->>APIGW: HTTP 200 OK (данные для дашборда)
+            APIGW-->>AdminPanelUI: HTTP 200 OK
+            AdminPanelUI-->>Admin: Отображение дашборда
+        else Ошибка аутентификации
+            AuthSvc-->>APIGW: HTTP 401 Unauthorized
+            APIGW-->>AdminPanelUI: HTTP 401 Unauthorized
+            AdminPanelUI-->>Admin: Сообщение об ошибке входа
+        end
+    ```
+
+### 14.2. Управление Пользователями Платформы (Поиск, Просмотр, Блокировка)
+*   **Описание:** Администратор ищет пользователя платформы, просматривает его детали и при необходимости блокирует его аккаунт. Это включает взаимодействие с Account Service.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor PlatformAdmin as Администратор Платформы
+        participant AdminPanelUI as Админ-Панель
+        participant AdminSvc as Admin Service (REST API)
+        participant AccountSvc as Account Service (gRPC/REST)
+        participant KafkaBus as Kafka
+
+        PlatformAdmin->>AdminPanelUI: Поиск пользователя (например, по email)
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/platform-users?search=user@example.com
+        AdminSvc->>AccountSvc: (gRPC) GetUsers(filter_by_email="user@example.com")
+        AccountSvc-->>AdminSvc: UserListResponse
+        AdminSvc-->>AdminPanelUI: Список пользователей
+
+        PlatformAdmin->>AdminPanelUI: Выбирает пользователя для просмотра деталей
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/platform-users/{user_id}
+        AdminSvc->>AccountSvc: (gRPC) GetUserProfile(user_id) & GetAccountInfo(user_id)
+        AccountSvc-->>AdminSvc: UserProfileResponse & AccountInfoResponse
+        AdminSvc-->>AdminPanelUI: Детальная информация о пользователе
+
+        PlatformAdmin->>AdminPanelUI: Нажимает "Заблокировать пользователя" (указывает причину)
+        AdminPanelUI->>AdminSvc: PUT /api/v1/admin/platform-users/{user_id}/status (payload: {status: "blocked", reason: "Spamming"})
+        AdminSvc->>AccountSvc: (gRPC) UpdateAccountStatus(user_id, new_status="blocked", reason="Spamming")
+        AccountSvc-->>AdminSvc: Success/Failure
+        alt Успешная блокировка
+            AdminSvc->>AdminSvc: Запись в AuditLogAdmin
+            AdminSvc-->>KafkaBus: Publish `com.platform.admin.user.status.updated.v1` (userId, newStatus="blocked")
+            AdminSvc-->>AdminPanelUI: HTTP 200 OK (статус обновлен)
+            AdminPanelUI-->>PlatformAdmin: Уведомление об успешной блокировке
+        else Ошибка блокировки
+            AdminSvc-->>AdminPanelUI: HTTP Error (например, 404, 500)
+            AdminPanelUI-->>PlatformAdmin: Сообщение об ошибке
+        end
+    ```
+
+### 14.3. Модерация Пользовательского Контента
+*   **Описание:** Модератор просматривает очередь контента, ожидающего модерации (например, отзывы об играх), принимает решение (одобрить/отклонить) и указывает причину.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Moderator as Модератор
+        participant AdminPanelUI as Админ-Панель
+        participant AdminSvc as Admin Service
+        participant KafkaBus as Kafka
+
+        Moderator->>AdminPanelUI: Открывает очередь модерации "Отзывы об играх"
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/moderation/queues/game_reviews/items
+        AdminSvc->>AdminSvc: Запрос к БД (PostgreSQL/MongoDB) для получения элементов
+        AdminSvc-->>AdminPanelUI: Список элементов для модерации
+
+        Moderator->>AdminPanelUI: Выбирает элемент, просматривает контент
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/moderation/items/{item_id}
+        AdminSvc-->>AdminPanelUI: Детали элемента (снапшот контента)
+
+        Moderator->>AdminPanelUI: Принимает решение "Отклонить" (причина: "Спам")
+        AdminPanelUI->>AdminSvc: POST /api/v1/admin/moderation/items/{item_id}/decisions (payload: {decision: "rejected", reason_code: "spam", comment: "..."})
+        AdminSvc->>AdminSvc: Обновление статуса ModerationItem в БД
+        AdminSvc->>AdminSvc: Запись в AuditLogAdmin
+        AdminSvc-->>KafkaBus: Publish `com.platform.admin.content.moderated.v1` (itemId, decision="rejected", reason="spam")
+        AdminSvc-->>AdminPanelUI: HTTP 200 OK (решение принято)
+        AdminPanelUI-->>Moderator: Элемент удален из очереди, уведомление об успехе
+    ```
+
+### 14.4. Управление Тикетом Поддержки
+*   **Описание:** Агент поддержки просматривает назначенный ему тикет, отвечает пользователю и закрывает тикет.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor SupportAgent as Агент Поддержки
+        participant AdminPanelUI as Админ-Панель
+        participant AdminSvc as Admin Service
+        participant NotificationSvc as Notification Service (через Kafka или gRPC)
+        participant KafkaBus as Kafka
+
+        SupportAgent->>AdminPanelUI: Открывает список "Мои открытые тикеты"
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/support/tickets?assignee_id=current_agent&status=open
+        AdminSvc->>AdminSvc: Запрос к БД (PostgreSQL)
+        AdminSvc-->>AdminPanelUI: Список тикетов
+
+        SupportAgent->>AdminPanelUI: Выбирает тикет, читает историю
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/support/tickets/{ticket_id}
+        AdminSvc-->>AdminPanelUI: Детали тикета
+
+        SupportAgent->>AdminPanelUI: Пишет ответ пользователю
+        AdminPanelUI->>AdminSvc: POST /api/v1/admin/support/tickets/{ticket_id}/responses (payload: {body: "...", is_internal_note: false})
+        AdminSvc->>AdminSvc: Сохранение ответа в БД
+        AdminSvc->>AdminSvc: Обновление статуса тикета (например, на 'pending_user')
+        AdminSvc-->>KafkaBus: Publish `com.platform.admin.support.ticket.status.updated.v1` (ticketId, newStatus='pending_user')
+        AdminSvc->>NotificationSvc: Запрос на уведомление пользователя об ответе
+        AdminSvc-->>AdminPanelUI: HTTP 201 Created (ответ добавлен)
+
+        SupportAgent->>AdminPanelUI: Решает закрыть тикет (после получения подтверждения от пользователя или по регламенту)
+        AdminPanelUI->>AdminSvc: PUT /api/v1/admin/support/tickets/{ticket_id}/status (payload: {status: "resolved"})
+        AdminSvc->>AdminSvc: Обновление статуса тикета в БД
+        AdminSvc-->>KafkaBus: Publish `com.platform.admin.support.ticket.status.updated.v1` (ticketId, newStatus='resolved')
+        AdminSvc-->>AdminPanelUI: HTTP 200 OK
+        AdminPanelUI-->>SupportAgent: Тикет обновлен
+    ```
+
+### 14.5. Конфигурирование Настройки Платформы
+*   **Описание:** Главный администратор изменяет глобальную настройку платформы, например, включает или выключает возможность регистрации новых пользователей.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor SuperAdmin as Главный Администратор
+        participant AdminPanelUI as Админ-Панель
+        participant AdminSvc as Admin Service
+        participant KafkaBus as Kafka
+
+        SuperAdmin->>AdminPanelUI: Переходит в раздел "Настройки Платформы" -> "Регистрация"
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/platform-settings?group=user_registration
+        AdminSvc->>AdminSvc: Запрос к БД (PostgreSQL/Redis)
+        AdminSvc-->>AdminPanelUI: Текущие настройки регистрации
+
+        SuperAdmin->>AdminPanelUI: Изменяет "Разрешить новые регистрации" на "false"
+        AdminPanelUI->>AdminSvc: PUT /api/v1/admin/platform-settings (payload: {"user_registration": {"allow_new_registrations": false}})
+        AdminSvc->>AdminSvc: Валидация и сохранение PlatformSetting в БД
+        AdminSvc->>AdminSvc: Запись в AuditLogAdmin
+        AdminSvc->>RedisCache: Очистка кэша для данной настройки (если кэшируется)
+        AdminSvc-->>KafkaBus: Publish `com.platform.admin.platform.setting.updated.v1` (key="user_registration.allow_new_registrations", newValue=false)
+        AdminSvc-->>AdminPanelUI: HTTP 200 OK (настройки обновлены)
+        AdminPanelUI-->>SuperAdmin: Уведомление об успешном изменении
+    ```
+
+### 14.6. Просмотр Отчета в Админ-Аналитике
+*   **Описание:** Администратор просматривает отчет по продажам игр за последний месяц. Admin Service проксирует или формирует запрос к Analytics Service.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor AnalyticsAdmin as Администратор Аналитики
+        participant AdminPanelUI as Админ-Панель
+        participant AdminSvc as Admin Service
+        participant AnalyticsSvc as Analytics Service
+
+        AnalyticsAdmin->>AdminPanelUI: Открывает "Аналитика" -> "Отчет по продажам"
+        AdminPanelUI->>AdminSvc: GET /api/v1/admin/analytics/reports/sales?period=last_month&group_by=game
+        alt AdminSvc проксирует запрос или использует данные из DWH AnalyticsSvc
+            AdminSvc->>AnalyticsSvc: (REST/gRPC) GetSalesReport(period="last_month", group_by="game")
+            AnalyticsSvc-->>AdminSvc: Данные отчета
+        else AdminSvc сам имеет доступ к данным для некоторых отчетов
+            AdminSvc->>AdminSvc: Запрос к своей БД или DWH (если часть данных агрегируется локально)
+            AdminSvc-->>AdminPanelUI: Данные отчета
+        end
+        AdminPanelUI-->>AnalyticsAdmin: Отображение отчета с графиками и таблицами
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
 
 ### 14.1. PostgreSQL (Административные данные, тикеты, настройки)
 *   **Процедура резервного копирования:**
@@ -724,10 +1139,10 @@ Admin Service активно взаимодействует с большинс�
 *   Мониторинг процессов бэкапа.
 *   Общие принципы резервного копирования для различных СУБД описаны в `../../../../project_database_structure.md`.
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+## 16. Связанные Рабочие Процессы (Related Workflows)
 *   [Подача разработчиком новой игры на модерацию](../../../../project_workflows/game_submission_flow.md)
-*   [Обработка жалобы пользователя на контент] <!-- Workflow будет создан и описан в project_workflows/user_complaint_handling_flow.md -->
-*   [Процесс решения тикета поддержки] <!-- Workflow будет создан и описан в project_workflows/support_ticket_resolution_flow.md -->
+*   [Обработка жалобы пользователя на контент] <!-- {{TODO: Workflow будет создан и описан в project_workflows/user_complaint_handling_flow.md}} -->
+*   [Процесс решения тикета поддержки] <!-- {{TODO: Workflow будет создан и описан в project_workflows/support_ticket_resolution_flow.md}} -->
 
 ---
 *Этот документ является отправной точкой и должен регулярно обновляться по мере развития сервиса.*

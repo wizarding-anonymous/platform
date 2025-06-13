@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Analytics Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-03-15
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -74,65 +74,63 @@ graph TD
     subgraph "Analytics Service"
         direction TB
 
-        IngestionLayer[Data Ingestion Layer (Kafka Consumers)]
+        IngestionLayer["Data Ingestion Layer (Kafka Consumers, API Endpoints for Batch Push)"]
         KafkaTopics --> IngestionLayer
 
         subgraph "Data Processing & Storage"
             direction TB
-            RawDataLake[Data Lake (S3: сырые события - Parquet/Avro)]
-            IngestionLayer --> RawDataLake
+            RawDataLake["Data Lake (S3: сырые и очищенные события - Parquet/Avro)"]
+            IngestionLayer -- Сырые события --> RawDataLake
 
-            StreamProcessing[Stream Processing (Flink/Kafka Streams)]
-            IngestionLayer --> StreamProcessing
+            StreamProcessing["Stream Processing (Flink/Kafka Streams: обогащение, real-time агрегаты, feature engineering)"]
+            IngestionLayer -- Поток событий --> StreamProcessing
 
-            RealtimeDWH[Real-time/Speed Layer (ClickHouse: витрины реального времени)]
-            StreamProcessing --> RealtimeDWH
+            RealtimeDWH["Real-time/Speed Layer (ClickHouse/Redis: витрины реального времени, быстрые счетчики)"]
+            StreamProcessing -- Real-time витрины --> RealtimeDWH
 
-            BatchProcessing[Batch Processing (Spark ETL/ELT)]
-            RawDataLake --> BatchProcessing
-            StreamProcessing -- Processed/Enriched Events --> BatchProcessingViaKafka[Kafka (для батч-триггеров)] -- опционально --> BatchProcessing
+            BatchProcessing["Batch Processing (Spark ETL/ELT: сложные агрегаты, исторические витрины, feature engineering)"]
+            RawDataLake -- Очищенные данные --> BatchProcessing
+            StreamProcessing -- Обработанные события (опционально) --> BatchProcessingViaKafka["Kafka (для триггеров батчей)"] -- опционально --> BatchProcessing
 
+            DWH["Core DWH (ClickHouse: исторические агрегаты, детальные витрины данных)"]
+            BatchProcessing -- Агрегированные витрины --> DWH
 
-            DWH[Core DWH (ClickHouse: агрегаты, исторические витрины)]
-            BatchProcessing --> DWH
-
-            MLDataStore[ML Feature Store & Model Artifacts (S3/ClickHouse/PostgreSQL)]
-            BatchProcessing --> MLDataStore
-            StreamProcessing --> MLDataStore
+            MLDataStore["ML Feature Store & Model Artifacts (S3/ClickHouse/PostgreSQL/ Feast/Hopsworks - {{TODO: выбрать/уточнить}} )"]
+            BatchProcessing -- Признаки для ML --> MLDataStore
+            StreamProcessing -- Real-time признаки для ML --> MLDataStore
         end
 
-        subgraph "API & Management Layer (Go / Java)"
+        subgraph "API & Management Layer (Go / Java - Clean Architecture)"
             direction TB
-            MetadataDB[Metadata Store (PostgreSQL: определения метрик, отчетов, ML-моделей, пайплайнов)]
+            MetadataDB["Metadata Store (PostgreSQL: определения метрик, отчетов, ML-моделей, пайплайнов, прав доступа к данным)"]
 
-            APIService[API Service (REST/GraphQL - Presentation)]
-            APIServiceLogic[Application & Domain Logic for API]
+            APIService["API Service (REST/GraphQL - Presentation Layer)"]
+            APIServiceLogic["Application & Domain Logic for API (Use Cases, Entities)"]
             APIService --> APIServiceLogic
-            APIServiceLogic --> MetadataDB
-            APIServiceLogic -- Queries --> DWH
-            APIServiceLogic -- Queries --> RealtimeDWH
-            APIServiceLogic -- Predictions --> MLServingAPI[ML Model Serving API]
+            APIServiceLogic -- CRUD метаданных --> MetadataDB
+            APIServiceLogic -- Запросы данных --> DWH
+            APIServiceLogic -- Запросы real-time данных --> RealtimeDWH
+            APIServiceLogic -- Запросы прогнозов --> MLServingAPI["ML Model Serving API"]
 
-            PipelineOrchestrator[Data Pipeline Orchestrator (e.g., Airflow, Prefect, или кастомный)]
-            PipelineOrchestrator --> BatchProcessing
-            PipelineOrchestrator --> MetadataDB
+            PipelineOrchestrator["Data Pipeline Orchestrator (Apache Airflow, Prefect, или Argo Workflows)"]
+            PipelineOrchestrator -- Управление --> BatchProcessing
+            PipelineOrchestrator -- Управление --> StreamProcessing
+            PipelineOrchestrator -- Чтение/Запись метаданных --> MetadataDB
         end
 
-        subgraph "ML Layer"
+        subgraph "ML Layer (MLOps)"
             direction TB
-            MLTraining[ML Model Training (SparkML, Python libs)]
-            MLDataStore --> MLTraining
-            MLTraining --> MLModelRegistry[ML Model Registry (MLflow / PostgreSQL)]
+            MLTraining["ML Model Training & Experimentation (Jupyter, Python libs, SparkML)"]
+            MLDataStore -- Данные для тренировки --> MLTraining
+            MLTraining --> MLModelRegistry["ML Model Registry (MLflow / DVC + PostgreSQL/S3)"]
             MetadataDB <--> MLModelRegistry
 
-            MLServingAPI[ML Model Serving API (Python/Java/Go)]
-            MLModelRegistry --> MLServingAPI
-            MLDataStore -- Model Artifacts --> MLServingAPI
+            MLServingAPI -- Загрузка моделей --> MLModelRegistry
+            MLDataStore -- Артефакты моделей --> MLServingAPI
         end
 
-        APIService --> ExternalConsumers[Потребители API (Admin Panel, Developer Portal, BI Tools)]
-        MLServingAPI --> ExternalConsumersML[Потребители ML API (Recommendation Svc, Fraud Detection)]
-
+        APIService --> ExternalConsumers["Потребители API (Admin Panel, Developer Portal, BI Tools, Маркетинговые системы)"]
+        MLServingAPI --> ExternalConsumersML["Потребители ML API (Recommendation Svc, Fraud Detection Svc, Personalization Svc)"]
     end
 
     classDef dataFlow fill:#e6f3ff,stroke:#007bff,stroke-width:2px;
@@ -142,7 +140,7 @@ graph TD
     classDef external fill:#e2e3e5,stroke:#6c757d,stroke-width:2px;
 
     class KafkaTopics,BatchProcessingViaKafka dataFlow;
-    class IngestionLayer,StreamProcessing,BatchProcessing,MLDataStore,MLTraining,MLModelRegistry,PipelineOrchestrator,APIServiceLogic component;
+    class IngestionLayer,StreamProcessing,BatchProcessing,MLTraining,MLModelRegistry,PipelineOrchestrator,APIServiceLogic component;
     class RawDataLake,DWH,RealtimeDWH,MetadataDB,MLDataStore datastore;
     class APIService,MLServingAPI api;
     class ExternalConsumers,ExternalConsumersML external;
@@ -247,17 +245,103 @@ graph TD
 См. также `../../../../project_database_structure.md`.
 
 ### 4.1. Основные Сущности/Структуры Данных
-*   **`Event` (Событие):** Соответствует CloudEvents. Хранится в S3 (сырые), ClickHouse (факты).
-*   **`MetricDefinition` (Определение Метрики):** PostgreSQL.
-*   **`ReportDefinition` (Определение Отчета):** PostgreSQL.
-*   **`ReportInstance` (Экземпляр Отчета):** PostgreSQL.
-*   **`SegmentDefinition` (Определение Сегмента):** PostgreSQL.
-*   **`MLModelMetadata` (Метаданные ML Модели):** PostgreSQL или MLflow.
-*   **`DataPipelineRun` (Запуск Пайплайна Данных):** PostgreSQL.
+*   **`Event` (Событие):** Базовая структура события, соответствующая CloudEvents. Содержит поля: `id`, `type`, `source`, `time`, `dataContentType`, `data`, `subject`, `correlationId`. Детали поля `data` зависят от конкретного типа события. Хранится в S3 (сырые, очищенные), используется в Kafka, обрабатывается в Spark/Flink, агрегированные данные попадают в ClickHouse.
+*   **`MetricDefinition` (Определение Метрики):** Описание метрики, как она рассчитывается, ее источники. Хранится в PostgreSQL.
+    *   Поля: `id`, `name`, `display_name_ru`, `display_name_en`, `description_ru`, `description_en`, `metric_type` (counter, gauge, histogram), `calculation_method` (sum, avg, count_distinct), `source_event_type`, `value_field`, `filters` (JSONB), `dimensions` (JSONB), `granularity` (realtime, hourly, daily), `unit`, `is_realtime`, `owner_service`, `tags`, `created_at`, `updated_at`.
+*   **`ReportDefinition` (Определение Отчета):** Шаблон отчета, включая запросы к данным, параметры. Хранится в PostgreSQL.
+    *   Поля: `id`, `name`, `display_name_ru`, `display_name_en`, `description_ru`, `description_en`, `source_type` (sql_query_clickhouse, pre_aggregated_metrics), `source_query_or_config` (TEXT), `parameters` (JSONB), `default_schedule`, `output_formats` (JSONB), `owner_admin_id`, `created_at`, `updated_at`.
+*   **`ReportInstance` (Экземпляр Отчета):** Сгенерированный отчет. Метаданные хранятся в PostgreSQL, сам файл отчета - в S3.
+    *   Поля: `id`, `report_definition_id`, `generation_requested_at`, `generation_started_at`, `generation_completed_at`, `status`, `parameters_used` (JSONB), `output_format`, `file_path_s3`, `file_size_bytes`, `error_message`, `requested_by_user_id`, `expires_at`.
+*   **`SegmentDefinition` (Определение Сегмента):** Критерии для формирования пользовательского сегмента. Хранится в PostgreSQL.
+    *   Поля: `id`, `name`, `display_name_ru`, `display_name_en`, `description_ru`, `description_en`, `criteria` (JSONB), `segment_type` (dynamic, static), `refresh_schedule`, `last_calculated_at`, `current_user_count`, `created_by_admin_id`, `created_at`, `updated_at`.
+*   **`MLModelMetadata` (Метаданные ML Модели):** Информация о ML модели. Хранится в PostgreSQL или специализированном реестре (MLflow).
+    *   Поля: `id`, `model_name`, `model_version`, `description_ru`, `description_en`, `algorithm`, `hyperparameters` (JSONB), `training_dataset_ref`, `performance_metrics` (JSONB), `artifact_path`, `deployment_status`, `input_schema` (JSONB), `output_schema` (JSONB), `registered_by_user_id`, `trained_at`, `created_at`, `updated_at`.
+*   **`DataPipelineRun` (Запуск Пайплайна Данных):** Информация о запусках ETL/ELT пайплайнов. Хранится в PostgreSQL.
+    *   Поля: `id`, `pipeline_name`, `start_time`, `end_time`, `status`, `parameters` (JSONB), `logs_summary`, `processed_records_count`, `source_data_start_time`, `source_data_end_time`.
 
-### 4.2. Схема Базы Данных
+### 4.2. Схема Базы Данных (Концептуальные диаграммы и DDL)
 
-#### 4.2.1. PostgreSQL (Metadata Store) - DDL (дополненный)
+#### 4.2.1. PostgreSQL (Metadata Store)
+*   ERD Диаграмма (PostgreSQL):
+    ```mermaid
+    erDiagram
+        METRIC_DEFINITION {
+            UUID id PK
+            VARCHAR name UK
+            VARCHAR display_name_ru
+            TEXT description_ru
+            VARCHAR metric_type
+            VARCHAR calculation_method
+            VARCHAR source_event_type
+            JSONB filters
+            JSONB dimensions
+            VARCHAR granularity
+            BOOLEAN is_realtime
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+
+        REPORT_DEFINITION {
+            UUID id PK
+            VARCHAR name UK
+            VARCHAR display_name_ru
+            TEXT description_ru
+            VARCHAR source_type
+            TEXT source_query_or_config
+            JSONB parameters
+            VARCHAR default_schedule
+            JSONB output_formats
+            TIMESTAMPTZ created_at
+            TIMESTAMPTZ updated_at
+        }
+        REPORT_DEFINITION ||--o{ REPORT_INSTANCE : "has many"
+
+        REPORT_INSTANCE {
+            UUID id PK
+            UUID report_definition_id FK
+            TIMESTAMPTZ generation_requested_at
+            VARCHAR status
+            JSONB parameters_used
+            VARCHAR file_path_s3
+            TIMESTAMPTZ expires_at
+        }
+
+        SEGMENT_DEFINITION {
+            UUID id PK
+            VARCHAR name UK
+            VARCHAR display_name_ru
+            JSONB criteria
+            VARCHAR segment_type
+            VARCHAR refresh_schedule
+            BIGINT current_user_count
+            TIMESTAMPTZ last_calculated_at
+            TIMESTAMPTZ created_at
+        }
+
+        ML_MODEL_METADATA {
+            UUID id PK
+            VARCHAR model_name
+            VARCHAR model_version
+            TEXT description_ru
+            JSONB hyperparameters
+            JSONB performance_metrics
+            VARCHAR artifact_path
+            VARCHAR deployment_status
+            TIMESTAMPTZ trained_at
+            UNIQUE (model_name, model_version)
+        }
+
+        DATA_PIPELINE_RUN {
+            UUID id PK
+            VARCHAR pipeline_name
+            TIMESTAMPTZ start_time
+            TIMESTAMPTZ end_time
+            VARCHAR status
+            JSONB parameters
+            BIGINT processed_records_count
+        }
+    ```
+*   DDL (PostgreSQL - основные таблицы, как в существующем документе, с дополнениями):
 ```sql
 -- Расширение для UUID, если не создано
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -272,15 +356,15 @@ CREATE TABLE metric_definitions (
     description_en TEXT,
     metric_type VARCHAR(50) NOT NULL CHECK (metric_type IN ('counter', 'gauge', 'histogram', 'timer')),
     calculation_method VARCHAR(50) NOT NULL, -- sum, average, count_distinct, percentile_95, etc.
-    source_event_type VARCHAR(255),
-    value_field VARCHAR(255), -- Path to value in event data, e.g., data.duration_seconds
-    filters JSONB, -- e.g., {"data.game_genre": "action"}
-    dimensions JSONB, -- e.g., ["country", "game_id", "platform_type"]
+    source_event_type VARCHAR(255), -- Например, com.platform.payment.transaction.completed.v1
+    value_field VARCHAR(255), -- Путь к значению в JSON событии, e.g., data.amount_rub
+    filters JSONB, -- Фильтры для событий, e.g., {"data.status": "success"}
+    dimensions JSONB, -- Измерения для группировки, e.g., ["data.game_id", "data.payment_method"]
     granularity VARCHAR(50) NOT NULL CHECK (granularity IN ('realtime', 'hourly', 'daily', 'monthly', 'yearly', 'raw')),
-    unit VARCHAR(50), -- users, seconds, RUB, events
+    unit VARCHAR(50), -- Единица измерения: users, seconds, RUB, events
     is_realtime BOOLEAN NOT NULL DEFAULT FALSE,
-    owner_service VARCHAR(100), -- Сервис-владелец или основной потребитель
-    tags JSONB DEFAULT '[]'::jsonb, -- Теги для категоризации и поиска
+    owner_service VARCHAR(100), -- Сервис-владелец или основной потребитель метрики
+    tags JSONB DEFAULT '[]'::jsonb, -- Теги для категоризации и поиска (например, "sales", "user_activity")
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -291,17 +375,17 @@ CREATE INDEX idx_metric_definitions_tags ON metric_definitions USING gin(tags);
 -- Определения отчетов
 CREATE TABLE report_definitions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL UNIQUE, -- Уникальное системное имя отчета
     display_name_ru VARCHAR(255) NOT NULL,
     display_name_en VARCHAR(255),
     description_ru TEXT,
     description_en TEXT,
-    source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('sql_query_clickhouse', 'pre_aggregated_metrics', 'api_external')),
-    source_query_or_config TEXT NOT NULL, -- SQL query for ClickHouse or JSON config
-    parameters JSONB, -- [{"name": "period_start", "display_name_ru": "Начало периода", "type": "date", "required": true, "default_value": "yesterday"}]
-    default_schedule VARCHAR(50), -- cron-like: "0 3 * * *" (daily at 3 AM UTC), "0 4 * * 1" (monday weekly at 4 AM UTC)
-    output_formats JSONB DEFAULT '["csv", "json", "pdf_placeholder"]'::jsonb,
-    owner_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL, -- Ссылка на таблицу admin_users
+    source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('sql_query_clickhouse', 'pre_aggregated_metrics', 'api_external', 'python_script_placeholder')), -- Тип источника данных для отчета
+    source_query_or_config TEXT NOT NULL, -- SQL запрос для ClickHouse, конфигурация для других источников
+    parameters JSONB, -- Описание параметров отчета, e.g., [{"name": "period_start", "display_name_ru": "Начало периода", "type": "date", "required": true, "default_value": "yesterday"}]
+    default_schedule VARCHAR(50), -- Расписание генерации в формате cron, e.g., "0 3 * * *" (ежедневно в 3 AM UTC)
+    output_formats JSONB DEFAULT '["csv", "json", "pdf_placeholder"]'::jsonb, -- Доступные форматы выгрузки
+    owner_admin_id UUID, -- REFERENCES admin_users(id) ON DELETE SET NULL, -- Ссылка на администратора-владельца
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -316,13 +400,13 @@ CREATE TABLE report_instances (
     generation_started_at TIMESTAMPTZ,
     generation_completed_at TIMESTAMPTZ,
     status VARCHAR(50) NOT NULL CHECK (status IN ('requested', 'generating', 'completed', 'failed', 'cancelled')),
-    parameters_used JSONB,
+    parameters_used JSONB, -- Использованные параметры при генерации
     output_format VARCHAR(20),
     file_path_s3 VARCHAR(1024), -- Ссылка на файл отчета в S3
     file_size_bytes BIGINT,
-    error_message TEXT,
-    requested_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- Пользователь или админ, запросивший отчет
-    expires_at TIMESTAMPTZ -- Время, когда файл отчета может быть удален из S3
+    error_message TEXT, -- Сообщение об ошибке, если генерация не удалась
+    requested_by_user_id UUID, -- REFERENCES users(id) ON DELETE SET NULL, -- Пользователь или админ, запросивший отчет
+    expires_at TIMESTAMPTZ -- Время, когда файл отчета может быть удален из S3 (политика очистки)
 );
 COMMENT ON TABLE report_instances IS 'Экземпляры сгенерированных отчетов.';
 CREATE INDEX idx_report_instances_status ON report_instances(status);
@@ -332,17 +416,17 @@ CREATE INDEX idx_report_instances_requested_by ON report_instances(requested_by_
 -- Определения пользовательских сегментов
 CREATE TABLE segment_definitions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL UNIQUE, -- Системное имя сегмента
     display_name_ru VARCHAR(255) NOT NULL,
     display_name_en VARCHAR(255),
     description_ru TEXT,
     description_en TEXT,
-    criteria JSONB NOT NULL, -- {"type": "AND", "conditions": [{"field": "user.total_payments_sum_rub", "operator": ">=", "value": 10000}]}
-    segment_type VARCHAR(50) NOT NULL DEFAULT 'dynamic' CHECK (segment_type IN ('dynamic', 'static')),
-    refresh_schedule VARCHAR(50), -- Для dynamic сегментов, например, '0 4 * * *' (ежедневно в 4 утра)
-    last_calculated_at TIMESTAMPTZ,
-    current_user_count BIGINT,
-    created_by_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+    criteria JSONB NOT NULL, -- Описание критериев сегментации, e.g., {"type": "AND", "conditions": [{"field": "user.total_payments_sum_rub", "operator": ">=", "value": 10000}, {"field": "user.registration_date", "operator": "<", "value": "2023-01-01"}]}
+    segment_type VARCHAR(50) NOT NULL DEFAULT 'dynamic' CHECK (segment_type IN ('dynamic', 'static')), -- dynamic (пересчитываемый), static (фиксированный список user_id)
+    refresh_schedule VARCHAR(50), -- Для dynamic сегментов, расписание пересчета в формате cron
+    last_calculated_at TIMESTAMPTZ, -- Время последнего пересчета
+    current_user_count BIGINT, -- Количество пользователей в сегменте после последнего пересчета
+    created_by_admin_id UUID, -- REFERENCES admin_users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -352,20 +436,20 @@ CREATE INDEX idx_segment_definitions_name ON segment_definitions(name);
 -- Метаданные ML моделей
 CREATE TABLE ml_model_metadata (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    model_name VARCHAR(255) NOT NULL,
-    model_version VARCHAR(50) NOT NULL,
+    model_name VARCHAR(255) NOT NULL, -- Имя модели, e.g., "game_recommendation_als"
+    model_version VARCHAR(50) NOT NULL, -- Версия модели, e.g., "v1.2.3"
     description_ru TEXT,
     description_en TEXT,
-    algorithm VARCHAR(100),
-    hyperparameters JSONB,
-    training_dataset_ref VARCHAR(1024), -- e.g., S3 path or DVC reference
-    performance_metrics JSONB, -- {"auc": 0.85, "f1_score": 0.78, "training_duration_sec": 3600}
-    artifact_path VARCHAR(1024), -- Path to model file in MLflow or S3
+    algorithm VARCHAR(100), -- Алгоритм, e.g., "ALS", "LightGBM"
+    hyperparameters JSONB, -- Гиперпараметры, использованные при тренировке
+    training_dataset_ref VARCHAR(1024), -- Ссылка на датасет для тренировки (e.g., S3 path, DVC reference)
+    performance_metrics JSONB, -- Метрики качества модели, e.g., {"auc": 0.85, "f1_score": 0.78, "training_duration_sec": 3600}
+    artifact_path VARCHAR(1024), -- Путь к артефактам модели (файл модели, веса) в MLflow или S3
     deployment_status VARCHAR(50) NOT NULL DEFAULT 'development' CHECK (deployment_status IN ('development', 'staging', 'production', 'archived', 'failed')),
-    input_schema JSONB, -- Описание ожидаемой структуры входных данных
+    input_schema JSONB, -- Описание ожидаемой структуры входных данных для модели
     output_schema JSONB, -- Описание структуры выходных данных (прогнозов)
-    registered_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    trained_at TIMESTAMPTZ,
+    registered_by_user_id UUID, -- REFERENCES users(id) ON DELETE SET NULL, -- Пользователь, зарегистрировавший модель
+    trained_at TIMESTAMPTZ, -- Время завершения тренировки
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (model_name, model_version)
@@ -376,26 +460,23 @@ CREATE INDEX idx_ml_model_metadata_name_version ON ml_model_metadata(model_name,
 -- Запуски пайплайнов обработки данных
 CREATE TABLE data_pipeline_runs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    pipeline_name VARCHAR(255) NOT NULL,
+    pipeline_name VARCHAR(255) NOT NULL, -- Имя пайплайна (e.g., "daily_user_activity_etl", "ml_recommendation_feature_engineering")
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ,
     status VARCHAR(50) NOT NULL CHECK (status IN ('running', 'completed', 'failed', 'skipped', 'manual_run')),
-    parameters JSONB,
-    logs_summary TEXT, -- Может быть ссылкой на полные логи в S3 или ELK/Loki
-    processed_records_count BIGINT,
-    source_data_start_time TIMESTAMPTZ, -- Для инкрементальных загрузок
-    source_data_end_time TIMESTAMPTZ   -- Для инкрементальных загрузок
+    parameters JSONB, -- Параметры запуска пайплайна
+    logs_summary TEXT, -- Краткое содержание логов или ссылка на полные логи (S3, ELK/Loki)
+    processed_records_count BIGINT, -- Количество обработанных записей
+    source_data_start_time TIMESTAMPTZ, -- Для инкрементальных загрузок: начало временного окна исходных данных
+    source_data_end_time TIMESTAMPTZ   -- Для инкрементальных загрузок: конец временного окна исходных данных
 );
 COMMENT ON TABLE data_pipeline_runs IS 'Информация о запусках пайплайнов обработки данных.';
 CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs(pipeline_name, status, start_time DESC);
 
--- Таблицы admin_users и users предполагаются существующими (возможно, в других БД, доступ через FDW или репликацию для справочников)
--- CREATE TABLE admin_users (id UUID PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL);
--- CREATE TABLE users (id UUID PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL);
+-- {{TODO: Добавить таблицы для хранения конфигураций A/B тестов, если это управляется Analytics Service}}
+-- {{TODO: Рассмотреть необходимость таблиц для хранения определений алертов, если они не управляются внешними системами типа Alertmanager}}
 ```
-
-#### 4.2.2. ClickHouse - DDL Примеры (уточненные)
-
+#### 4.2.2. ClickHouse (DWH) - DDL Примеры
 *   **Таблица фактов: Игровые сессии (пример)**
     ```sql
     CREATE TABLE analytics_db.fact_game_sessions (
@@ -421,7 +502,7 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
     ENGINE = MergeTree()
     PARTITION BY toYYYYMM(event_date)
     ORDER BY (game_id, event_date, user_id, start_timestamp)
-    SETTINGS index_granularity = 8192;
+    SETTINGS index_granularity = 8192, allow_nullable_key = 1; -- allow_nullable_key для Nullable полей в ORDER BY, если есть
     ```
     *Комментарий: Эта таблица агрегирует данные по игровым сессиям. Источником могут быть события начала и конца сессии, либо события активности внутри сессии.*
 
@@ -440,8 +521,9 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
         count(DISTINCT user_id) AS dau_count, -- Количество уникальных активных пользователей
         sum(duration_seconds) AS total_playtime_seconds,
         avg(duration_seconds) AS avg_playtime_seconds,
-        sum(total_ingame_purchases_amount) AS total_revenue_ingame,
-        uniqExact(user_id) AS unique_users_state -- Для использования с AggregatingMergeTree и -State функциями
+        sum(total_ingame_purchases_amount) AS total_revenue_ingame
+        -- Для AggregatingMergeTree можно использовать:
+        -- uniqExactState(user_id) AS unique_users_state -- для последующего использования с uniqExactMerge
     FROM analytics_db.fact_game_sessions
     GROUP BY
         activity_date,
@@ -451,15 +533,64 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
     ```
     *Комментарий: Эта материализованная витрина автоматически агрегирует данные из `fact_game_sessions` для быстрого получения DAU, общего и среднего времени игры, и дохода по играм, странам и платформам.*
 
-#### 4.2.3. S3 Data Lake Структура
-*   Сырые события хранятся в S3-совместимом хранилище.
-*   **Структура (пример):** `s3://<bucket-name>/raw_events/service_name=<service>/event_type=<event_type_fqdn>/year=<YYYY>/month=<MM>/day=<DD>/hour=<HH>/<uuid>.json.gz`
-    *   `service_name`: Имя микросервиса-источника события (например, `account-service`).
-    *   `event_type_fqdn`: Полное имя типа события (например, `com.platform.account.user.registered.v1`).
-    *   Партиционирование по дате (год, месяц, день, час) для эффективных запросов при пакетной обработке.
-    *   Формат файлов: JSON, сжатый GZip (или Parquet/Avro для оптимизации хранения и скорости чтения).
-*   **Артефакты ML моделей:** `s3://<bucket-name>/ml_models/model_name=<model_name>/version=<version>/<artifact_files>`
-*   **Экспорты отчетов:** `s3://<bucket-name>/reports/report_instance_id=<instance_uuid>/<filename>.<format>`
+#### 4.2.3. S3 Data Lake Структура и Схемы
+*   Сырые и обработанные события, а также артефакты ML и экспорты отчетов хранятся в S3-совместимом хранилище.
+*   **Диаграмма структуры S3 (концептуальная):**
+    ```mermaid
+    graph LR
+        S3Bucket["S3 Bucket (Data Lake)"]
+        S3Bucket --> RawEvents["/raw_events/"]
+        RawEvents --> ServiceName["service_name=&lt;service&gt;/"]
+        ServiceName --> EventType["event_type=&lt;event_type_fqdn&gt;/"]
+        EventType --> Year["year=&lt;YYYY&gt;/"]
+        Year --> Month["month=&lt;MM&gt;/"]
+        Month --> Day["day=&lt;DD&gt;/"]
+        Day --> Hour["hour=&lt;HH&gt;/"]
+        Hour --> EventFile["&lt;uuid&gt;.parquet (или .json.gz)"]
+
+        S3Bucket --> ProcessedEvents["/processed_events/"]
+        ProcessedEvents --> ProcessedEventType["event_type=&lt;processed_event_type&gt;/"]
+        ProcessedEventType --> ProcessedYear["year=&lt;YYYY&gt;/"]
+        ProcessedYear --> ProcessedMonth["month=&lt;MM&gt;/"]
+        ProcessedMonth --> ProcessedFile["&lt;uuid_or_batch_id&gt;.parquet"]
+
+        S3Bucket --> MLEvents["/ml_artifacts/"]
+        MLEvents --> ModelName["model_name=&lt;model_name&gt;/"]
+        ModelName --> Version["version=&lt;version&gt;/"]
+        Version --> ArtifactFiles["&lt;artifact_files&gt; (модели, словари)"]
+
+        S3Bucket --> Reports["/reports/"]
+        Reports --> ReportInstance["report_instance_id=&lt;instance_uuid&gt;/"]
+        ReportInstance --> ReportFile["&lt;filename&gt;.&lt;format&gt; (csv, json)"]
+
+        style S3Bucket fill:#f9f,stroke:#333,stroke-width:2px
+        style RawEvents fill:#ccf,stroke:#333,stroke-width:2px
+        style ProcessedEvents fill:#cfc,stroke:#333,stroke-width:2px
+        style MLEvents fill:#fec,stroke:#333,stroke-width:2px
+        style Reports fill:#ffc,stroke:#333,stroke-width:2px
+    ```
+*   **Пример схемы события в Parquet (для `com.platform.library.session.started.v1`):**
+    ```
+    message GameSessionStartedEvent {
+      required binary id (STRING);             // ID события (UUID)
+      required binary type (STRING);           // Тип события (com.platform.library.session.started.v1)
+      required binary source (STRING);         // Источник (library-service)
+      required int64 time (TIMESTAMP_MICROS);  // Время события UTC
+      required binary subject (STRING);        // ID сессии (UUID)
+      optional binary correlationId (STRING);  // ID корреляции (UUID)
+      message Data {
+        required binary userId (STRING);       // ID пользователя (UUID)
+        required binary gameId (STRING);       // ID игры (UUID)
+        required int64 sessionStartTime (TIMESTAMP_MICROS); // Время начала сессии UTC
+        required binary platform (ENUM);     // pc, mobile_android, mobile_ios, web, unknown
+        optional binary clientVersion (STRING);
+        optional binary countryCode (STRING);  // ISO 3166-1 alpha-2
+        // Другие релевантные поля...
+      }
+      required Data data;
+    }
+    ```
+    *Комментарий: Использование Parquet или Avro предпочтительно для типизированного, сжатого и колоночного хранения, что ускоряет обработку в Spark/Flink и запросы из DWH (например, через внешние таблицы ClickHouse).*
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
@@ -546,7 +677,62 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
 *   **Системы визуализации (Grafana):** Для операционных метрик и некоторых аналитических дашбордов.
 
 ## 7. Конфигурация (Configuration)
-Общие стандарты конфигурационных файлов (формат YAML, структура, управление переменными окружения и секретами) определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6). Специфичные для Analytics Service переменные и структура файла `configs/analytics_config.yaml` приведены выше в разделе 4.2.3.
+Общие стандарты конфигурационных файлов (формат YAML, структура, управление переменными окружения и секретами) определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6).
+
+### 7.1. Переменные Окружения (Примеры)
+*   `ANALYTICS_API_HTTP_PORT`: Порт для REST API Analytics Service (например, `8090`).
+*   `POSTGRES_DSN_ANALYTICS_META`: DSN для подключения к PostgreSQL (Metadata Store).
+*   `CLICKHOUSE_HOSTS_ANALYTICS_DWH`: Список хостов ClickHouse (например, `ch1:8123,ch2:8123`).
+*   `CLICKHOUSE_USER_ANALYTICS_DWH`, `CLICKHOUSE_PASSWORD_ANALYTICS_DWH`.
+*   `S3_ENDPOINT_DATALAKE`, `S3_ACCESS_KEY_DATALAKE`, `S3_SECRET_KEY_DATALAKE`, `S3_BUCKET_DATALAKE`.
+*   `KAFKA_BROKERS_ANALYTICS`: Список брокеров Kafka для Analytics Service.
+*   `SPARK_MASTER_URL`: URL Spark Master (если используется).
+*   `FLINK_MASTER_URL`: URL Flink JobManager (если используется).
+*   `MLFLOW_TRACKING_URI`: URI для MLflow Tracking Server.
+*   `LOG_LEVEL_ANALYTICS`: Уровень логирования для компонентов Analytics Service.
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT_ANALYTICS`: Endpoint для Jaeger.
+
+### 7.2. Файлы Конфигурации (`configs/analytics_service_config.yaml` - для API Layer)
+*   Структура (для API Layer, компоненты обработки данных могут иметь свои конфигурационные файлы):
+    ```yaml
+    http_server:
+      port: ${ANALYTICS_API_HTTP_PORT:"8090"}
+      timeout_seconds: 60
+    postgres_metadata:
+      dsn: ${POSTGRES_DSN_ANALYTICS_META}
+      pool_max_conns: 10
+    clickhouse_dwh:
+      hosts: ${CLICKHOUSE_HOSTS_ANALYTICS_DWH} # "host1:port,host2:port"
+      database: "analytics_db"
+      username: ${CLICKHOUSE_USER_ANALYTICS_DWH}
+      password: ${CLICKHOUSE_PASSWORD_ANALYTICS_DWH}
+      # Параметры подключения, таймауты
+    s3_datalake:
+      endpoint: ${S3_ENDPOINT_DATALAKE}
+      access_key: ${S3_ACCESS_KEY_DATALAKE}
+      secret_key: ${S3_SECRET_KEY_DATALAKE}
+      bucket: ${S3_BUCKET_DATALAKE}
+      region: "ru-central1" # Пример
+    kafka:
+      brokers: ${KAFKA_BROKERS_ANALYTICS}
+      # Конфигурации Producer/Consumer для API Layer (если он публикует/читает напрямую)
+      producer_topics:
+        analytics_events: ${KAFKA_TOPIC_ANALYTICS_EVENTS:"com.platform.analytics.events.v1"}
+      consumer_group_api: "analytics-api-group"
+    logging:
+      level: ${LOG_LEVEL_ANALYTICS:"info"}
+      format: "json"
+    security:
+      jwt_public_key_path: ${JWT_PUBLIC_KEY_PATH} # Общий ключ для токенов платформы
+    otel:
+      exporter_jaeger_endpoint: ${OTEL_EXPORTER_JAEGER_ENDPOINT_ANALYTICS}
+      service_name: "analytics-service-api"
+    # Конфигурации для доступа к ML Serving API, если он внешний
+    # ml_serving_api:
+    #   base_url: ${ML_SERVING_API_URL}
+    #   timeout_seconds: 5
+    ```
+*   **Конфигурация для Spark/Flink джобов:** Обычно передается через параметры командной строки при запуске джобы или через файлы конфигурации, специфичные для этих фреймворков (например, `spark-submit --properties-file <path>`).
 
 ## 8. Обработка Ошибок (Error Handling)
 
@@ -664,7 +850,124 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
 *   Детальные JSON схемы для API запросов/ответов будут доступны через публикуемую OpenAPI спецификацию сервиса.
 *   Схемы событий (Avro, Protobuf, или JSON Schema), используемые в Kafka, будут храниться в централизованном реестре схем (Schema Registry) или в общем репозитории артефактов (`platform-protos` или аналогичном).
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
+
+В этом разделе описаны ключевые сценарии использования Analytics Service, демонстрирующие его роль в экосистеме платформы.
+
+### 14.1. Поток Приема Данных для Нового Типа События
+
+*   **Описание:** Разработчик нового микросервиса (или существующего) внедряет отправку нового типа события в Kafka. Analytics Service должен быть сконфигурирован для приема, обработки и сохранения этого нового типа события.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        participant Developer as Разработчик
+        participant NewService as Новый/Обновленный Сервис
+        participant KafkaBus as Kafka Message Bus
+        participant AnalyticsIngestion as Analytics Service (Ingestion Layer)
+        participant DataLakeS3 as S3 Data Lake
+        participant StreamProc as Analytics Service (Stream Processing)
+        participant MetadataDB as Analytics Service (Metadata DB - PostgreSQL)
+        participant Alerting as Система Алертинга
+
+        Developer->>NewService: Внедряет генерацию нового события (например, `com.platform.newfeature.interaction.v1`)
+        Developer->>MetadataDB: (Через UI или API Admin/Analytics) Регистрирует схему нового события, если используется Schema Registry
+        NewService->>KafkaBus: Publish `com.platform.newfeature.interaction.v1` (сообщение)
+
+        AnalyticsIngestion->>KafkaBus: Consume событие (подписка на топик или wildcard)
+        alt Схема события известна и валидна
+            AnalyticsIngestion->>DataLakeS3: Сохранение сырого события (например, в Parquet/JSON.gz)
+            AnalyticsIngestion->>StreamProc: Передача события для потоковой обработки (если применимо)
+            StreamProc->>StreamProc: Обработка события (например, обогащение, агрегация real-time метрик)
+        else Схема неизвестна или невалидна
+            AnalyticsIngestion->>KafkaBus: Отправка события в Dead Letter Queue (DLQ)
+            AnalyticsIngestion->>Alerting: Уведомление о неизвестном/невалидном событии
+        end
+
+        Note over Developer, MetadataDB: Администратор аналитики может настроить правила обработки и агрегации для нового события в MetadataDB.
+    ```
+
+### 14.2. Генерация Отчета "Daily Active Users (DAU)" Аналитиком
+
+*   **Описание:** Аналитик или менеджер продукта запрашивает отчет по DAU за определенный период через API Analytics Service (например, из админ-панели или BI-инструмента).
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Analyst as Аналитик
+        participant ClientTool as BI Tool / Admin Panel
+        participant AnalyticsAPI as Analytics Service (API Layer)
+        participant DWHClickHouse as Data Warehouse (ClickHouse)
+        participant MetadataDB as Analytics Service (Metadata DB - PostgreSQL)
+
+        Analyst->>ClientTool: Запрос отчета DAU (период: последние 7 дней, группировка: по платформе)
+        ClientTool->>AnalyticsAPI: GET /api/v1/analytics/reports/instances (definition_name="dau_report", params={"period_start":"YYYY-MM-DD", "period_end":"YYYY-MM-DD", "group_by":"platform"})
+
+        AnalyticsAPI->>MetadataDB: Загрузка определения отчета "dau_report" (SQL-шаблон, параметры)
+        AnalyticsAPI->>AnalyticsAPI: Формирование SQL-запроса к DWH на основе шаблона и параметров
+        AnalyticsAPI->>DWHClickHouse: Выполнение SQL-запроса (например, SELECT activity_date, platform, dau_count FROM analytics_db.mart_daily_platform_activity_mv WHERE ...)
+        DWHClickHouse-->>AnalyticsAPI: Результаты запроса (агрегированные данные DAU)
+        AnalyticsAPI->>AnalyticsAPI: Форматирование данных в запрошенный формат (JSON/CSV)
+        opt Сохранение экземпляра отчета
+            AnalyticsAPI->>MetadataDB: Сохранение информации об экземпляре отчета
+            AnalyticsAPI->>DataLakeS3: (Если отчет большой) Сохранение файла отчета в S3
+        end
+        AnalyticsAPI-->>ClientTool: HTTP 200 OK (данные отчета или ссылка на файл)
+        ClientTool-->>Analyst: Отображение отчета (графики, таблицы)
+    ```
+
+### 14.3. Тренировка Новой Версии Модели Рекомендаций Игр
+*   **Описание:** Data Scientist запускает пайплайн для тренировки новой версии ML-модели рекомендаций игр, используя свежие данные о поведении пользователей.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor DataScientist as Data Scientist
+        participant Orchestrator as Data Pipeline Orchestrator (Airflow/Prefect)
+        participant BatchProcSpark as Analytics Service (Batch Processing - Spark)
+        participant DataLakeS3 as S3 Data Lake (Features, Model Artifacts)
+        participant DWHClickHouse as DWH (Aggregated Features)
+        participant MLTrainingEnv as ML Training Environment (Python, SparkML)
+        participant MLModelRegistry as ML Model Registry (MLflow)
+        participant MetadataDB as Analytics Service (Metadata DB)
+
+        DataScientist->>Orchestrator: Запуск пайплайна "train_recommendation_model_v2"
+        Orchestrator->>BatchProcSpark: Запуск Spark-джобы для подготовки признаков (feature engineering)
+        BatchProcSpark->>DataLakeS3: Чтение сырых/обработанных данных о поведении пользователей
+        BatchProcSpark->>DWHClickHouse: Чтение агрегированных данных
+        BatchProcSpark->>DataLakeS3: Сохранение набора данных для тренировки (feature store)
+
+        Orchestrator->>MLTrainingEnv: Запуск скрипта тренировки модели (параметры, путь к данным)
+        MLTrainingEnv->>DataLakeS3: Загрузка тренировочных данных
+        MLTrainingEnv->>MLTrainingEnv: Тренировка модели (например, ALS, LightFM)
+        MLTrainingEnv->>MLTrainingEnv: Оценка качества модели (метрики: precision@k, recall@k)
+        MLTrainingEnv->>MLModelRegistry: Регистрация новой версии модели (артефакты, параметры, метрики)
+        MLModelRegistry->>DataLakeS3: Сохранение артефактов модели
+        MLModelRegistry->>MetadataDB: Обновление метаданных о модели (статус, путь к артефактам)
+
+        Orchestrator-->>DataScientist: Уведомление о завершении тренировки (статус, метрики)
+    ```
+
+### 14.4. Получение Системой Алерта на Основе Обнаружения Аномалий
+*   **Описание:** Analytics Service (его компонент потоковой обработки или специальный ML-сервис) обнаруживает аномалию в данных (например, резкое падение количества транзакций) и генерирует алерт.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        participant StreamProcFlink as Analytics Service (Stream Processing - Flink/Kafka Streams)
+        participant AnomalyDetectionSvc as Analytics Service (Anomaly Detection Model/Rules)
+        participant KafkaBus as Kafka Message Bus
+        participant AlertingSystem as Система Алертинга (внешняя или часть Admin Service)
+        participant NotificationSvc as Notification Service
+
+        StreamProcFlink->>StreamProcFlink: Обработка потока событий транзакций
+        StreamProcFlink->>AnomalyDetectionSvc: Передача данных/метрик для анализа (например, количество транзакций в минуту)
+        AnomalyDetectionSvc->>AnomalyDetectionSvc: Обнаружение аномалии (например, значение ниже порога N сигм)
+        AnomalyDetectionSvc->>KafkaBus: Publish `com.platform.analytics.alert.triggered.v1` (alertName="TransactionRateDrop", severity="critical", details)
+
+        KafkaBus->>AlertingSystem: Consume событие алерта
+        AlertingSystem->>AlertingSystem: Регистрация алерта, определение правил эскалации
+        AlertingSystem->>NotificationSvc: Запрос на отправку уведомления (ответственным лицам)
+        NotificationSvc->>NotificationSvc: Отправка уведомлений (Email, SMS, Push)
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
 
 ### 14.1. PostgreSQL (Metadata Store)
 *   **Процедура резервного копирования:**
@@ -711,9 +1014,9 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
 *   Мониторинг процессов резервного копирования.
 *   Общие принципы резервного копирования для различных СУБД описаны в `../../../../project_database_structure.md`.
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
-*   [Генерация аналитического отчета по запросу администратора] <!-- Workflow будет создан и описан в project_workflows/admin_report_generation_flow.md -->
-*   [Процесс тренировки и развертывания ML модели для рекомендаций] <!-- Workflow будет создан и описан в project_workflows/ml_model_training_deployment_flow.md -->
+## 16. Связанные Рабочие Процессы (Related Workflows)
+*   [Генерация аналитического отчета по запросу администратора] <!-- {{TODO: Workflow будет создан и описан в project_workflows/admin_report_generation_flow.md}} -->
+*   [Процесс тренировки и развертывания ML модели для рекомендаций] <!-- {{TODO: Workflow будет создан и описан в project_workflows/ml_model_training_deployment_flow.md}} -->
 
 ---
 *Этот документ является отправной точкой и должен регулярно обновляться по мере развития сервиса.*
