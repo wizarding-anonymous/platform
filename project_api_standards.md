@@ -207,7 +207,6 @@ message User {
 *   **Game:** `id`, `title` (локализовано), `description` (локализовано), `price`, `developer`, `publisher`, `genres`, `tags`.
 *   **Transaction:** `id`, `userId`, `type`, `status`, `amount`, `currency`, `items`.
 *   **Error:** `errors: [ { code, title, detail, source: { pointer } } ]`.
-*   (Более подробные примеры см. в исходном документе "Стандарты API...")
 
 ## 6. Стандарты Событий (Kafka)
 
@@ -235,7 +234,6 @@ message User {
 *   **User Events:** `user.registered`, `user.verified`, `user.updated`, `user.deleted`, `user.logged_in`.
 *   **Game Events:** `game.created`, `game.updated`, `game.published`, `game.price_changed`.
 *   **Payment Events:** `payment.initiated`, `payment.completed`, `payment.failed`.
-*   (Более подробный список см. в исходном документе "Стандарты API...")
 
 ## 7. Стандарты Конфигурационных Файлов
 
@@ -272,7 +270,6 @@ logger:
   level: "info"
   format: "json"
 ```
-*   (Более подробный пример см. в исходном документе "Стандарты API...")
 
 ## 8. Стандарты Инфраструктурных Файлов и CI/CD
 Стандарты для инфраструктурных файлов (Dockerfile, Docker Compose, Kubernetes манифесты) и CI/CD детально описаны в документе `project_deployment_standards.md`.
