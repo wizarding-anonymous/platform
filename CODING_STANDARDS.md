@@ -104,6 +104,21 @@
     ```
     refactor: улучшить читаемость кода в модуле обработки платежей
     ```
+    ```
+    feat(ui): add new login screen for flutter app
+    ```
+    ```
+    fix(profile): correct layout issue on user profile page in flutter
+    ```
+    ```
+    refactor(auth): improve state management for authentication flow in flutter
+    ```
+    ```
+    style(theme): update color palette for flutter app
+    ```
+    ```
+    docs(widget): add documentation for custom button widget in flutter
+    ```
 
 ## 5. API Design
 

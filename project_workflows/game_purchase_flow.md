@@ -1,6 +1,6 @@
 # Game Purchase and Library Update Workflow
 
-This diagram illustrates the sequence of interactions between services when a user purchases a game and it's added to their library. This example assumes a successful payment flow. A more complex Saga pattern might be used for robust error handling and rollbacks, as described in `project_database_structure.md`.
+This diagram illustrates the sequence of interactions between services when a user purchases a game and it's added to their library. This example assumes a successful payment flow, **including interaction with typical Russian payment gateways (like ЮKassa, Tinkoff, SberPay) where `PaymentSvc` might redirect the user or handle API calls, and subsequently process webhooks/callbacks from these providers. The flow also covers the necessary fiscalization steps as per 54-ФЗ.** A more complex Saga pattern might be used for robust error handling and rollbacks, as described in `project_database_structure.md`.
 
 ```mermaid
 sequenceDiagram
@@ -29,8 +29,10 @@ sequenceDiagram
     ClientApp->>APIGW: POST /api/v1/payments/transactions/initiate (payload: order_id, payment_method_type_hint, success_url, fail_url)
     APIGW->>PaymentSvc: Forward POST /transactions/initiate (payload)
 
+    participant PSP as Payment Provider (e.g., ЮKassa, Tinkoff)
     PaymentSvc->>PaymentSvc: Create Transaction record (status: pending_psp_redirect or processing)
-    PaymentSvc->>PaymentSvc: Interact with Payment Provider (PSP)
+    PaymentSvc->>PSP: Interact with Payment Provider (e.g., ЮKassa, Tinkoff, SberPay or other PSP)
+    PSP-->>PaymentSvc: Respond with redirect_url or payment_status
     PaymentSvc-->>APIGW: HTTP 201 Created (transaction_id, status, redirect_url_if_any, psp_sdk_data_if_any)
     APIGW-->>ClientApp: HTTP 201 Created (transaction_id, redirect_url or psp_sdk_data)
 
@@ -61,6 +63,7 @@ sequenceDiagram
 
         KafkaBus-->>PaymentSvc: Consume `payment.transaction.status.updated.v1` (if status is "completed", for fiscalization)
         PaymentSvc->>PaymentSvc: Initiate fiscal receipt generation (integrates with OFD)
+        Note right of PaymentSvc: Fiscalization via ОФД (54-ФЗ)
         PaymentSvc-->>KafkaBus: Publish `payment.fiscal.receipt.status.updated.v1` (status: fiscalized_success/failed)
 
         KafkaBus-->>NotificationSvc: Consume `payment.fiscal.receipt.status.updated.v1` (if fiscalized_success)
@@ -85,5 +88,5 @@ sequenceDiagram
     ClientApp-->>User: Displays updated library
 ```
 
-This diagram shows a common flow. The "Order Service" is conceptual and its responsibilities might be distributed. The use of Kafka events for post-payment processing ensures loose coupling and resilience. Fiscalization is shown as an asynchronous step after successful payment. Developer balance update is also included.
+This diagram shows a common flow. The "Order Service" is conceptual and its responsibilities might be distributed. The use of Kafka events for post-payment processing ensures loose coupling and resilience. **Fiscalization:** After successful payment confirmation, `PaymentSvc` initiates fiscal receipt generation by integrating with an accredited Operator Fiscal Data (ОФД), fulfilling 54-ФЗ requirements. Notifications about the fiscal receipt are then sent to the user. Developer balance update is also included.
 ```

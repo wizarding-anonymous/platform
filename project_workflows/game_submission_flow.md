@@ -9,16 +9,6 @@ sequenceDiagram
     participant APIGW as API Gateway
     participant DevSvc as Developer Service
     participant CatalogSvc as Catalog Service
-    participant UploadSvc as Upload Service (Conceptual - could be part of DevSvc or a separate service for large files)
-    participant KafkaBus as Kafka Message Bus
-    participant AdminSvc as Admin Service
-    participant NotificationSvc as Notification Service
-
-    actor Developer
-    participant DevClientApp as Developer Portal (Client App)
-    participant APIGW as API Gateway
-    participant DevSvc as Developer Service
-    participant CatalogSvc as Catalog Service
     participant KafkaBus as Kafka Message Bus
     participant AdminSvc as Admin Service
     participant NotificationSvc as Notification Service

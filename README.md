@@ -16,7 +16,7 @@
 
 *   **Общепроектная документация:** Находится в корневой директории (например, `project_glossary.md`, `project_api_standards.md`).
 *   **Документация по микросервисам:** Находится в директории `backend/<имя-сервиса>/docs/README.md`.
-*   **Документация по Frontend приложению:** Находится (или будет находиться) в директории `frontend/docs/README.md` (предполагается).
+*   **Документация по Frontend приложению:** Находится в директории `frontend/docs/README.md` (основная документация) и `frontend/README.md` (базовый обзор и запуск).
 
 ## Начало Работы
 
@@ -92,10 +92,10 @@
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./bin/service-name ./cmd/service-name/
     ```
 
-**3. Сборка Flutter-клиента:**
+**3. Сборка Frontend (Flutter):**
 *   Перейдите в директорию клиента:
     ```bash
-    cd frontend/flutter_app/ # Или актуальный путь к клиенту
+    cd frontend/ # Или актуальный путь к клиенту
     ```
 *   Сборка для Android:
     ```bash
@@ -156,10 +156,10 @@
     ```
 *   Может потребоваться указание пути к конфигурационному файлу или передача переменных окружения.
 
-**3. Локальный запуск Flutter-клиента:**
+**3. Локальный запуск Frontend (Flutter):**
 *   Перейдите в директорию клиента:
     ```bash
-    cd frontend/flutter_app/ # Или актуальный путь к клиенту
+    cd frontend/ # Или актуальный путь к клиенту
     ```
 *   Убедитесь, что эмулятор/симулятор или подключенное устройство готово.
 *   Запустите приложение:
@@ -192,22 +192,30 @@
         go test -tags=integration ./...
         ```
 
-##### 1.2. Запуск тестов для Flutter-клиента:
+##### 1.2. Запуск тестов для Frontend (Flutter):
 *   Перейдите в директорию клиента:
     ```bash
-    cd frontend/flutter_app/ # Или актуальный путь к клиенту
+    cd frontend/ # Или актуальный путь к клиенту
     ```
-*   Запуск Unit-тестов:
+*   Запуск всех unit и widget тестов:
     ```bash
     flutter test
     ```
-*   Запуск Widget-тестов:
+*   Пример запуска только unit тестов (если они структурированы в `test/unit_tests/`):
     ```bash
-    flutter test
+    flutter test test/unit_tests/
+    ```
+*   Пример запуска только widget тестов (если они структурированы в `test/widget_tests/`):
+    ```bash
+    flutter test test/widget_tests/
     ```
 *   Запуск интеграционных тестов (требуют эмулятор/устройство):
     ```bash
     flutter test integration_test/
+    ```
+*   Для просмотра отчета о покрытии тестами:
+    ```bash
+    flutter test --coverage && genhtml coverage/lcov.info -o coverage/html # требует установки lcov
     ```
 
 ##### 1.3. Использование Makefile (если предусмотрено):
