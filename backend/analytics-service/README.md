@@ -21,8 +21,8 @@ The Analytics Service is a central component of the Russian Steam analog platfor
 *   Data Processing: Scala, Python, Java; Apache Spark, Kafka Streams/Apache Flink.
 *   Data Storage: ClickHouse (DWH), S3-compatible (Data Lake), PostgreSQL (Metadata).
 *   Messaging: Apache Kafka.
-*   ML: TensorFlow, PyTorch, Scikit-learn, MLflow.
-*   APIs: REST, GraphQL, WebSocket.
+*   ML: Python (TensorFlow, PyTorch, Scikit-learn), MLflow.
+*   Primary API Layer: Go (Echo/Gin) or Java (Spring Boot) - (Exposes REST, potential for GraphQL/WebSocket)
 
 ## Integrations (Summary)
 
