@@ -24,86 +24,114 @@ graph TD
     APIGateway --> DeveloperService[Developer Service]
     APIGateway --> AdminService[Admin Service]
     APIGateway --> AnalyticsService[Analytics Service]
-    APIGateway --> NotificationService[Notification Service]
+    APIGateway -.-> NotificationService # API Gateway может проксировать WebSocket для In-App уведомлений или Notification Service использует свой путь/клиентскую библиотеку для WebSocket
 
-    AuthService <--> AccountService
-    AuthService <--> PaymentService
-    AuthService <--> DeveloperService
-    AuthService <--> AdminService
+    # Взаимодействия Auth Service (вызовы gRPC от других, публикация событий)
+    AuthService -- gRPC & Events --> AccountService
+    AuthService -- gRPC --> PaymentService # Для проверки статуса пользователя, получения данных для платежа и т.д.
+    AuthService -- gRPC --> DeveloperService # Аутентификация разработчиков
+    AuthService -- gRPC --> AdminService # Аутентификация администраторов
+    AuthService -- gRPC --> LibraryService # Валидация токена пользователя
+    AuthService -- gRPC --> DownloadService # Валидация токена пользователя
+    AuthService -- gRPC --> SocialService # Валидация токена пользователя
+    AuthService -- Events --> NotificationService # События: регистрация, смена пароля, запрос 2FA и т.д.
 
-    AccountService <--> SocialService
-    AccountService <--> LibraryService
-    AccountService <--> PaymentService
-    AccountService <--> DeveloperService
-    AccountService <--> AdminService
-    AccountService --> AnalyticsService
-    AccountService --> NotificationService
+    # Взаимодействия Account Service (вызовы gRPC от других, публикация событий)
+    AccountService -- gRPC & Events --> SocialService # Обновление данных профиля в Social Service
+    AccountService -- gRPC & Events --> LibraryService # Передача настроек пользователя для библиотеки
+    AccountService -- gRPC --> PaymentService # Предоставление данных пользователя для платежных операций
+    AccountService -- gRPC --> DeveloperService # Связь пользователя с аккаунтом разработчика
+    AccountService -- gRPC --> AdminService # Управление аккаунтами пользователей
+    AccountService -- Events --> AnalyticsService # События об изменениях данных аккаунтов
+    AccountService -- Events --> NotificationService # События для уведомлений (например, подтверждение email, изменение настроек)
 
-    CatalogService <--> LibraryService
-    CatalogService <--> DownloadService
-    CatalogService <--> PaymentService
-    CatalogService <--> DeveloperService
-    CatalogService <--> AdminService
-    CatalogService --> AnalyticsService
+    # Взаимодействия Catalog Service (вызовы gRPC от других, публикация событий)
+    CatalogService -- gRPC & Events --> LibraryService # Информация о продуктах для формирования библиотеки
+    CatalogService -- gRPC & Events --> DownloadService # Манифесты файлов, информация о версиях продуктов
+    CatalogService -- gRPC --> PaymentService # Актуальные цены, скидки для формирования заказа
+    CatalogService -- gRPC & Events --> DeveloperService # Управление продуктами, поданными разработчиками
+    CatalogService -- gRPC & Events --> AdminService # Модерация каталога, управление глобальными категориями
+    CatalogService -- Events --> AnalyticsService # События об изменениях в каталоге, популярности продуктов
+    CatalogService -- Events --> SocialService # Информация о продуктах для отзывов, обсуждений, лент активности
+    CatalogService -- Events --> NotificationService # События о новых релизах, скидках (для Wishlist и др.)
 
-    LibraryService <--> DownloadService
-    LibraryService <--> SocialService
-    LibraryService <--> AdminService
-    LibraryService --> AnalyticsService
-    LibraryService --> NotificationService
+    # Взаимодействия Library Service (вызовы gRPC от других, публикация событий)
+    LibraryService -- gRPC --> DownloadService # Инициация загрузки, проверка статуса установки продукта
+    LibraryService -- Events --> SocialService # События об игровой активности (получение достижений, время в игре)
+    LibraryService -- gRPC & Events --> AdminService # Управление библиотеками пользователей (административные функции)
+    LibraryService -- Events --> AnalyticsService # Статистика использования библиотеки, игрового времени
+    LibraryService -- Events --> NotificationService # Уведомления (например, игра из списка желаемого теперь в продаже)
 
-    DownloadService <--> DeveloperService
-    DownloadService <--> AdminService
-    DownloadService --> AnalyticsService
-    DownloadService --> NotificationService
+    # Взаимодействия Download Service (вызовы gRPC от других, публикация событий)
+    DownloadService -- gRPC --> CatalogService # Запрос метаданных файлов, информации о CDN (если не получено через событие)
+    DownloadService -- gRPC --> DeveloperService # (Редко, информация о билдах обычно идет через Catalog Service по запросу Developer Service)
+    DownloadService -- gRPC & Events --> AdminService # Управление загрузками, просмотр статистики (административные функции)
+    DownloadService -- Events --> AnalyticsService # Статистика загрузок (скорость, объемы, ошибки)
+    DownloadService -- Events --> LibraryService # Обновление статуса установки игры в библиотеке пользователя
+    DownloadService -- Events --> NotificationService # Уведомления о статусе загрузок (начало, завершение, ошибка)
 
-    PaymentService <--> DeveloperService
-    PaymentService <--> AdminService
-    PaymentService --> AnalyticsService
-    PaymentService --> NotificationService
+    # Взаимодействия Payment Service (вызовы gRPC от других, публикация событий)
+    PaymentService -- Events --> DeveloperService # Уведомления о статусах выплат, формирование финансовых отчетов для разработчиков
+    PaymentService -- gRPC & Events --> AdminService # Управление транзакциями, возвратами, просмотр фин. отчетности (административные функции)
+    PaymentService -- Events --> AnalyticsService # Финансовая аналитика (объемы продаж, возвратов, комиссии)
+    PaymentService -- Events --> LibraryService # Уведомление об успешной покупке для добавления продукта в библиотеку
+    PaymentService -- Events --> NotificationService # Уведомления пользователям о платежах, возвратах, фискальных чеках
 
-    SocialService <--> AdminService
-    SocialService --> AnalyticsService
-    SocialService --> NotificationService
+    # Взаимодействия Social Service (вызовы gRPC от других, публикация событий)
+    SocialService -- gRPC & Events --> AdminService # Модерация пользовательского контента (UGC), управление сообществами
+    SocialService -- Events --> AnalyticsService # Социальная аналитика (активность пользователей, граф связей, популярность контента)
+    SocialService -- Events --> NotificationService # Уведомления пользователям (новые сообщения, запросы в друзья, активность в группах и т.д.)
 
-    DeveloperService <--> AdminService
-    DeveloperService --> AnalyticsService
-    DeveloperService --> NotificationService
+    # Взаимодействия Developer Service (вызовы gRPC от других, публикация событий)
+    DeveloperService -- gRPC & Events --> AdminService # Модерация игр и контента разработчиков
+    DeveloperService -- Events --> AnalyticsService # Аналитика по играм и продажам для разработчиков
+    DeveloperService -- Events --> NotificationService # Уведомления для разработчиков (статус модерации, новые отзывы, финансовые отчеты)
 
-    AdminService <--> AnalyticsService
-    AdminService <--> NotificationService
+    # Взаимодействия Admin Service (вызовы gRPC от других, публикация событий)
+    AdminService -- gRPC --> AnalyticsService # Запросы на формирование специфичных отчетов для администрирования
+    AdminService -- gRPC & Events --> NotificationService # Отправка системных и административных уведомлений
 
-    AnalyticsService --> NotificationService # Для алертов и отчетов, возможно
+    # Взаимодействия Analytics Service (публикация событий)
+    AnalyticsService -- Events --> NotificationService # Для системных алертов по метрикам и уведомлений о готовности отчетов
 ```
+*Примечание: На диаграмме показаны основные направления взаимодействий. `Events` обозначает асинхронное взаимодействие через Kafka (публикация/потребление событий). `gRPC` и `REST` (подразумевается для вызовов через API Gateway к сервисам, либо прямые вызовы между сервисами, где указано) обозначают синхронные вызовы API. Двойная стрелка `<-->` не используется для упрощения, но многие взаимодействия по своей природе могут быть двунаправленными (например, запрос-ответ или взаимная подписка на события).*
+
 
 ### 2.2. Матрица Интеграций (Типы взаимодействия)
 
-| Микросервис        | API Gateway | Auth         | Account      | Catalog      | Library      | Download     | Payment      | Social       | Developer    | Admin        | Analytics    | Notification |
-|--------------------|-------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|--------------|
-| **API Gateway**    | -           | REST         | REST         | REST         | REST         | REST         | REST         | REST         | REST         | REST         | REST         | WebSocket    |
-| **Auth Service**   | REST        | -            | REST, Events | -            | -            | -            | REST         | -            | REST         | REST         | -            | -            |
-| **Account Service**| REST        | REST, Events | -            | -            | REST         | -            | REST         | REST         | REST         | REST         | Events       | Events       |
-| **Catalog Service**| REST        | -            | -            | -            | REST         | REST         | REST         | -            | REST         | REST         | Events       | -            |
-| **Library Service**| REST        | -            | REST         | REST         | -            | REST         | -            | REST         | -            | REST         | Events       | Events       |
-| **Download Service**| REST       | -            | -            | REST         | REST         | -            | -            | -            | REST         | REST         | Events       | Events       |
-| **Payment Service**| REST        | REST         | REST         | REST         | -            | -            | -            | -            | REST         | REST         | Events       | Events       |
-| **Social Service** | REST        | -            | REST         | -            | REST         | -            | -            | -            | -            | REST         | Events       | Events       |
-| **Developer Service**| REST      | REST         | REST         | REST         | -            | REST         | REST         | -            | -            | REST         | Events       | Events       |
-| **Admin Service**  | REST        | REST         | REST         | REST         | REST         | REST         | REST         | REST         | REST         | -            | REST         | REST         |
-| **Analytics Service**| REST      | -            | Events       | Events       | Events       | Events       | Events       | Events       | Events       | REST         | -            | -            |
-| **Notification Service**| WebSocket| -          | Events       | -            | Events       | Events       | Events       | Events       | Events       | REST         | -            | -            |
+| Микросервис Источник | Потребитель: API Gateway | Потребитель: Auth Svc | Потребитель: Account Svc | Потребитель: Catalog Svc | Потребитель: Library Svc | Потребитель: Download Svc | Потребитель: Payment Svc | Потребитель: Social Svc | Потребитель: Developer Svc | Потребитель: Admin Svc | Потребитель: Analytics Svc | Потребитель: Notification Svc |
+|-----------------------|--------------------------|-----------------------|--------------------------|--------------------------|--------------------------|---------------------------|--------------------------|-------------------------|----------------------------|------------------------|----------------------------|-------------------------------|
+| **API Gateway**       | -                        | REST/gRPC             | REST                     | REST                     | REST                     | REST                      | REST                     | REST/WebSocket          | REST                       | REST                   | REST                       | WebSocket (через WS Gateway)|
+| **Auth Service**      | REST/gRPC                | -                     | Events, gRPC/REST        | -                        | gRPC                     | gRPC                      | gRPC/REST                | gRPC                    | gRPC/REST                  | gRPC/REST              | -                          | Events                        |
+| **Account Service**   | REST                     | Events, gRPC/REST     | -                        | -                        | gRPC, Events             | -                         | gRPC                     | gRPC, Events            | gRPC                       | gRPC/REST              | Events                     | Events                        |
+| **Catalog Service**   | REST                     | -                     | -                        | -                        | gRPC, Events             | gRPC, Events              | gRPC                     | Events                  | gRPC, Events               | gRPC/REST, Events      | Events                     | Events                        |
+| **Library Service**   | REST                     | gRPC                  | gRPC, Events             | gRPC, Events             | -                        | gRPC, Events              | Events                   | Events                  | -                          | gRPC/REST, Events      | Events                     | Events                        |
+| **Download Service**  | REST                     | gRPC                  | -                        | gRPC, Events             | gRPC, Events             | -                         | -                        | -                       | gRPC, Events               | gRPC/REST, Events      | Events                     | Events                        |
+| **Payment Service**   | REST                     | gRPC                  | gRPC                     | gRPC                     | Events                   | -                         | -                        | -                       | Events                     | gRPC/REST, Events      | Events                     | Events                        |
+| **Social Service**    | REST/WebSocket           | gRPC                  | gRPC, Events             | Events                   | Events                   | -                         | -                        | -                       | -                          | gRPC/REST, Events      | Events                     | Events                        |
+| **Developer Service** | REST                     | gRPC                  | gRPC                     | gRPC, Events             | -                        | gRPC, Events              | Events                   | -                       | -                          | gRPC/REST, Events      | Events                     | Events                        |
+| **Admin Service**     | REST                     | gRPC                  | gRPC, Events             | gRPC, Events             | gRPC, Events             | gRPC, Events              | gRPC, Events             | gRPC, Events            | gRPC, Events               | -                      | gRPC/REST              | REST, Events                  |
+| **Analytics Service** | REST                     | -                     | Events                   | Events                   | Events                   | Events                    | Events                   | Events                  | Events                     | gRPC/REST              | -                          | Events                        |
+| **Notification Svc**  | WebSocket (через WS Gtw) | Events                | Events                   | Events                   | Events                   | Events                    | Events                   | Events                  | Events                     | REST, Events           | Events                     | -                             |
 
-*(Источник: Аудит интеграций между микросервисами.txt)*
+*Примечание: Данная матрица предоставляет упрощенный обзор основных типов взаимодействия. Многие сервисы используют несколько типов интеграции друг с другом (например, REST API для синхронных запросов, Kafka для асинхронных событий). Обратитесь к документации каждого конкретного микросервиса для получения полной информации о его интеграциях.*
+
+*(Источник: Аудит интеграций между микросервисами.txt и обновленные спецификации сервисов)*
 
 ### 2.3. Примеры Детальных Интеграций (Резюме)
 
-*   **API Gateway → Auth Service:** Проксирование запросов аутентификации, валидация JWT, обновление токенов.
-*   **Auth Service → Account Service:** Создание профиля пользователя при регистрации (через REST API или событие `user.registered`).
-*   **Catalog Service → Payment Service:** Предоставление актуальных цен и скидок для формирования заказов.
-*   **Library Service → Download Service:** Проверка прав доступа к игре для начала загрузки.
-*   **Notification Service ← (Другие сервисы):** Получение событий от многих сервисов (Account, Auth, Library, Payment, Social, etc.) для отправки уведомлений пользователям.
+*   **API Gateway → Любой сервис:** Проксирование REST/WebSocket запросов. Для gRPC может использоваться прямое обращение от сервиса к сервису или через gRPC-шлюз, интегрированный с API Gateway.
+*   **API Gateway → Auth Service:** Проксирование запросов аутентификации (`/login`, `/register`, `/refresh-token`). Валидация JWT на уровне Gateway (запрос ключей JWKS у Auth Service или использование плагина, который делает это).
+*   **Auth Service → Account Service:** После успешной регистрации пользователя (событие `auth.user.registered.v1`), Account Service создает соответствующий аккаунт и профиль.
+*   **Order Service (концептуальный) / Client App → Payment Service:** При оформлении заказа, Order Service или клиентское приложение инициирует платеж через Payment Service (`POST /transactions/initiate`). Payment Service взаимодействует с внешними платежными шлюзами.
+*   **Payment Service → Library Service & Notification Service:** После успешной оплаты (событие `payment.transaction.status.updated.v1` со статусом `completed`), Library Service предоставляет доступ к купленному продукту, а Notification Service отправляет подтверждение и фискальный чек.
+*   **Catalog Service → Elasticsearch (в рамках Catalog Service):** При обновлении данных о продукте, Catalog Service обновляет соответствующий индекс в Elasticsearch для обеспечения актуальности поиска.
+*   **Developer Service → Catalog Service:** При подаче игры на модерацию (`developer.game.submitted.v1`), Developer Service передает метаданные в Catalog Service для создания/обновления записи о продукте.
+*   **Admin Service → (Многие сервисы):** Admin Service может напрямую вызывать gRPC/REST API других сервисов для выполнения административных действий (например, блокировка пользователя в Account Service, изменение статуса модерации продукта в Catalog Service).
+*   **Любой сервис → Notification Service (через Kafka):** Большинство сервисов публикуют события, на которые подписан Notification Service для отправки уведомлений пользователям (например, `social.new_message.v1`, `library.achievement.unlocked.v1`).
+*   **Любой сервис → Analytics Service (через Kafka):** Большинство сервисов публикуют события, релевантные для сбора аналитики (например, `payment.transaction.status.updated.v1`, `catalog.product.viewed.v1` (гипотетическое), `social.friend.request.accepted.v1`).
 
-*(Более детальный анализ каждой пары интеграций должен быть представлен в спецификациях соответствующих микросервисов. См. также "Аудит интеграций между микросервисами.txt" для анализа несоответствий и рекомендаций на момент аудита).*
+*(Более детальный анализ каждой пары интеграций представлен в спецификациях соответствующих микросервисов).*
 
 ## 3. Интеграция с Flutter-клиентом
 

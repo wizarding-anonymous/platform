@@ -1,20 +1,31 @@
-# [Service Name: notification-service]
+# Notification Service (Сервис Уведомлений)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for notification-service].
+Notification Service централизованно управляет отправкой всех типов уведомлений (транзакционных, системных, маркетинговых) пользователям платформы "Российский Аналог Steam" через различные каналы доставки.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for notification-service]
+*   Многоканальная доставка уведомлений: Email, Push (FCM/APNS), SMS, In-App.
+*   Управление шаблонами уведомлений, пользовательскими предпочтениями и подписками.
+*   Поддержка маркетинговых кампаний, включая сегментацию и планирование.
+*   Отслеживание статусов доставки и сбор статистики по взаимодействию с уведомлениями.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for notification-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST (Echo/Gin), gRPC (опционально)
+*   **Очереди сообщений:** Apache Kafka (основной канал для запросов на отправку)
+*   **Базы данных:** PostgreSQL (метаданные, шаблоны, предпочтения), ClickHouse (статистика)
+*   **Кэширование:** Redis (предпочтения, шаблоны, счетчики)
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for notification-service]
+*   **Все микросервисы платформы:** Являются источниками событий для инициирования уведомлений (через Kafka).
+*   **Account Service:** Получение контактных данных и предпочтений пользователей.
+*   **Analytics Service:** Получение сегментов для маркетинговых кампаний и отправка статистики.
+*   **API Gateway:** Маршрутизация REST API запросов и, возможно, управление WebSocket для In-App.
+*   **Внешние провайдеры:** SendGrid/Mailgun (Email), FCM/APNS (Push), SMS-шлюзы.
+*   **WebSocket Gateway:** Для доставки In-App уведомлений.

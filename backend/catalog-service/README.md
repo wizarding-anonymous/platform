@@ -1,21 +1,33 @@
-# [Service Name: catalog-service]
+# Catalog Service (Микросервис Каталога Продуктов)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for catalog-service].
+Catalog Service является центральным компонентом платформы "Российский Аналог Steam", отвечающим за управление всей информацией о цифровых продуктах, включая игры, DLC, программное обеспечение и их метаданные.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
-Note: When defining service functionality, ensure alignment with the overall project scope outlined in the main project `README.md`, particularly regarding out-of-scope features.
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
+Примечание: При определении функциональности сервиса обеспечивается соответствие общему объему проекта, изложенному в основном `README.md` проекта, особенно в отношении функций, выходящих за рамки.
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for catalog-service]
+*   Управление жизненным циклом и метаданными продуктов (игры, DLC, ПО, комплекты), включая локализованные названия и описания.
+*   Управление ценообразованием (базовые/региональные цены, скидки, акции) и таксономией (жанры, теги, категории).
+*   Предоставление API для полнотекстового поиска, фильтрации и навигации по каталогу продуктов.
+*   Управление медиа-контентом (скриншоты, трейлеры) и метаданными достижений.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for catalog-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST (Echo), gRPC
+*   **Базы данных:** PostgreSQL (основное хранилище), Elasticsearch (поиск), Redis (кэширование)
+*   **Сообщения/События:** Apache Kafka
+*   **Архитектурные подходы:** Clean Architecture, CQRS
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for catalog-service]
+*   **API Gateway:** Проксирование запросов, аутентификация/авторизация.
+*   **Developer Service:** Управление продуктами со стороны разработчиков.
+*   **Admin Service:** Модерация контента и управление глобальными настройками каталога.
+*   **Payment Service:** Получение актуальных цен для оформления заказов.
+*   **Library Service, Download Service:** Предоставление метаданных продуктов.
+*   **Analytics Service:** Обмен данными о продуктах и их использовании.
+*   **Auth Service:** Валидация токенов и прав доступа.

@@ -1,20 +1,30 @@
-# [Service Name: auth-service]
+# Auth Service (Микросервис Аутентификации и Авторизации)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for auth-service].
+Auth Service является центральным компонентом платформы "Российский Аналог Steam", отвечающим за управление идентификацией пользователей, аутентификацию, авторизацию и обеспечение безопасности доступа к ресурсам платформы.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for auth-service]
+*   Регистрация пользователей, аутентификация (логин/пароль, 2FA, OAuth 2.0/OIDC), управление паролями.
+*   Управление жизненным циклом JWT (Access и Refresh токены) и сессиями пользователей.
+*   Предоставление механизмов авторизации на основе ролей (RBAC) и управление API ключами.
+*   Аудит событий безопасности и базовая защита от несанкционированного доступа.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for auth-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST (Gin), gRPC
+*   **Базы данных:** PostgreSQL (основное хранилище), Redis (кэш сессий, временные данные, rate limiting)
+*   **Сообщения/События:** Apache Kafka
+*   **Безопасность:** JWT (RS256), Argon2id (хеширование паролей)
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for auth-service]
+*   **API Gateway:** Валидация токенов и проксирование запросов.
+*   **Account Service:** Координация при регистрации и обновлении профиля пользователя.
+*   **Notification Service:** Отправка email/SMS для верификации, 2FA и уведомлений.
+*   **Admin Service:** Управление пользователями и ролями через административный интерфейс.
+*   **Другие микросервисы платформы:** Предоставление gRPC API для проверки токенов и прав доступа.

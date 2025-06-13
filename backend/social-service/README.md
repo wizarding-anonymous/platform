@@ -1,21 +1,35 @@
-# [Service Name: social-service]
+# Social Service (Социальный Сервис)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for social-service].
+Social Service отвечает за все социальные взаимодействия на платформе "Российский Аналог Steam", включая управление профилями пользователей, дружбу, группы, чаты, ленты активности, отзывы и форумы.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
-Note: When defining service functionality, ensure alignment with the overall project scope outlined in the main project `README.md`, particularly regarding out-of-scope features like marketplace or extensive user-generated content sharing beyond basic social interactions.
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
+Примечание: При определении функциональности сервиса обеспечивается соответствие общему объему проекта, изложенному в основном `README.md` проекта, особенно в отношении функций, выходящих за рамки (например, торговая площадка или расширенный обмен пользовательским контентом, выходящий за рамки базовых социальных взаимодействий).
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for social-service]
+*   Управление расширенными профилями пользователей, списками друзей и настройками приватности.
+*   Поддержка создания и управления группами по интересам, включая объявления и обсуждения.
+*   Обеспечение обмена личными и групповыми сообщениями (чаты) в реальном времени.
+*   Формирование персонализированной ленты активности и предоставление возможности оставлять отзывы и комментарии.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for social-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go (предположительно для API)
+*   **API:** REST (Echo/Gin), gRPC (внутреннее), WebSocket (чаты, real-time обновления)
+*   **Базы данных:**
+    *   PostgreSQL (профили, группы, форумы, отзывы)
+    *   Apache Cassandra (чаты, ленты активности)
+    *   Neo4j (социальный граф друзей)
+    *   Redis (кэш, онлайн-статусы, сессии WebSocket)
+*   **Сообщения/События:** Apache Kafka
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for social-service]
+*   **Account Service & Auth Service:** Для информации о пользователях и аутентификации.
+*   **Library Service:** Для отображения игровой активности и достижений в профилях и лентах.
+*   **Catalog Service:** Для связи отзывов и обсуждений с конкретными играми/продуктами.
+*   **Notification Service:** Для отправки уведомлений о социальных событиях (новые сообщения, запросы в друзья и т.д.).
+*   **Admin Service:** Для модерации пользовательского контента.
+*   **API Gateway:** Маршрутизация клиентских запросов и управление WebSocket соединениями.

@@ -21,7 +21,7 @@ This section will be populated based on the primary programming language(s) used
 **(Example for Node.js/TypeScript - Replace/Adapt as needed)**
 
 ### 2.1. Node.js / TypeScript
-
+*   **TODO: This section is an example and should be removed or replaced if Node.js is not a primary backend language. The project currently focuses on Go, with potential Java/Kotlin and Python for specific services.**
 *   **HTTP Client:**
     *   **`axios`**: Promise-based HTTP client for the browser and node.js. Widely used, feature-rich, and well-documented.
     *   *Alternative:* `node-fetch` (for a more lightweight, standard Fetch API experience).
@@ -54,6 +54,60 @@ This section will be populated based on the primary programming language(s) used
 
 ---
 **(End of Node.js/TypeScript Example)**
+
+### 2.2. Go
+*   **HTTP Framework (REST APIs):**
+    *   **`Echo` (`github.com/labstack/echo/v4`)**: High performance, extensible, minimalist Go web framework. (Used consistently across multiple service docs).
+    *   *Alternative:* `Gin` (`github.com/gin-gonic/gin`) (Also mentioned, similar performance and features).
+*   **gRPC Implementation:**
+    *   **`google.golang.org/grpc`**: Official gRPC library for Go.
+    *   **`google.golang.org/protobuf/cmd/protoc-gen-go`**: Protobuf compiler plugin for Go.
+*   **Logging:**
+    *   **`Zap` (`go.uber.org/zap`)**: Blazing fast, structured, leveled logging in Go. (Used consistently).
+    *   *Alternative:* `Logrus` (`github.com/sirupsen/logrus`) (Popular, but Zap preferred for performance in many new projects).
+*   **Configuration Management:**
+    *   **`Viper` (`github.com/spf13/viper`)**: Go configuration with fangs. Supports multiple formats, environment variables, remote config. (Mentioned in service docs).
+*   **Database Interaction (PostgreSQL):**
+    *   **`GORM` (`gorm.io/gorm`)** with `gorm.io/driver/postgres`: Developer-friendly ORM. (Mentioned as primary or option in several services).
+    *   **`pgx` (`github.com/jackc/pgx/v5`)**: Low-level PostgreSQL driver and toolkit. Often used with `sqlx` or directly for performance. (Mentioned as alternative/option).
+    *   **`sqlx` (`github.com/jmoiron/sqlx`)**: General purpose SQL extension package.
+    *   **Миграции:** `golang-migrate/migrate` (`github.com/golang-migrate/migrate/v4`).
+*   **Caching Client (Redis):**
+    *   **`go-redis` (`github.com/redis/go-redis/v9`)**: High-performance Redis client for Go.
+*   **Message Queue Client (Kafka):**
+    *   **`confluent-kafka-go` (`github.com/confluentinc/confluent-kafka-go`)**: Confluent's Go client for Apache Kafka. (Mentioned in service docs).
+    *   *Alternative:* `Shopify/sarama` (`github.com/Shopify/sarama`) (Another popular Go client for Kafka).
+*   **UUID Generation:**
+    *   **`gofrs/uuid` (`github.com/gofrs/uuid`)** or **`google/uuid` (`github.com/google/uuid`)**: For creating RFC 4122 UUIDs.
+*   **Validation:**
+    *   **`go-playground/validator/v10` (`github.com/go-playground/validator/v10`)**: Package validator implements value validations for structs and individual fields based on tags.
+*   **Testing:**
+    *   Standard `testing` package.
+    *   **`testify` (`github.com/stretchr/testify`)**: Toolkit with `assert`, `require`, and `mock` packages.
+    *   **`testcontainers-go` (`github.com/testcontainers/testcontainers-go`)**: For integration testing with real dependencies in Docker containers.
+*   **OpenTelemetry (Observability):**
+    *   `go.opentelemetry.io/otel` (API & SDK)
+    *   `go.opentelemetry.io/otel/exporters/jaeger` or `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc`
+    *   `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc`
+    *   `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp`
+
+### 2.3. Java/Kotlin (Spring Boot ecosystem - for Payment Service, potentially Notification)
+*   **HTTP Client:**
+    *   **`Spring RestTemplate`** or **`WebClient`** (non-blocking).
+*   **Logging:**
+    *   **SLF4J with Logback/Log4j2** (standard in Spring Boot).
+*   **Database Interaction (PostgreSQL):**
+    *   **Spring Data JPA** with Hibernate.
+*   **Caching Client (Redis):**
+    *   **Spring Data Redis** with Lettuce or Jedis.
+*   **Message Queue Client (Kafka):**
+    *   **Spring Kafka**.
+*   **Testing:**
+    *   **JUnit 5, Mockito, Spring Boot Test**.
+*   **OpenTelemetry (Observability):**
+    *   OpenTelemetry Java SDK and auto-instrumentation agent.
+
+---
 
 ## 3. Process for Adding New Standard Packages
 
