@@ -35,6 +35,9 @@ This document outlines the guidelines and processes for maintaining the document
     *   Code comments and identifiers should follow `CODING_STANDARDS.md` (typically English for code elements, Russian for detailed comments).
 *   **Tone:** Clear, concise, and professional. Avoid jargon where possible or explain it in the `project_glossary.md`.
 *   **Formatting:** Use Markdown. Ensure readability with proper headings, lists, code blocks, and diagrams.
+*   **Scope Clarity:**
+    *   Project and service-level documentation should clearly define the scope of implemented and planned functionality.
+    *   Explicitly mention major features or areas that are considered out-of-scope if they are commonly associated with similar platforms, to manage expectations. For example, as noted in the main project `README.md`.
 *   **Microservice Documentation:**
     *   All microservices **must** use the `standard_microservice_template.md` as the basis for their detailed documentation in `backend/<service-name>/docs/README.md`.
     *   The root `backend/<service-name>/README.md` should provide a brief overview and a link to the detailed `docs/README.md`.
@@ -65,4 +68,91 @@ This document outlines the guidelines and processes for maintaining the document
 *   If information from an archived document is still relevant, it should be migrated to an active document and the archived version clearly marked as obsolete.
 
 By following these guidelines, we aim to maintain a high-quality, reliable, and useful set of documentation for the project.
+
+## 6. Configuration Management Strategy
+
+Effective configuration management is essential for deploying and running microservices reliably across different environments. This section outlines the standard approach to managing configuration within the project.
+
+### 6.1. Naming Conventions and Formats
+*   **Preferred Format:** JSON (`.json`) is the preferred format for configuration files due to its widespread support and readability. Environment variables can also be used, especially for sensitive data or settings that vary frequently between deployment environments.
+*   **Default File Name:** Each microservice should include a default configuration file named `config.default.json` or `config.example.json` in its root directory. This file should contain all possible configuration keys with non-sensitive default values suitable for local development or as a template.
+*   **Environment-Specific Files:** For different environments (development, testing, staging, production), configurations can be managed by:
+    *   Using environment variables to override defaults.
+    *   Employing environment-specific configuration files (e.g., `config.dev.json`, `config.prod.json`) that are loaded based on an environment indicator (like `NODE_ENV` or a custom environment variable). **These environment-specific files (especially those with secrets) should NOT be committed to version control.** Add them to the service's `.gitignore` file.
+*   **Hierarchy:** Applications should load the `config.default.json` first, then override values with an environment-specific file if it exists, and finally override with any relevant environment variables.
+
+### 6.2. Handling Secrets
+*   **Never commit secrets** (API keys, database passwords, etc.) directly into configuration files in the repository.
+*   Use environment variables for secrets, injected at deployment time (e.g., via CI/CD pipeline, Kubernetes Secrets, Docker Swarm Secrets).
+*   Alternatively, use a dedicated secrets management tool (e.g., HashiCorp Vault). If such a tool is adopted, its usage should be documented here.
+*   The `config.default.json` or `config.example.json` should use placeholder values for secrets (e.g., `"apiKey": "YOUR_API_KEY_HERE"`).
+
+### 6.3. Configuration Schema and Validation
+*   While not strictly enforced by a central tool yet, it is highly recommended that each microservice:
+    *   Clearly documents its expected configuration schema in its `docs/README.md`.
+    *   Implements validation logic at startup to ensure all required configurations are present and correctly formatted. The service should fail to start if critical configurations are missing or invalid.
+
+### 6.4. Example Configuration Structure (Illustrative)
+A `config.default.json` for a typical microservice might look like this:
+
+```json
+{
+  "serviceName": "my-awesome-service",
+  "port": 3000,
+  "logLevel": "info",
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "user",
+    "password": "POSTGRES_PASSWORD_ENV_VAR", // Indicates this should come from an env var
+    "dbName": "mydb"
+  },
+  "externalApiService": {
+    "url": "https://api.externalservice.com/v1",
+    "apiKey": "EXTERNAL_API_KEY_ENV_VAR" // Indicates this should come from an env var
+  },
+  "featureFlags": {
+    "newSearchAlgorithmEnabled": false
+  }
+}
 ```
+
+### 6.5. Microservice Configuration Templates
+*   Each microservice, when created, should include a `config.default.json` (or `config.example.json`) in its root directory, reflecting the necessary configuration keys for that service.
+*   A `.gitignore` file within each microservice should list environment-specific config files like `config.dev.json`, `config.prod.json`, `*.local.json`, `.env` to prevent accidental commits of sensitive or environment-specific data.
+
+## 7. Documenting and Executing Tests
+
+Comprehensive testing is vital for ensuring the quality, reliability, and maintainability of all microservices. This section outlines the standards for documenting and executing tests.
+
+### 7.1. Test Location and Structure
+*   **Dedicated Test Directory:** All tests for a microservice **must** be located in a `tests` directory within the root folder of that microservice (e.g., `backend/account-service/tests/`).
+*   **Test Types:** It's recommended to structure tests by type (e.g., `unit/`, `integration/`, `e2e/`) within the `tests` directory, as appropriate for the service's testing strategy.
+*   **Test File Naming:** Test files should clearly indicate what they are testing. Refer to `CODING_STANDARDS.md` for language-specific naming conventions for test files and functions.
+
+### 7.2. Documenting Tests
+*   **Clarity:** Tests should be written clearly and be easy to understand. Test names should describe the specific scenario or behavior being tested.
+*   **Microservice Documentation:** The `docs/README.md` for each microservice (based on `standard_microservice_template.md`) should include a section on testing. This section should specify:
+    *   Types of tests implemented (Unit, Integration, E2E).
+    *   Instructions on how to set up the testing environment (e.g., specific database setup, environment variables, dependencies).
+    *   The precise command(s) to run all tests locally.
+    *   Any specific tools or frameworks used for testing that require special attention.
+
+### 7.3. Running Tests Locally
+*   **Developer Responsibility:** Developers are responsible for running all relevant tests locally after making changes and before submitting a Pull Request.
+*   **Ease of Execution:** Running tests locally should be straightforward, typically a single command per microservice or test suite, as documented in the microservice's `docs/README.md`.
+*   **Environment:** Ensure that local testing can be performed without extensive manual configuration, possibly using default configurations (e.g., `config.default.json` or environment variables for local development databases/services).
+
+### 7.4. Automated Testing (CI/CD)
+*   **Server-Side Execution:** All tests (unit, integration, and where feasible, E2E) should be automated and run as part of the Continuous Integration (CI) pipeline for every Pull Request and before deployment to any environment.
+*   **CI Configuration:** The CI pipeline configuration (e.g., GitHub Actions workflows, Jenkinsfile) will define the steps to build, test, and deploy services. These configurations are part of the project's infrastructure-as-code.
+*   **Test Reports:** Test results, including coverage reports, should be captured and made available through the CI system.
+
+### 7.5. Testing Assistance
+*   While the primary responsibility for writing and executing tests lies with the development team, assistance can be requested for:
+    *   Guidance on complex testing scenarios.
+    *   Troubleshooting CI/CD testing issues.
+    *   Understanding cross-service integration testing strategies.
+    *   This assistance is supplementary to the established automated and local testing practices.
+
+Refer to `CODING_STANDARDS.md` for language-specific testing guidelines, recommended libraries, and coverage targets.
