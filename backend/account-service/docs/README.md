@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Account Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2023-10-28
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -765,7 +765,163 @@ graph TD
 *   Детальные схемы Protobuf для gRPC API находятся в репозитории `platform-protos` (или локально `proto/account/v1/`).
 *   Примеры полных JSON для всех REST DTO могут быть добавлены при необходимости или генерироваться из OpenAPI спецификации.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
+
+В этом разделе описаны ключевые пользовательские сценарии, в которых участвует Account Service. Эти сценарии демонстрируют, как сервис взаимодействует с пользователями и другими микросервисами платформы для выполнения своих основных функций.
+
+### 14.1. Регистрация Пользователя и Создание Аккаунта
+
+Этот сценарий описывает процесс создания аккаунта пользователя после его первоначальной регистрации через Auth Service.
+
+*   **Описание:** После того как пользователь успешно проходит регистрацию в Auth Service (например, предоставляет email, пароль, и возможно, проходит первичную верификацию email), Auth Service публикует событие `auth.user.registered.v1`. Account Service потребляет это событие, создает соответствующую запись `Account`, базовый `Profile`, `ContactInfo` (если email предоставлен и должен быть здесь сохранен) и `UserSetting`. Account Service затем публикует событие `account.created.v1`.
+*   **Связанный документ:** Детальный воркфлоу регистрации описан в [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md).
+*   **Диаграмма (роль Account Service):**
+    ```mermaid
+    sequenceDiagram
+        participant AuthSvc as Auth Service
+        participant KafkaBus as Kafka Message Bus
+        participant AccountSvc as Account Service
+
+        AuthSvc->>KafkaBus: Publish `auth.user.registered.v1` (userId, email, username)
+        KafkaBus->>AccountSvc: Consume `auth.user.registered.v1`
+        AccountSvc->>AccountSvc: Create Account (userId, status='inactive')
+        AccountSvc->>AccountSvc: Create Profile (nickname=username)
+        AccountSvc->>AccountSvc: Create ContactInfo (email, is_verified=false)
+        AccountSvc->>AccountSvc: Create UserSetting (default settings)
+        AccountSvc->>KafkaBus: Publish `account.created.v1` (accountId, userId)
+        AccountSvc->>KafkaBus: Publish `account.contact.added.v1` (accountId, userId, contactId, email)
+        opt Email Verification by Auth Service
+           AuthSvc->>KafkaBus: Publish `auth.user.email_verified.v1` (userId, email)
+           KafkaBus->>AccountSvc: Consume `auth.user.email_verified.v1`
+           AccountSvc->>AccountSvc: Update ContactInfo: email.is_verified = true
+           AccountSvc->>AccountSvc: Update Account: status = 'active'
+           AccountSvc->>KafkaBus: Publish `account.contact.verified.v1`
+           AccountSvc->>KafkaBus: Publish `account.status.updated.v1`
+        end
+    ```
+
+### 14.2. Обновление Профиля Пользователя
+
+Этот сценарий описывает, как пользователь обновляет информацию своего профиля.
+
+*   **Описание:** Аутентифицированный пользователь через клиентское приложение отправляет запрос на обновление своего профиля (например, никнейм, биография, аватар, страна). Запрос поступает в Account Service через API Gateway. Account Service валидирует данные, обновляет сущность `Profile` в своей базе данных и публикует событие `account.profile.updated.v1`.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Client Application
+        participant APIGW as API Gateway
+        participant AccountSvc as Account Service
+        participant KafkaBus as Kafka Message Bus
+
+        User->>ClientApp: Запрос на обновление профиля (новые данные)
+        ClientApp->>APIGW: PUT /api/v1/account/me/profile (данные профиля)
+        APIGW->>AccountSvc: Forward PUT /me/profile (X-User-ID, данные профиля)
+        AccountSvc->>AccountSvc: Валидация данных (например, уникальность никнейма)
+        AccountSvc->>AccountSvc: Обновление записи Profile в БД
+        opt Загрузка аватара
+            ClientApp->>APIGW: POST /api/v1/account/me/profile/avatar (файл)
+            APIGW->>AccountSvc: Forward POST /me/profile/avatar
+            AccountSvc->>AccountSvc: Сохранение аватара (например, в S3) и обновление avatar_url
+        end
+        AccountSvc->>KafkaBus: Publish `account.profile.updated.v1` (accountId, userId, updatedFields)
+        AccountSvc-->>APIGW: HTTP 200 OK (обновленный профиль)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp-->>User: Отображение обновленного профиля
+    ```
+
+### 14.3. Обновление и Верификация Контактной Информации
+
+Этот сценарий описывает процесс добавления, обновления или верификации контактной информации пользователя (email, телефон).
+
+*   **Описание:** Пользователь добавляет новый email или телефон. Account Service сохраняет эту информацию и инициирует процесс верификации. Для этого он может отправить запрос в Notification Service (напрямую или через Kafka), чтобы тот отправил код верификации пользователю. После получения кода пользователь вводит его, и Account Service проверяет код, обновляя статус контактной информации.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Client Application
+        participant APIGW as API Gateway
+        participant AccountSvc as Account Service
+        participant NotificationSvc as Notification Service
+        participant KafkaBus as Kafka Message Bus
+
+        User->>ClientApp: Добавить email "new@example.com"
+        ClientApp->>APIGW: POST /api/v1/account/me/contact-info (type: email, value: "new@example.com")
+        APIGW->>AccountSvc: Forward POST /me/contact-info (X-User-ID, contact data)
+        AccountSvc->>AccountSvc: Сохранить ContactInfo (is_verified=false, verification_code=generate())
+        AccountSvc->>KafkaBus: Publish `account.contact.added.v1`
+        AccountSvc->>NotificationSvc: (gRPC or Kafka) Request to send verification code (email, code)
+        NotificationSvc->>User: Отправка email/SMS с кодом верификации
+        AccountSvc-->>APIGW: HTTP 201 Created
+        APIGW-->>ClientApp: HTTP 201 Created
+
+        User->>ClientApp: Ввод кода верификации "123456"
+        ClientApp->>APIGW: POST /api/v1/account/me/contact-info/{contact_id}/verify (code: "123456")
+        APIGW->>AccountSvc: Forward POST /me/contact-info/{contact_id}/verify (X-User-ID, code)
+        AccountSvc->>AccountSvc: Проверка кода и срока его действия
+        alt Код верный
+            AccountSvc->>AccountSvc: Обновить ContactInfo (is_verified=true)
+            AccountSvc->>KafkaBus: Publish `account.contact.verified.v1`
+            AccountSvc-->>APIGW: HTTP 200 OK
+        else Код неверный или истек
+            AccountSvc-->>APIGW: HTTP 400 Bad Request (VERIFICATION_CODE_INVALID/EXPIRED)
+        end
+        APIGW-->>ClientApp: Соответствующий ответ
+        ClientApp-->>User: Отображение результата
+    ```
+
+### 14.4. Обновление Пользовательских Настроек
+
+Этот сценарий описывает, как пользователь изменяет свои настройки.
+
+*   **Описание:** Пользователь изменяет настройки приватности, уведомлений или интерфейса. Запрос на изменение настроек поступает в Account Service, который валидирует и сохраняет новые значения в сущности `UserSetting`. Публикуется событие `account.settings.updated.v1`.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Client Application
+        participant APIGW as API Gateway
+        participant AccountSvc as Account Service
+        participant KafkaBus as Kafka Message Bus
+
+        User->>ClientApp: Изменение настроек (например, язык интерфейса)
+        ClientApp->>APIGW: PUT /api/v1/account/me/settings (новые настройки)
+        APIGW->>AccountSvc: Forward PUT /me/settings (X-User-ID, настройки)
+        AccountSvc->>AccountSvc: Валидация и сохранение UserSetting в БД
+        AccountSvc->>KafkaBus: Publish `account.settings.updated.v1` (accountId, userId, updatedCategories)
+        AccountSvc-->>APIGW: HTTP 200 OK (обновленные настройки)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp-->>User: Отображение подтверждения
+    ```
+
+### 14.5. Запрос на Удаление Аккаунта
+
+Этот сценарий описывает процесс, когда пользователь запрашивает удаление своего аккаунта.
+
+*   **Описание:** Пользователь инициирует удаление своего аккаунта. Account Service получает запрос, может изменить статус аккаунта на `pending_deletion` и инициировать другие процессы (например, уведомление пользователя о периоде ожидания, запуск задач по анонимизации или удалению данных в других сервисах через события). Фактическое удаление или анонимизация может быть отложенным процессом.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Client Application
+        participant APIGW as API Gateway
+        participant AccountSvc as Account Service
+        participant KafkaBus as Kafka Message Bus
+
+        User->>ClientApp: Запрос на удаление аккаунта
+        ClientApp->>APIGW: DELETE /api/v1/account/me
+        APIGW->>AccountSvc: Forward DELETE /me (X-User-ID)
+        AccountSvc->>AccountSvc: Проверка условий (например, нет активных подписок)
+        AccountSvc->>AccountSvc: Обновление статуса Account на `pending_deletion` в БД
+        AccountSvc->>KafkaBus: Publish `account.status.updated.v1` (accountId, userId, newStatus='pending_deletion')
+        AccountSvc-->>APIGW: HTTP 202 Accepted (или HTTP 204 No Content)
+        APIGW-->>ClientApp: Соответствующий ответ
+        ClientApp-->>User: Отображение информации о процессе удаления
+
+        Note over AccountSvc, KafkaBus: Дальнейшие шаги (анонимизация, удаление данных в других сервисах) могут быть инициированы событием `account.status.updated.v1` (newStatus='pending_deletion' или 'deleted') и выполняться асинхронно.
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
 
 ### 14.1. PostgreSQL
 *   **Процедура резервного копирования:**
@@ -797,7 +953,7 @@ graph TD
 *   Мониторинг процессов резервного копирования настроен для своевременного обнаружения сбоев.
 *   Общие принципы резервного копирования для различных СУБД описаны в `../../../../project_database_structure.md`.
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+## 16. Связанные Рабочие Процессы (Related Workflows)
 *   [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md)
 
 ---
