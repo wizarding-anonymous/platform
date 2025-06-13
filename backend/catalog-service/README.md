@@ -6,6 +6,7 @@ This document provides a brief overview of the service.
 This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for catalog-service].
 
 **For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+Note: When defining service functionality, ensure alignment with the overall project scope outlined in the main project `README.md`, particularly regarding out-of-scope features.
 
 ## Core Functionality (Summary)
 
