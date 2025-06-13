@@ -1,485 +1,745 @@
 # Спецификация Микросервиса: Download Service (Сервис Загрузок)
 
-**Версия:** 1.1 (адаптировано из предыдущей версии)
-**Дата последнего обновления:** 2024-03-15
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
 ### 1.1. Назначение и Роль
-*   **Назначение документа:** Данный документ представляет собой полную спецификацию микросервиса Download Service платформы "Российский Аналог Steam".
-*   **Роль в общей архитектуре платформы:** Download Service является критически важным компонентом, отвечающим за эффективную и надежную загрузку игрового контента (игр, обновлений, DLC) и самого клиентского приложения платформы на устройства пользователей. Он управляет процессом доставки файлов, взаимодействуя с CDN, и обеспечивает целостность загружаемых данных.
+*   **Назначение:** Download Service является критически важным компонентом платформы "Российский Аналог Steam", отвечающим за эффективную, надежную и безопасную доставку цифрового контента (игр, DLC, обновлений, клиентского приложения платформы) на устройства пользователей.
+*   **Роль в общей архитектуре платформы:** Сервис управляет всем процессом загрузки, начиная от авторизации запроса на скачивание до фактической передачи файлов через сети доставки контента (CDN). Он обеспечивает возможность приостановки/возобновления загрузок, проверку целостности файлов, применение дельта-обновлений и информирование пользователя о прогрессе.
 *   **Основные бизнес-задачи:**
-    *   Предоставление пользователям возможности скачивать приобретенные игры и их обновления.
-    *   Обеспечение высокой скорости и надежности загрузок, включая возможность приостановки и возобновления.
-    *   Оптимизация использования сетевых ресурсов и мощностей CDN.
-    *   Гарантия целостности и безопасности загружаемых файлов.
-    *   Предоставление информации о статусе и прогрессе загрузок клиентскому приложению.
-    *   Управление обновлениями клиентского приложения платформы.
+    *   Предоставление пользователям быстрого и надежного способа скачивания приобретенных продуктов и их обновлений.
+    *   Оптимизация использования сетевых ресурсов платформы и пропускной способности CDN.
+    *   Обеспечение целостности и безопасности загружаемого контента.
+    *   Улучшение пользовательского опыта за счет управления очередями загрузок, приоритетов и предоставления обратной связи о процессе.
+    *   Управление доставкой обновлений для основного клиентского приложения платформы.
 *   Разработка сервиса должна вестись в соответствии с `../../../../CODING_STANDARDS.md`.
 
 ### 1.2. Ключевые Функциональности
-*   **Управление загрузками игр:** Инициация, приостановка, возобновление и отмена загрузок. Управление очередью загрузок. Поддержка параллельных загрузок нескольких файлов/частей файлов.
-*   **Управление обновлениями игр:** Автоматическая и ручная проверка наличия обновлений. Поддержка дельта-обновлений (патчей) для минимизации объема скачиваемых данных. Возможность отката к предыдущей версии (если поддерживается).
-*   **Управление обновлениями клиентского приложения:** Доставка обновлений для основного клиентского приложения платформы, включая поддержку различных каналов (stable, beta).
-*   **Проверка целостности файлов:** Верификация загруженных файлов по хеш-суммам (например, SHA256, MD5). Автоматическое исправление поврежденных или отсутствующих файлов путем их повторной загрузки.
-*   **Взаимодействие с CDN:** Генерация безопасных ссылок на загрузку с CDN. Выбор оптимального CDN-сервера на основе геолокации пользователя или нагрузки.
-*   **Мониторинг и статистика загрузок:** Отслеживание прогресса, текущей скорости загрузки, предполагаемого времени завершения. Сбор статистики для анализа производительности CDN и выявления проблем.
-*   **Управление настройками загрузки:** Предоставление пользователям возможности настраивать параметры загрузки (например, ограничение скорости, расписание загрузок).
+*   **Управление Загрузками:**
+    *   Инициация загрузки по запросу от клиентского приложения (после проверки прав через Library Service).
+    *   Постановка загрузок в очередь (пользовательскую и, возможно, глобальную с приоритетами).
+    *   Поддержка приостановки (pause) и возобновления (resume) загрузок.
+    *   Отмена загрузок.
+    *   Поддержка параллельной загрузки нескольких файлов или частей одного файла (чанкинга) для ускорения.
+*   **Управление Обновлениями:**
+    *   Автоматическая и ручная проверка наличия обновлений для установленных продуктов.
+    *   Расчет и применение дельта-обновлений (патчей) для минимизации объема скачиваемых данных.
+    *   Обработка сценариев, когда дельта-обновление невозможно и требуется полная загрузка новой версии.
+    *   (Опционально, {{TODO: уточненить необходимость}}) Возможность отката к предыдущей стабильной версии продукта.
+*   **Доставка Клиентского Приложения Платформы:**
+    *   Управление загрузкой и обновлением основного клиентского приложения платформы.
+    *   Поддержка различных каналов обновлений (например, `stable`, `beta`).
+*   **Обеспечение Целостности и Безопасности:**
+    *   Предоставление файловых манифестов (список файлов, их размеры, хеш-суммы).
+    *   Проверка хеш-сумм (например, SHA256, MD5) загруженных файлов и их частей.
+    *   Автоматическое исправление поврежденных или отсутствующих файлов путем их повторной загрузки.
+*   **Взаимодействие с CDN:**
+    *   Генерация безопасных, временно ограниченных ссылок на загрузку файлов с CDN (например, с использованием токенизации URL или подписанных URL).
+    *   Стратегии выбора оптимального CDN-сервера/региона на основе геолокации пользователя, нагрузки на CDN или других критериев.
+    *   Мониторинг доступности и производительности CDN.
+*   **Информирование о Прогрессе:**
+    *   Предоставление клиентскому приложению информации о статусе и прогрессе загрузки в реальном времени (через WebSocket).
+    *   Расчет текущей скорости загрузки и предполагаемого времени до завершения.
+*   **Управление Настройками Загрузки:**
+    *   Предоставление пользователям возможности настраивать параметры загрузки через клиентское приложение (например, ограничение максимальной скорости загрузки, настройка расписания для загрузок).
 
 ### 1.3. Основные Технологии
 *   **Язык программирования:** Go (версия 1.21+, согласно `../../../../project_technology_stack.md`).
 *   **API:**
-    *   REST API: Echo (`github.com/labstack/echo/v4`) или Gin (`github.com/gin-gonic/gin`) (для клиентского приложения, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-    *   gRPC: `google.golang.org/grpc` (для межсервисного взаимодействия, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-    *   WebSocket: (например, `github.com/gorilla/websocket`) для real-time обновлений прогресса загрузки на клиенте.
-*   **База данных:** PostgreSQL (версия 15+) для хранения метаданных о загрузках, файлах, версиях, статусах. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` или `pgx` (`github.com/jackc/pgx/v5`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Кэширование/Очереди:** Redis (версия 7.0+) для хранения временных данных сессий загрузки, состояния активных загрузок, кэширования токенов CDN, управления небольшими очередями задач. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Хранилище файлов (временное/staging):** S3-совместимое объектное хранилище (например, MinIO, Yandex Object Storage) может использоваться для временного хранения файлов перед их передачей в CDN или для сборки дельта-патчей. (согласно `../../../../project_technology_stack.md`).
-*   **Брокер сообщений:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+    *   REST API: Echo (`github.com/labstack/echo/v4`) (для взаимодействия с клиентским приложением, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+    *   gRPC: `google.golang.org/grpc` (для межсервисного взаимодействия, например, с Library Service, Catalog Service, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+    *   WebSocket: `github.com/gorilla/websocket` или аналогичная библиотека Go (для real-time обновлений прогресса загрузки на клиенте).
+*   **База данных:** PostgreSQL (версия 15+) для хранения метаданных о сессиях загрузок, файловых манифестах, истории загрузок и обновлений, конфигурациях CDN. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Кэширование/Очереди/Состояние:** Redis (версия 7.0+) для хранения состояния активных загрузок, пользовательских очередей, кэширования временных ссылок CDN, счетчиков для rate limiting. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Хранилище файлов (временное/staging):** S3-совместимое объектное хранилище (например, MinIO) может использоваться для временного хранения файлов при сборке дельта-патчей или если файлы сначала загружаются на сервер платформы перед распространением через CDN. (согласно `../../../../project_technology_stack.md`).
+*   **Брокер сообщений:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`) для асинхронной обработки задач и публикации событий.
 *   **Инфраструктура:** Docker, Kubernetes.
 *   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client (`github.com/prometheus/client_golang`). (согласно `../../../../project_observability_standards.md`).
 *   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Логирование:** Zap (`go.uber.org/zap`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Алгоритмы дельта-патчей:** {{TODO: Выбрать или разработать алгоритм, например, bsdiff, xdelta, или кастомный на основе rsync-подобных принципов}}.
 *   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`.
 
 ### 1.4. Термины и Определения (Glossary)
 *   **CDN (Content Delivery Network):** Сеть доставки (и дистрибуции) контента, используемая для ускорения загрузки файлов пользователями.
 *   **Дельта-обновление (Delta Update/Patch):** Обновление, содержащее только измененные части файлов по сравнению с предыдущей версией, что позволяет уменьшить объем загрузки.
-*   **Манифест Файлов (File Manifest):** Список файлов, входящих в состав продукта (игры/версии), с их размерами, хеш-суммами и путями.
-*   **Chunk:** Часть файла, загружаемая отдельно при параллельной или возобновляемой загрузке.
+*   **Манифест Файлов (File Manifest):** Список файлов, входящих в состав продукта (игры/версии), с их размерами, хеш-суммами, путями и информацией о чанках (если файлы разбиваются на части).
+*   **Чанк (Chunk):** Часть файла, загружаемая отдельно при параллельной или возобновляемой загрузке.
+*   **Токенизация URL (URL Tokenization):** Метод защиты ссылок CDN, при котором к URL добавляется временный токен, разрешающий доступ на ограниченное время или для конкретного пользователя/IP.
 *   Для других общих терминов см. `../../../../project_glossary.md`.
 
 ## 2. Внутренняя Архитектура (Internal Architecture)
 
 ### 2.1. Общее Описание
-*   Download Service будет реализован с использованием многослойной архитектуры (Clean Architecture) для обеспечения четкого разделения ответственностей, улучшения тестируемости и гибкости.
-*   Ключевые компоненты включают управление сессиями загрузок, взаимодействие с CDN для получения ссылок, обработку запросов на скачивание и обновление, проверку целостности файлов, а также управление очередями и приоритетами загрузок.
+*   Download Service спроектирован с использованием принципов Чистой Архитектуры (Clean Architecture) для обеспечения модульности, тестируемости и независимости от конкретных технологий инфраструктуры.
+*   Сервис обрабатывает запросы на загрузку, управляет взаимодействием с CDN, следит за состоянием загрузок и обеспечивает целостность данных. Он также отвечает за логику применения дельта-обновлений.
 
-**Диаграмма Архитектуры:**
+### 2.2. Диаграмма Архитектуры
 ```mermaid
 graph TD
-    subgraph User Client App
-        ClientApp[Клиентское приложение платформы]
+    subgraph UserClientApp ["Клиентское Приложение"]
+        ClientAppUI["UI Загрузок"]
     end
 
-    subgraph Download Service
+    subgraph DownloadService ["Download Service (Clean Architecture)"]
         direction TB
 
-        subgraph PresentationLayer [Presentation Layer (Адаптеры Транспорта)]
-            REST_API[REST API (Echo/Gin) - для клиента]
-            GRPC_API[gRPC API - для других сервисов]
-            WebSocket_API[WebSocket API - для real-time прогресса]
+        subgraph PresentationLayer ["Presentation Layer (Адаптеры Транспорта)"]
+            REST_API["REST API (Echo)"]
+            GRPC_API["gRPC API (межсервисный)"]
+            WebSocket_API["WebSocket API (прогресс)"]
         end
 
-        subgraph ApplicationLayer [Application Layer (Сценарии Использования)]
-            DownloadUseCaseSvc[Управление Загрузками (Start, Pause, Resume)]
-            UpdateUseCaseSvc[Управление Обновлениями (Check, Apply)]
-            IntegrityCheckSvc[Проверка Целостности Файлов]
-            SettingsUseCaseSvc[Управление Настройками Загрузки]
-            CDNTokenSvc[Сервис Токенов/Ссылок CDN]
+        subgraph ApplicationLayer ["Application Layer (Сценарии Использования)"]
+            DownloadManagerSvc["Менеджер Загрузок (старт, пауза, возобновление, очередь)"]
+            UpdateManagerSvc["Менеджер Обновлений (проверка, применение патчей)"]
+            FileIntegritySvc["Сервис Целостности Файлов (проверка хешей)"]
+            CDNOrchestratorSvc["Оркестратор CDN (генерация ссылок, выбор CDN)"]
+            ProgressReporterSvc["Сервис Отчетности о Прогрессе"]
         end
 
-        subgraph DomainLayer [Domain Layer (Бизнес-логика и Сущности)]
-            Entities[Сущности (DownloadSession, DownloadItem, FileManifest, UpdateInfo)]
-            ValueObjects[Объекты-Значения (FileSize, Hash, DownloadSpeed)]
-            DomainEvents[Доменные События (DownloadStarted, FileChunkCompleted)]
-            RepositoryIntf[Интерфейсы Репозиториев (Download, FileMetadata)]
+        subgraph DomainLayer ["Domain Layer (Бизнес-логика и Сущности)"]
+            Entities["Сущности (DownloadTask, FileChunk, ProductManifest, DeltaPatch)"]
+            ValueObjects["Объекты-Значения (FileSize, Hash, DownloadURL)"]
+            DomainEvents["Доменные События (DownloadInitiated, ChunkDownloaded, UpdateApplied)"]
+            RepositoryIntf["Интерфейсы Репозиториев (DownloadTaskRepo, ManifestRepo)"]
+            DeltaLogic["Логика Применения Дельта-Патчей"]
         end
 
-        subgraph InfrastructureLayer [Infrastructure Layer (Внешние Зависимости)]
-            PostgresAdapter[Адаптер PostgreSQL (Метаданные загрузок)]
-            RedisAdapter[Адаптер Redis (Кэш сессий, Очереди)]
-            S3Adapter[Адаптер S3 (Временное хранилище, если нужно)]
-            CDNClient[Клиент CDN (Получение/валидация ссылок)]
-            KafkaProducer[Продюсер Kafka (События)]
-            ServiceClients[Клиенты др. сервисов (Catalog, Library, Auth)]
-            Hasher[Утилита Хеширования]
+        subgraph InfrastructureLayer ["Infrastructure Layer (Внешние Зависимости и Реализации)"]
+            PostgresAdapter["Адаптер PostgreSQL (хранение задач, манифестов)"]
+            RedisAdapter["Адаптер Redis (сессии, очереди, прогресс)"]
+            CDNClient["Клиент CDN (взаимодействие с API CDN)"]
+            S3Client["Клиент S3 (для патчей или временных файлов)"]
+            KafkaProducer["Продюсер Kafka (публикация событий)"]
+            KafkaConsumer["Консьюмер Kafka (получение обновлений манифестов)"]
+            ServiceClients["Клиенты других сервисов (Catalog, Library, Auth)"]
+            FileHasher["Утилита Хеширования/Патчинга"]
         end
 
-        REST_API & WebSocket_API --> DownloadUseCaseSvc
-        REST_API --> UpdateUseCaseSvc
-        REST_API --> IntegrityCheckSvc
-        REST_API --> SettingsUseCaseSvc
-        GRPC_API --> DownloadUseCaseSvc
-        GRPC_API --> UpdateUseCaseSvc
-
-        DownloadUseCaseSvc & UpdateUseCaseSvc --> CDNTokenSvc
+        PresentationLayer --> ApplicationLayer
         ApplicationLayer --> DomainLayer
         ApplicationLayer --> InfrastructureLayer
         DomainLayer ----> RepositoryIntf
         InfrastructureLayer -- Implements --> RepositoryIntf
     end
 
-    ClientApp -- REST/WebSocket --> PresentationLayer
+    ClientAppUI -- REST/WebSocket --> PresentationLayer
 
     PostgresAdapter --> DB[(PostgreSQL)]
     RedisAdapter --> Cache[(Redis)]
-    S3Adapter --> S3[(S3 Хранилище)]
-    CDNClient -.-> ExternalCDN[CDN Провайдеры]
-    KafkaProducer --> Kafka[Kafka Broker]
-    ServiceClients --> OtherServices[Другие Микросервисы]
+    CDNClient -.-> ExternalCDN[("CDN Провайдеры")]
+    S3Client -.-> ExternalS3[(S3 Хранилище)]
+    KafkaProducer --> KafkaBroker[Kafka Message Bus]
+    KafkaConsumer --> KafkaBroker
+    ServiceClients --> InternalServices[Другие Микросервисы (Catalog, Library, Auth)]
 
     classDef layer_boundary fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#333
     classDef component_major fill:#e6f0ff,stroke:#007bff,color:#000
     classDef component_minor fill:#d4edda,stroke:#28a745,color:#000
     classDef datastore fill:#f8d7da,stroke:#dc3545,color:#000
+    classDef external_actor fill:#FEF9E7,stroke:#F1C40F,color:#000
 
     class PresentationLayer,ApplicationLayer,DomainLayer,InfrastructureLayer layer_boundary
-    class REST_API,GRPC_API,WebSocket_API,DownloadUseCaseSvc,UpdateUseCaseSvc,IntegrityCheckSvc,SettingsUseCaseSvc,CDNTokenSvc,Entities,Aggregates,DomainEvents,RepositoryIntf component_major
-    class PostgresAdapter,RedisAdapter,S3Adapter,CDNClient,KafkaProducer,ServiceClients,Hasher component_minor
-    class DB,Cache,S3,Kafka,OtherServices,ExternalCDN datastore
+    class REST_API,GRPC_API,WebSocket_API,DownloadManagerSvc,UpdateManagerSvc,FileIntegritySvc,CDNOrchestratorSvc,ProgressReporterSvc,Entities,ValueObjects,DomainEvents,RepositoryIntf,DeltaLogic component_major
+    class PostgresAdapter,RedisAdapter,CDNClient,S3Client,KafkaProducer,KafkaConsumer,ServiceClients,FileHasher component_minor
+    class DB,Cache,KafkaBroker datastore
+    class ExternalCDN,ExternalS3,InternalServices external_actor
 ```
 
-### 2.2. Слои Сервиса
+### 2.3. Слои Сервиса
 
-#### 2.2.1. Presentation Layer (Слой Представления / Транспортный слой)
-*   **Ответственность:** Обработка входящих запросов от клиентского приложения (REST API, WebSocket для прогресса) и других микросервисов (gRPC). Валидация DTO, вызов соответствующей логики в Application Layer.
-*   **Ключевые компоненты/модули:** HTTP хендлеры (Echo/Gin), gRPC серверы, WebSocket хендлеры, DTO для запросов/ответов.
+#### 2.3.1. Presentation Layer (Слой Представления)
+*   **Ответственность:** Обработка входящих запросов от клиентского приложения (REST API для управления загрузками, WebSocket для обновлений прогресса) и от других микросервисов (gRPC для авторизации загрузок, получения информации о файлах). Валидация DTO, вызов Application Layer.
+*   **Ключевые компоненты:** HTTP хендлеры, gRPC серверы, WebSocket хендлеры.
 
-#### 2.2.2. Application Layer (Прикладной Слой / Сервисный слой)
-*   **Ответственность:** Реализация бизнес-логики управления загрузками, обновлениями, проверкой целостности. Координирует взаимодействие между Domain Layer и Infrastructure Layer. Управляет потоком операций.
-*   **Ключевые компоненты/модули:** Сервисы сценариев использования (`DownloadApplicationService`, `UpdateApplicationService`, `FileIntegrityService`, `DownloadSettingsService`), сервисы для работы с CDN (например, генерация защищенных ссылок, выбор оптимального CDN).
+#### 2.3.2. Application Layer (Прикладной Слой)
+*   **Ответственность:** Реализация сценариев использования: инициация и управление загрузками/обновлениями, проверка наличия обновлений, применение патчей, проверка целостности. Координация между Domain Layer и Infrastructure Layer.
+*   **Ключевые компоненты:** `DownloadManagerService`, `UpdateManagerService`, `CDNOrchestrationService`, `ProgressReportingService`.
 
-#### 2.2.3. Domain Layer (Доменный Слой)
-*   **Ответственность:** Содержит бизнес-сущности, агрегаты, доменные события и бизнес-правила, связанные с процессом загрузки и обновления.
-*   **Ключевые компоненты/модули:** Сущности (`DownloadSession`, `DownloadItem`, `UpdatePackage`, `FileMetadata`, `VerificationAttempt`), объекты-значения (`FileSize`, `HashChecksum`, `DownloadSpeed`, `URL`), доменные события (`DownloadInitiated`, `DownloadProgressUpdated`, `FileVerified`), интерфейсы репозиториев.
+#### 2.3.3. Domain Layer (Доменный Слой)
+*   **Ответственность:** Бизнес-логика и правила, связанные с процессом загрузки. Сущности (`DownloadTask`, `FileChunk`, `ProductManifest`, `DeltaPatch`), объекты-значения (`FileSize`, `Hash`), доменные события. Логика расчета дельта-патчей и их применения.
+*   **Ключевые компоненты:** Сущности, репозитории (интерфейсы), сервисы домена (например, `PatchingService`).
 
-#### 2.2.4. Infrastructure Layer (Инфраструктурный Слой)
-*   **Ответственность:** Реализация интерфейсов репозиториев для работы с PostgreSQL (метаданные загрузок) и Redis (временные данные, очереди, кэш). Взаимодействие с CDN провайдерами. Взаимодействие с S3 (если используется для временного хранения). Публикация событий в Kafka. Клиенты для взаимодействия с другими микросервисами (Catalog, Library, Auth, Account). Утилиты для хеширования файлов и обработки дельта-патчей.
-*   **Ключевые компоненты/модули:** Реализации репозиториев, CDN клиенты, S3 клиенты, Kafka продюсеры, gRPC/HTTP клиенты к другим сервисам, модуль для работы с файловой системой (для временных файлов при обработке патчей).
+#### 2.3.4. Infrastructure Layer (Инфраструктурный Слой)
+*   **Ответственность:** Реализация интерфейсов репозиториев (PostgreSQL, Redis). Взаимодействие с CDN (генерация и валидация ссылок). Взаимодействие с S3 для временного хранения или работы с патчами. Публикация и потребление событий Kafka. Клиенты для Auth, Catalog, Library Service. Утилиты для хеширования и применения патчей.
+*   **Ключевые компоненты:** Реализации репозиториев, клиенты CDN/S3/Kafka, gRPC клиенты.
 
 ## 3. API Endpoints
 
 ### 3.1. REST API (для клиентского приложения)
-*   **Базовый URL:** `/api/v1/download-client` (маршрутизируется через API Gateway).
+*   **Базовый URL:** `/api/v1/download` (маршрутизируется через API Gateway).
 *   **Аутентификация:** JWT Bearer Token (проверяется API Gateway или в middleware сервиса).
-*   **Формат ответа об ошибке (согласно `../../../../project_api_standards.md`):**
-    ```json
-    {
-      "errors": [
-        {
-          "code": "ERROR_CODE_UPPER_SNAKE_CASE",
-          "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом.",
-          "source": { "pointer": "/data/attributes/field_name", "parameter": "query_param_name" }
-        }
-      ]
-    }
-    ```
+*   **Формат ответа об ошибке:** Согласно `../../../../project_api_standards.md`.
 
 #### 3.1.1. Управление Загрузками
-*   **`POST /downloads`**
-    *   Описание: Инициировать новую загрузку продукта (игры/версии). Сервис проверяет права доступа (через Library Service) и доступность файлов (через Catalog Service).
+*   **`POST /tasks`**
+    *   Описание: Инициировать новую загрузку продукта (игры/версии) или группы файлов. Сервис проверяет права доступа (через Library Service) и доступность файлов (через Catalog Service).
     *   Тело запроса:
         ```json
         {
           "data": {
-            "type": "downloadRequest",
+            "type": "downloadTaskRequest",
             "attributes": {
-              "product_id": "game-uuid-123",
-              "version_id": "version-uuid-abc",
-              "installation_path": "/opt/games/MySuperGame"
+              "productId": "game-uuid-123",
+              "versionId": "version-uuid-abc", // Опционально, если запрашивается последняя версия
+              "targetPath": "/user/games/MySuperGame", // Предлагаемый пользователем путь
+              "priority": 1 // 0 - normal, 1 - high etc.
             }
           }
         }
         ```
-    *   Пример ответа (Успех 202 Accepted - загрузка поставлена в очередь):
-        ```json
-        {
-          "data": {
-            "type": "downloadSession",
-            "id": "download-session-uuid-xyz",
-            "attributes": {
-              "product_id": "game-uuid-123",
-              "version_id": "version-uuid-abc",
-              "status": "queued",
-              "total_size_bytes": 10737418240,
-              "downloaded_bytes": 0,
-              "progress_percentage": 0.0,
-              "estimated_time_left_seconds": null
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Ошибка 403 Forbidden - нет прав на продукт):
-        ```json
-        {
-          "errors": [
-            {
-              "code": "PRODUCT_ACCESS_DENIED",
-              "title": "Доступ к продукту запрещен",
-              "detail": "У вас нет прав на загрузку продукта с ID 'game-uuid-123'."
-            }
-          ]
-        }
-        ```
-    *   Требуемые права доступа: `user` (владелец игры).
-*   **`GET /downloads`**
-    *   Описание: Получение списка текущих и недавних загрузок пользователя.
+    *   Ответ (202 Accepted): (Объект `DownloadTask` в статусе `queued` или `preparing`)
+*   **`GET /tasks`**
+    *   Описание: Получение списка текущих и недавних задач на загрузку пользователя.
     *   Query параметры: `status` (queued, downloading, paused, completed, error), `page`, `limit`.
-    *   Пример ответа (Успех 200 OK): (Массив объектов `downloadSession`)
-    *   Требуемые права доступа: `user`.
+    *   Ответ (200 OK): (Массив объектов `DownloadTask`)
+*   **`GET /tasks/{taskId}`**
+    *   Описание: Получение детальной информации о конкретной задаче на загрузку.
+    *   Ответ (200 OK): (Объект `DownloadTask` с детальным списком файлов и их статусом)
+*   **`POST /tasks/{taskId}/pause`**
+    *   Описание: Приостановить активную загрузку.
+    *   Ответ (200 OK): (Обновленный объект `DownloadTask`)
+*   **`POST /tasks/{taskId}/resume`**
+    *   Описание: Возобновить приостановленную загрузку.
+    *   Ответ (200 OK): (Обновленный объект `DownloadTask`)
+*   **`DELETE /tasks/{taskId}`**
+    *   Описание: Отменить загрузку (и удалить частично загруженные файлы).
+    *   Ответ (204 No Content)
+*   **`GET /tasks/queue`**
+    *   Описание: Получение текущей очереди загрузок пользователя.
+    *   Ответ (200 OK): `{ "data": [ /* ordered list of DownloadTask summaries */ ] }`
+*   **`POST /tasks/queue/reorder`**
+    *   Описание: Изменение порядка загрузок в очереди.
+    *   Тело запроса: `{"data": [{"taskId": "uuid1", "order": 0}, {"taskId": "uuid2", "order": 1}]}`
+    *   Ответ (200 OK)
 
-#### 3.1.2. Управление Обновлениями
+#### 3.1.2. Управление Обновлениями (для установленных продуктов)
 *   **`POST /updates/check`**
-    *   Описание: Проверка наличия обновлений для установленных продуктов.
+    *   Описание: Проверка наличия обновлений для списка установленных продуктов.
     *   Тело запроса:
         ```json
         {
           "data": [
-            { "type": "installedProduct", "id": "game-uuid-123", "attributes": { "current_version_id": "version-uuid-abc" } },
-            { "type": "installedProduct", "id": "game-uuid-456", "attributes": { "current_version_id": "version-uuid-def" } }
+            {"type": "installedProduct", "attributes": {"productId": "game-uuid-123", "currentVersionId": "version-uuid-abc"}},
+            {"type": "installedProduct", "attributes": {"productId": "game-uuid-456", "currentVersionId": "version-uuid-def"}}
           ]
         }
         ```
-    *   Пример ответа (Успех 200 OK):
+    *   Ответ (200 OK):
         ```json
         {
           "data": [
-            {
-              "type": "updateAvailability", "id": "game-uuid-123",
-              "attributes": { "is_update_available": true, "latest_version_id": "version-uuid-new", "update_size_bytes": 536870912 }
-            }
+            {"type": "updateInfo", "attributes": {"productId": "game-uuid-123", "isUpdateAvailable": true, "latestVersionId": "version-uuid-new", "updateType": "delta", "downloadSizeBytes": 536870912, "requiredDiskSpaceBytes": 1073741824}},
+            {"type": "updateInfo", "attributes": {"productId": "game-uuid-456", "isUpdateAvailable": false}}
           ]
         }
         ```
-    *   Требуемые права доступа: `user`.
+*   **`POST /updates/initiate`**
+    *   Описание: Инициировать загрузку обновления для продукта (добавляет задачу в общую очередь загрузок).
+    *   Тело запроса: `{"data": {"type": "updateInitiateRequest", "attributes": {"productId": "game-uuid-123", "targetVersionId": "version-uuid-new"}}}`
+    *   Ответ (202 Accepted): (Объект `DownloadTask` для обновления)
 
-#### 3.1.3. Настройки Загрузки
-*   **`PATCH /settings`**
-    *   Описание: Обновление пользовательских настроек загрузки.
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "downloadSettings",
-            "attributes": {
-              "max_concurrent_downloads": 3,
-              "bandwidth_limit_kbps": 5000
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 200 OK): (Возвращает обновленные настройки)
-    *   Требуемые права доступа: `user`.
+#### 3.1.3. Проверка Целостности Файлов
+*   **`POST /integrity/verify`**
+    *   Описание: Инициировать проверку целостности файлов для установленного продукта.
+    *   Тело запроса: `{"data": {"type": "integrityVerificationRequest", "attributes": {"productId": "game-uuid-123", "installedVersionId": "version-uuid-abc"}}}`
+    *   Ответ (202 Accepted): (Объект `VerificationTask` со статусом `pending` или `in_progress`)
+*   **`GET /integrity/verify/{taskId}`**
+    *   Описание: Получить статус и результат задачи проверки целостности.
+    *   Ответ (200 OK): (Объект `VerificationTask` с деталями)
 
 ### 3.2. gRPC API (для межсервисного взаимодействия)
-(Содержимое существующего раздела актуально).
+*   **Пакет:** `download.v1`
+*   **Сервис:** `DownloadInternalService`
+    *   **`rpc AuthorizeDownload(AuthorizeDownloadRequest) returns (AuthorizeDownloadResponse)`**
+        *   Описание: Используется Library Service для проверки прав пользователя и получения метаданных для начала загрузки.
+        *   `message AuthorizeDownloadRequest { string user_id = 1; string product_id = 2; string version_id = 3; }`
+        *   `message AuthorizeDownloadResponse { bool authorized = 1; string download_session_id = 2; FileManifest manifest = 3; repeated CDNSource sources = 4; string error_message = 5; }`
+    *   **`rpc NotifyNewVersionAvailable(NotifyNewVersionRequest) returns (google.protobuf.Empty)`**
+        *   Описание: Используется Catalog Service для уведомления Download Service о появлении новой версии продукта или манифеста.
+        *   `message NotifyNewVersionRequest { string product_id = 1; string version_id = 2; FileManifest manifest = 3; }`
 
 ### 3.3. WebSocket API
-(Содержимое существующего раздела актуально).
+*   **Эндпоинт:** `/ws/download/progress` (требует аутентификации, например, через токен в query-параметре при установке соединения).
+*   **Сообщения от сервера к клиенту:**
+    *   **`downloadTaskStatusUpdate`**: Обновление общего статуса задачи на загрузку.
+        ```json
+        {
+          "type": "downloadTaskStatusUpdate",
+          "payload": {
+            "taskId": "session-uuid-xyz",
+            "status": "downloading", // queued, downloading, paused, completed, error, verifying_files
+            "totalProgressPercentage": 25.5,
+            "downloadSpeedBps": 5242880, // Байт в секунду
+            "estimatedTimeLeftSeconds": 1800,
+            "downloadedBytes": 2684354560,
+            "totalSizeBytes": 10737418240,
+            "errorDetails": null // if status is 'error'
+          }
+        }
+        ```
+    *   **`downloadItemProgressUpdate`**: Обновление прогресса по конкретному файлу/чанку в задаче.
+        ```json
+        {
+          "type": "downloadItemProgressUpdate",
+          "payload": {
+            "taskId": "session-uuid-xyz",
+            "itemId": "item-uuid-123", // ID файла/чанка
+            "relativePath": "data/level1.pak",
+            "status": "downloading",
+            "downloadedBytes": 52428800,
+            "totalFileSizeBytes": 104857600
+          }
+        }
+        ```
+    *   **`downloadError`**: Сообщение об ошибке загрузки.
+        ```json
+        {
+          "type": "downloadError",
+          "payload": {
+            "taskId": "session-uuid-xyz",
+            "itemId": "item-uuid-123", // Опционально, если ошибка по конкретному файлу
+            "errorCode": "CDN_UNREACHABLE",
+            "errorMessage": "Не удалось подключиться к серверу CDN."
+          }
+        }
+        ```
+*   **Сообщения от клиента к серверу:** (Обычно не требуются, управление через REST API)
 
 ## 4. Модели Данных (Data Models)
 См. также `../../../../project_database_structure.md`.
 
 ### 4.1. Основные Сущности
-*   **`DownloadSession` (Сессия Загрузки)** (Как в существующем документе)
-*   **`DownloadItem` (Элемент Загрузки - файл в рамках сессии)** (Как в существующем документе)
-*   **`FileMetadata` (Метаданные Файла Продукта)** (Как в существующем документе)
-*   **`Update` (Обновление)** (Как в существующем документе)
-*   **`UpdateHistory` (История Обновлений Пользователя)**
-    *   `id` (UUID): Уникальный идентификатор записи.
-    *   `user_id` (UUID): ID пользователя.
-    *   `product_id` (UUID): ID продукта.
-    *   `applied_version_id` (UUID): ID установленной версии.
-    *   `previous_version_id` (UUID, Nullable): ID предыдущей установленной версии (если это было обновление).
-    *   `applied_at` (TIMESTAMPTZ): Время применения обновления.
-    *   `status` (ENUM: `success`, `failed`): Статус применения обновления.
-*   **`VerificationResult` (Результат Верификации Файлов)**
-    *   `id` (UUID): Уникальный идентификатор записи о верификации.
-    *   `user_id` (UUID): ID пользователя.
-    *   `product_id` (UUID): ID продукта.
-    *   `version_id` (UUID): ID проверяемой версии.
-    *   `status` (ENUM: `pending`, `in_progress`, `completed_ok`, `completed_errors`, `failed_to_repair`): Статус верификации.
-    *   `corrupted_files_count` (INTEGER): Количество обнаруженных поврежденных файлов.
-    *   `repaired_files_count` (INTEGER): Количество автоматически восстановленных файлов.
-    *   `files_requiring_redownload` (JSONB, Nullable): Список файлов (их `file_metadata_id` или пути), которые не удалось восстановить и требуется их полная перезагрузка.
-    *   `started_at` (TIMESTAMPTZ): Время начала верификации.
-    *   `completed_at` (TIMESTAMPTZ, Nullable): Время завершения верификации.
+*   **`DownloadTask` (Задача на Загрузку)**: Представляет собой задачу пользователя на загрузку продукта (игры, обновления). Включает несколько `DownloadItem`.
+    *   `id` (UUID, PK), `user_id` (UUID), `product_id` (UUID), `version_id` (UUID), `target_path` (TEXT), `status` (ENUM: `queued`, `preparing`, `downloading`, `paused`, `verifying`, `completed`, `error`, `cancelled`), `priority` (INTEGER), `total_size_bytes` (BIGINT), `downloaded_bytes` (BIGINT), `created_at`, `updated_at`.
+*   **`DownloadItem` (Элемент Загрузки)**: Конкретный файл или чанк файла в рамках `DownloadTask`.
+    *   `id` (UUID, PK), `download_task_id` (UUID, FK), `file_manifest_id` (UUID, FK на `ProductFileManifest`), `relative_path` (TEXT), `status` (ENUM: `pending`, `downloading`, `paused`, `completed`, `error`), `downloaded_bytes` (BIGINT), `total_size_bytes` (BIGINT), `retry_count` (INTEGER), `cdn_url_current` (TEXT, nullable).
+*   **`ProductFileManifest` (Манифест Файлов Продукта)**: Описывает структуру файлов для конкретной версии продукта. Получается из Catalog Service. Может кэшироваться в Download Service.
+    *   `id` (UUID, PK), `product_id` (UUID), `version_id` (UUID), `file_entries` (JSONB: `[{"path": "bin/game.exe", "size": 12345, "hash_sha256": "...", "chunks": [{"offset":0, "size":6000, "hash_sha256":"..."}]}]`), `created_at`.
+*   **`CDNConfig` (Конфигурация CDN)**: Настройки для работы с различными CDN провайдерами.
+    *   `id` (UUID, PK), `provider_name` (VARCHAR, UK), `api_endpoint` (TEXT), `auth_type` (VARCHAR), `auth_credentials_encrypted` (TEXT), `url_generation_template` (TEXT), `priority` (INTEGER), `is_active` (BOOLEAN).
+*   **`UserDownloadHistory` (История Загрузок Пользователя)**: Запись о завершенных или отмененных загрузках.
+    *   `id` (UUID, PK), `user_id` (UUID), `product_id` (UUID), `version_id` (UUID), `status` (ENUM: `completed`, `cancelled`, `failed_permanently`), `completed_at` (TIMESTAMPTZ), `total_download_time_seconds` (INTEGER), `total_bytes_downloaded` (BIGINT).
+*   **`DeltaPatchInfo` (Информация о Дельта-Патче)**
+    *   `id` (UUID, PK), `product_id` (UUID), `from_version_id` (UUID), `to_version_id` (UUID), `patch_s3_path` (TEXT), `patch_size_bytes` (BIGINT), `patch_hash_sha256` (TEXT), `instructions_s3_path` (TEXT, опционально, для сложных патчей).
 
 ### 4.2. Схема Базы Данных
 
 #### 4.2.1. PostgreSQL
-**ERD Диаграмма (дополненная):**
+**ERD Диаграмма:**
 ```mermaid
 erDiagram
-    DOWNLOAD_SESSIONS {
+    USERS {
         UUID id PK
-        UUID user_id "FK (User)"
-        UUID product_id "FK (Product)"
-        UUID version_id "FK (ProductVersion)"
+        note "From Auth/Account Service"
+    }
+    PRODUCTS {
+        UUID id PK
+        note "From Catalog Service"
+    }
+    PRODUCT_VERSIONS {
+        UUID id PK
+        UUID product_id FK
+        note "From Catalog Service"
+    }
+    DOWNLOAD_TASKS {
+        UUID id PK
+        UUID user_id FK
+        UUID product_id FK
+        UUID version_id FK
+        VARCHAR target_path
         VARCHAR status
+        INTEGER priority
         BIGINT total_size_bytes
         BIGINT downloaded_bytes
-        FLOAT progress_percentage
-        TEXT installation_path
-        INTEGER priority
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
     DOWNLOAD_ITEMS {
         UUID id PK
-        UUID download_session_id FK
-        UUID file_metadata_id FK
+        UUID download_task_id FK
+        UUID product_file_manifest_entry_id "Refers to an entry in ProductFileManifest (conceptual)"
         TEXT relative_path
         VARCHAR status
         BIGINT downloaded_bytes
+        BIGINT total_size_bytes
         INTEGER retry_count
     }
-    FILE_METADATA {
+    PRODUCT_FILE_MANIFESTS {
         UUID id PK
-        UUID product_id "FK (Product)"
-        UUID version_id "FK (ProductVersion)"
-        TEXT relative_path
-        BIGINT size_bytes
-        VARCHAR hash_sha256
-        BOOLEAN is_delta_patch
-        UUID base_version_id_for_patch "nullable"
-        JSONB cdn_references
+        UUID product_id FK
+        UUID version_id FK
+        JSONB file_entries "List of files, sizes, hashes, chunks"
         TIMESTAMPTZ created_at
     }
-    UPDATES_HISTORY {
+    CDN_CONFIGS {
         UUID id PK
-        UUID user_id "FK (User)"
-        UUID product_id "FK (Product)"
-        UUID applied_version_id "FK (ProductVersion)"
-        UUID previous_version_id "nullable, FK (ProductVersion)"
-        VARCHAR status "ENUM('success', 'failed')"
-        TIMESTAMPTZ applied_at
+        VARCHAR provider_name UK
+        TEXT api_endpoint
+        TEXT url_generation_template
+        INTEGER priority
+        BOOLEAN is_active
     }
-    VERIFICATION_RESULTS {
+    USER_DOWNLOAD_HISTORY {
         UUID id PK
-        UUID user_id "FK (User)"
-        UUID product_id "FK (Product)"
-        UUID version_id "FK (ProductVersion)"
-        VARCHAR status "ENUM('pending', 'in_progress', 'completed_ok', 'completed_errors', 'failed_to_repair')"
-        INTEGER corrupted_files_count
-        INTEGER repaired_files_count
-        JSONB files_requiring_redownload
-        TIMESTAMPTZ started_at
+        UUID user_id FK
+        UUID product_id FK
+        UUID version_id FK
+        VARCHAR status
         TIMESTAMPTZ completed_at
+        BIGINT total_bytes_downloaded
+    }
+    DELTA_PATCH_INFO {
+        UUID id PK
+        UUID product_id FK
+        UUID from_version_id FK
+        UUID to_version_id FK
+        TEXT patch_s3_path
+        BIGINT patch_size_bytes
+        VARCHAR patch_hash_sha256
     }
 
-    DOWNLOAD_SESSIONS ||--|{ DOWNLOAD_ITEMS : "contains"
-    DOWNLOAD_ITEMS }o--|| FILE_METADATA : "references"
-    FILE_METADATA }o--|| PRODUCTS_VERSIONS : "belongs_to_version"
-    USERS ||--o{ DOWNLOAD_SESSIONS : "owns"
-    USERS ||--o{ UPDATES_HISTORY : "has_applied"
-    USERS ||--o{ VERIFICATION_RESULTS : "initiated_by"
-    PRODUCTS_VERSIONS ||--o{ VERIFICATION_RESULTS : "verifies"
-    PRODUCTS_VERSIONS ||--o{ UPDATES_HISTORY : "applied_version"
-    PRODUCTS_VERSIONS ||--o{ UPDATES_HISTORY : "previous_version"
+    USERS ||--o{ DOWNLOAD_TASKS : "initiates"
+    PRODUCTS ||--o{ DOWNLOAD_TASKS : "target_product"
+    PRODUCT_VERSIONS ||--o{ DOWNLOAD_TASKS : "target_version"
+    DOWNLOAD_TASKS ||--|{ DOWNLOAD_ITEMS : "contains"
+    PRODUCT_FILE_MANIFESTS ||--|| PRODUCT_VERSIONS : "describes"
+    PRODUCTS ||--|| PRODUCT_FILE_MANIFESTS : "for_product"
+    USERS ||--o{ USER_DOWNLOAD_HISTORY : "has"
+    PRODUCTS ||--o{ USER_DOWNLOAD_HISTORY : "of_product"
+    PRODUCT_VERSIONS ||--o{ USER_DOWNLOAD_HISTORY : "of_version"
+    PRODUCTS ||--o{ DELTA_PATCH_INFO : "for_product"
+    PRODUCT_VERSIONS ||--o{ DELTA_PATCH_INFO : "from_version"
+    PRODUCT_VERSIONS ||--o{ DELTA_PATCH_INFO : "to_version"
 
-    PRODUCTS_VERSIONS {
-        note "Managed by Catalog Service"
-    }
-    USERS {
-        note "Managed by Auth/Account Service"
-    }
+    DOWNLOAD_ITEMS ..> PRODUCT_FILE_MANIFESTS : "references_entry_in"
 ```
 
-**DDL (PostgreSQL - дополнения для `updates_history`, `verification_results`):**
+**DDL (PostgreSQL - ключевые таблицы):**
 ```sql
-CREATE TABLE updates_history (
+CREATE TABLE download_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    applied_version_id UUID NOT NULL,
-    previous_version_id UUID,
-    status VARCHAR(50) NOT NULL CHECK (status IN ('success', 'failed')),
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id UUID NOT NULL, -- FK to Users table (conceptual)
+    product_id UUID NOT NULL, -- FK to Products table in Catalog Service (conceptual)
+    version_id UUID NOT NULL, -- FK to ProductVersions table in Catalog Service (conceptual)
+    target_path TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'preparing', 'downloading', 'paused', 'verifying', 'completed', 'error', 'cancelled')),
+    priority INTEGER NOT NULL DEFAULT 0,
+    total_size_bytes BIGINT NOT NULL DEFAULT 0,
+    downloaded_bytes BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     error_message TEXT
 );
-CREATE INDEX idx_updates_history_user_product ON updates_history(user_id, product_id);
-COMMENT ON TABLE updates_history IS 'История установки обновлений продуктов пользователями.';
+CREATE INDEX idx_download_tasks_user_status ON download_tasks(user_id, status);
 
-CREATE TABLE verification_results (
+CREATE TABLE download_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
+    download_task_id UUID NOT NULL REFERENCES download_tasks(id) ON DELETE CASCADE,
+    -- file_manifest_id UUID NOT NULL, -- conceptually links to an entry in ProductFileManifest
+    relative_path TEXT NOT NULL, -- Путь файла относительно корня продукта
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'downloading', 'paused', 'completed', 'error', 'verifying')),
+    downloaded_bytes BIGINT NOT NULL DEFAULT 0,
+    total_size_bytes BIGINT NOT NULL,
+    expected_hash_sha256 VARCHAR(64),
+    current_cdn_url TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_download_items_task_id ON download_items(download_task_id);
+
+CREATE TABLE product_file_manifests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID NOT NULL,
     version_id UUID NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed_ok', 'completed_errors', 'failed_to_repair')),
-    corrupted_files_count INTEGER NOT NULL DEFAULT 0,
-    repaired_files_count INTEGER NOT NULL DEFAULT 0,
-    files_requiring_redownload JSONB,
-    started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at TIMESTAMPTZ
+    file_entries JSONB NOT NULL, -- [{"path": "...", "size": ..., "hash": "...", "chunks": [...]}]
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (product_id, version_id)
 );
-CREATE INDEX idx_verification_results_user_product ON verification_results(user_id, product_id);
-COMMENT ON TABLE verification_results IS 'Результаты проверки целостности файлов установленных продуктов.';
+COMMENT ON TABLE product_file_manifests IS 'Хранит манифесты файлов для версий продуктов, полученные из Catalog Service.';
+
+CREATE TABLE cdn_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider_name VARCHAR(100) NOT NULL UNIQUE,
+    api_endpoint TEXT,
+    url_generation_template TEXT NOT NULL, -- e.g., "https://{host}/{path}?token={token}"
+    auth_type VARCHAR(50) DEFAULT 'none', -- none, token_param, signed_url
+    secret_key_id_for_signing VARCHAR(255), -- Если используется подпись URL
+    priority INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    notes TEXT
+);
+COMMENT ON TABLE cdn_configs IS 'Конфигурации для различных CDN провайдеров.';
+
+-- (UserDownloadHistory и DeltaPatchInfo DDLs как в существующем документе, если они там есть, или создать аналогично)
 ```
 
 #### 4.2.2. Redis
-*   **Очереди загрузок:** Используются Redis Lists или Sorted Sets (`download_queue:user:<user_id>`) для управления очередью загрузок конкретного пользователя, включая приоритеты.
-*   **Состояние активных сессий загрузки:** Redis Hashes (`download_session_state:<session_id>`) для хранения часто обновляемой информации о прогрессе, скорости, статусе активных загрузок. Это позволяет быстро отдавать данные через WebSocket и снижает нагрузку на PostgreSQL.
-*   **Кэш токенов/временных ссылок CDN:** Redis Strings (`cdn_link:<file_path_hash_or_id>`) с TTL.
-*   **Блокировки:** Для предотвращения гонок состояний при обновлении сессий или файлов (`lock:download_session:<session_id>`).
+*   **Активные сессии/задачи загрузки:** `active_download_task:<taskId>` (HASH) - хранит часто обновляемые поля: `status`, `downloaded_bytes`, `current_speed_bps`, `active_item_id`, `active_item_progress_bytes`. TTL на случай зависания.
+*   **Очередь загрузок пользователя:** `user_download_queue:<userId>` (LIST или SORTED SET) - ID задач в порядке их выполнения.
+*   **Прогресс по файлам/чанкам:** `download_item_progress:<itemId>` (HASH) - `downloaded_bytes`, `status`.
+*   **Кэш ссылок CDN:** `cdn_url:<file_path_or_chunk_id>` (STRING) - кэшированная подписанная ссылка CDN с TTL.
+*   **Счетчики для Rate Limiting:** (Если Download Service реализует свой rate limiting для запросов на генерацию ссылок) `rate_limit:user:<userId>:cdn_url_requests` (COUNTER с TTL).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
-
-### 5.1. Публикуемые События (Produced Events)
-*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
-*   **Основной топик Kafka:** `com.platform.download.events.v1`.
-
-*   **`com.platform.download.session.status.changed.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.download.update.available.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.download.file.verification.completed.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.download.item.status.changed.v1`**
-    *   Описание: Статус загрузки отдельного файла (элемента) в рамках сессии изменился.
-    *   `data` Payload:
-        ```json
-        {
-          "downloadSessionId": "download-session-uuid-xyz",
-          "downloadItemId": "item-uuid-123",
-          "fileMetadataId": "filemeta-uuid-abc",
-          "relativePath": "bin/game.exe",
-          "newStatus": "completed",
-          "previousStatus": "downloading",
-          "downloadedBytes": 104857600,
-          "totalFileSizeBytes": 104857600,
-          "timestamp": "2024-03-18T15:00:00Z",
-          "errorDetails": null
-        }
-        ```
-    *   Потребители: Library Service (для обновления статуса установки), Analytics Service.
-
-### 5.2. Потребляемые События (Consumed Events)
-(Содержимое существующего раздела актуально, с коррекцией имен событий на формат `com.platform.*`).
+(Содержимое существующего раздела актуально, с добавлением `com.platform.download.item.status.changed.v1` и коррекцией имен событий).
 
 ## 6. Интеграции (Integrations)
-(Содержимое существующего раздела актуально).
+(Содержимое существующего раздела актуально, с уточнением взаимодействия с CDN и S3).
+*   **CDN Провайдеры:** Ключевая интеграция. Download Service запрашивает у CDN (или генерирует для CDN) безопасные ссылки для скачивания файлов.
+*   **S3-совместимое хранилище:** Для хранения оригиналов билдов (если загружаются через Developer Service -> Download Service -> CDN), дельта-патчей, временных файлов.
 
 ## 7. Конфигурация (Configuration)
 (Содержимое существующего раздела YAML и описание переменных окружения в целом актуальны).
+*   Добавить переменные для конфигурации CDN (API ключи, эндпоинты, шаблоны URL).
+*   Добавить переменные для конфигурации S3 (если используется для staging).
+*   Настройки для дельта-патчей (минимальный размер файла для патчинга, и т.д.).
 
 ## 8. Обработка Ошибок (Error Handling)
-(Содержимое существующего раздела актуально, форматы ошибок исправлены в разделе API).
+(Содержимое существующего раздела актуально).
+*   **`CDN_LINK_GENERATION_FAILED`**: Ошибка при генерации ссылки на CDN.
+*   **`FILE_HASH_MISMATCH`**: Хеш-сумма загруженного файла не совпадает с ожидаемой.
+*   **`DELTA_PATCH_APPLICATION_FAILED`**: Ошибка применения дельта-патча.
+*   **`DOWNLOAD_QUEUE_FULL`**: Очередь загрузок пользователя заполнена.
 
 ## 9. Безопасность (Security)
-(Содержимое существующего раздела в целом актуально).
-*   **Безопасная генерация ссылок CDN:** Использование time-limited, подписанных URL (если поддерживается CDN) для предотвращения неавторизованного доступа и распространения.
-*   **Проверка целостности файлов:** Обязательная проверка хеш-сумм после загрузки для гарантии отсутствия повреждений или модификаций.
-*   Ссылки на `../../../../project_security_standards.md`.
+(Содержимое существующего раздела актуально).
+*   **Защита ссылок CDN:** Использование короткоживущих, подписанных URL или токенизированных ссылок для предотвращения неавторизованного доступа и распространения контента.
+*   **Проверка целостности файлов:** Обязательная проверка хеш-сумм после загрузки для гарантии отсутствия повреждений или модификаций во время передачи.
+*   **Авторизация загрузок:** Тесная интеграция с Library Service и Auth Service для проверки, что пользователь имеет право на загрузку контента.
+*   **Защита от злоупотреблений:** Rate limiting на запросы генерации ссылок CDN.
 
 ## 10. Развертывание (Deployment)
 (Содержимое существующего раздела актуально).
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
 (Содержимое существующего раздела актуально).
+*   **Дополнительные метрики:** Скорость загрузки (средняя, по регионам, по CDN), количество активных загрузок, количество ошибок CDN, процент успешных/неуспешных загрузок, время применения патчей.
 
 ## 12. Нефункциональные Требования (NFRs)
 (Содержимое существующего раздела актуально).
+*   **Пропускная способность:** Способность обслуживать X Гбит/с суммарного трафика загрузок (зависит от CDN).
+*   **Задержка генерации ссылок CDN:** P99 < 200 мс.
+*   **Надежность применения патчей:** > 99.9% успешных применений.
 
 ## 13. Приложения (Appendices)
-*   Детальные OpenAPI схемы для REST API, Protobuf определения для gRPC API, и форматы сообщений WebSocket поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
-*   DDL схемы базы данных управляются через систему миграций (например, `golang-migrate/migrate`) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
+(Содержимое существующего раздела актуально).
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
 
-### 14.1. PostgreSQL (Метаданные сессий загрузок, истории обновлений, результатов верификации)
+В этом разделе описаны ключевые пользовательские сценарии, связанные с Download Service.
+
+### 14.1. Пользователь Начинает Загрузку Новой Игры
+*   **Описание:** Пользователь, имеющий права на игру, инициирует ее загрузку через клиентское приложение.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant LibrarySvc as Library Service
+        participant AuthSvc as Auth Service
+        participant DownloadSvc as Download Service
+        participant CatalogSvc as Catalog Service
+        participant CDN as CDN
+        participant Kafka as Kafka Message Bus
+
+        User->>ClientApp: Нажимает "Скачать игру X"
+        ClientApp->>APIGW: POST /api/v1/library/me/downloads (productId, versionId)
+        APIGW->>LibrarySvc: Forward request (с User JWT)
+        LibrarySvc->>AuthSvc: (gRPC) ValidateToken(JWT) -> user_id
+        AuthSvc-->>LibrarySvc: Token valid, user_id
+        LibrarySvc->>LibrarySvc: Проверка прав пользователя на продукт (entitlement)
+        alt Права есть
+            LibrarySvc->>DownloadSvc: (gRPC) RequestDownload(user_id, productId, versionId)
+            DownloadSvc->>CatalogSvc: (gRPC) GetFileManifest(productId, versionId)
+            CatalogSvc-->>DownloadSvc: FileManifest (список файлов, хеши, размеры, чанки)
+            DownloadSvc->>DownloadSvc: Создание DownloadTask, DownloadItems (status: 'queued')
+            DownloadSvc->>DownloadSvc: Генерация безопасных ссылок на CDN для первых чанков/файлов
+            DownloadSvc-->>LibrarySvc: DownloadQueuedResponse (taskId, queue_position)
+            LibrarySvc-->>APIGW: HTTP 202 Accepted
+            APIGW-->>ClientApp: HTTP 202 Accepted (taskId)
+            ClientApp-->>User: Загрузка добавлена в очередь
+
+            ClientApp->>DownloadSvc: (WebSocket) Connect /ws/download/progress?taskId={taskId}
+            DownloadSvc-->>ClientApp: (WebSocket) Connection established; TaskStatusUpdate (status: 'downloading')
+
+            loop Для каждого файла/чанка в задаче
+                DownloadSvc->>ClientApp: (WebSocket) ItemProgressUpdate (CDN_URL_for_chunk, item_id, path)
+                ClientApp->>CDN: GET <CDN_URL_for_chunk>
+                CDN-->>ClientApp: Данные чанка
+                ClientApp->>ClientApp: Сохранение чанка
+                ClientApp->>DownloadSvc: (REST или WebSocket) Сообщение о завершении чанка (опционально, или DownloadSvc сам отслеживает)
+                DownloadSvc->>DownloadSvc: Проверка хеша чанка (если есть)
+            end
+            DownloadSvc->>DownloadSvc: Проверка целостности всех файлов после завершения
+            DownloadSvc->>Kafka: Publish `com.platform.download.session.status.changed.v1` (taskId, status: 'completed')
+            DownloadSvc-->>ClientApp: (WebSocket) DownloadTaskStatusUpdate (status: 'completed')
+            ClientApp-->>User: Загрузка завершена
+        else Права отсутствуют
+            LibrarySvc-->>APIGW: HTTP 403 Forbidden
+            APIGW-->>ClientApp: HTTP 403 Forbidden
+            ClientApp-->>User: Ошибка: нет прав на загрузку
+        end
+    ```
+
+### 14.2. Пользователь Приостанавливает и Возобновляет Загрузку
+*   **Описание:** Пользователь приостанавливает активную загрузку, а затем возобновляет ее.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant DownloadSvc as Download Service
+        participant CDN as CDN
+
+        User->>ClientApp: Нажимает "Пауза" для загрузки {taskId}
+        ClientApp->>APIGW: POST /api/v1/download/tasks/{taskId}/pause
+        APIGW->>DownloadSvc: Forward request
+        DownloadSvc->>DownloadSvc: Обновляет статус DownloadTask на 'paused'. Отменяет текущие HTTP запросы к CDN для этой задачи.
+        DownloadSvc-->>APIGW: HTTP 200 OK (обновленный DownloadTask)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp->>DownloadSvc: (WebSocket) Получает DownloadTaskStatusUpdate (status: 'paused')
+        ClientApp-->>User: Загрузка приостановлена
+
+        User->>ClientApp: Нажимает "Возобновить" для загрузки {taskId}
+        ClientApp->>APIGW: POST /api/v1/download/tasks/{taskId}/resume
+        APIGW->>DownloadSvc: Forward request
+        DownloadSvc->>DownloadSvc: Обновляет статус DownloadTask на 'downloading'.
+        DownloadSvc->>DownloadSvc: Определяет недокачанные файлы/чанки. Генерирует новые ссылки CDN.
+        DownloadSvc-->>APIGW: HTTP 200 OK (обновленный DownloadTask)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp->>DownloadSvc: (WebSocket) Получает DownloadTaskStatusUpdate (status: 'downloading') и ItemProgressUpdate для возобновления
+        ClientApp-->>User: Загрузка возобновлена
+    ```
+
+### 14.3. Применение Дельта-Обновления для Установленной Игры
+*   **Описание:** Клиентское приложение проверяет наличие обновлений, обнаруживает дельта-патч, скачивает его и применяет.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant DownloadSvc as Download Service
+        participant CatalogSvc as Catalog Service
+        participant CDN as CDN
+        participant LocalFileSystem as Локальная ФС Клиента
+
+        ClientApp->>APIGW: POST /api/v1/download/updates/check (productId, currentVersionId)
+        APIGW->>DownloadSvc: Forward request
+        DownloadSvc->>CatalogSvc: (gRPC) GetLatestVersionInfo(productId)
+        CatalogSvc-->>DownloadSvc: LatestVersionInfo
+        DownloadSvc->>DownloadSvc: Сравнение версий. Определение наличия дельта-патча.
+        alt Дельта-патч доступен
+            DownloadSvc->>CatalogSvc: (gRPC) GetDeltaPatchInfo(productId, currentVersionId, latestVersionId)
+            CatalogSvc-->>DownloadSvc: DeltaPatchInfo (S3 путь к патчу, хеш, размер)
+            DownloadSvc-->>APIGW: HTTP 200 OK (updateAvailable=true, type='delta', patchInfo)
+        else Дельта-патч недоступен, доступно полное обновление
+            DownloadSvc-->>APIGW: HTTP 200 OK (updateAvailable=true, type='full', fullDownloadInfo)
+        end
+        APIGW-->>ClientApp: Ответ о наличии обновления
+
+        ClientApp->>APIGW: POST /api/v1/download/updates/initiate (productId, targetVersionId, type='delta')
+        APIGW->>DownloadSvc: Forward request
+        DownloadSvc->>DownloadSvc: Создание DownloadTask для патча. Генерация CDN ссылок для патча.
+        DownloadSvc-->>APIGW: HTTP 202 Accepted (DownloadTask для патча)
+        APIGW-->>ClientApp: HTTP 202 Accepted
+
+        ClientApp->>CDN: Скачивание файла(ов) патча
+        CDN-->>ClientApp: Данные патча
+        ClientApp->>LocalFileSystem: Применение патча к локальным файлам игры (используя логику из DeltaLogic)
+        alt Патч применен успешно
+            ClientApp->>LocalFileSystem: Проверка целостности обновленных файлов
+            alt Целостность подтверждена
+                ClientApp->>APIGW: POST /api/v1/download/updates/applied (productId, newVersionId, status='success')
+                APIGW->>DownloadSvc: Forward request
+                DownloadSvc->>DownloadSvc: Обновление истории обновлений пользователя
+                DownloadSvc->>LibrarySvc: (через Kafka/gRPC) Уведомление об успешном обновлении
+            else Ошибка целостности
+                ClientApp->>APIGW: POST /api/v1/download/updates/applied (productId, newVersionId, status='verification_failed')
+                Note over ClientApp: Запрос полной переустановки или повторной проверки.
+            end
+        else Ошибка применения патча
+            ClientApp->>APIGW: POST /api/v1/download/updates/applied (productId, currentVersionId, status='patch_failed')
+            Note over ClientApp: Запрос полной переустановки.
+        end
+    ```
+
+### 14.4. Управление Очередью Загрузок Пользователя
+*   **Описание:** Download Service управляет несколькими задачами на загрузку для одного пользователя, учитывая их приоритеты и глобальные лимиты.
+*   **Диаграмма:**
+    ```mermaid
+    graph TD
+        U[Пользователь] --> Q1{Запрос Загрузки 1 (Игра A, Приоритет Normal)}
+        U --> Q2{Запрос Загрузки 2 (Патч B, Приоритет High)}
+        U --> Q3{Запрос Загрузки 3 (Игра C, Приоритет Normal)}
+
+        subgraph DownloadService
+            PackageManager[Менеджер Пакетов/Очереди]
+            ActiveDownloader1[Активный Загрузчик 1]
+            ActiveDownloader2[Активный Загрузчик 2 (если max_concurrent > 1)]
+        end
+
+        Q1 --> PackageManager
+        Q2 --> PackageManager
+        Q3 --> PackageManager
+
+        PackageManager -- Учитывает приоритет и лимит --> ActiveDownloader1
+        PackageManager -- Учитывает приоритет и лимит --> ActiveDownloader2
+
+        ActiveDownloader1 --> CDN1[CDN]
+        ActiveDownloader2 --> CDN2[CDN]
+
+        UserClient[Клиент Пользователя] <-->|WebSocket| PackageManager
+        PackageManager --> UserClient: Обновления статуса для всех задач в очереди
+
+        note right of PackageManager
+         - Обработка очереди (например, Redis Sorted Set по приоритету и времени добавления).
+         - Запуск N параллельных загрузок согласно настройкам пользователя/системы.
+         - Приостановка низкоприоритетных задач при добавлении высокоприоритетной, если лимит исчерпан.
+        end
+    ```
+
+### 14.5. Обработка Недоступности CDN или Переключение на Альтернативный CDN
+*   **Описание:** В процессе загрузки файла CDN становится недоступен. Download Service пытается переключиться на другой CDN или повторить запрос через некоторое время.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        participant ClientApp as Клиентское Приложение
+        participant DownloadSvc as Download Service
+        participant PrimaryCDN as Основной CDN
+        participant SecondaryCDN as Резервный CDN (если есть)
+        participant CatalogSvc as Catalog Service (для списка зеркал/CDN)
+
+        ClientApp->>PrimaryCDN: GET /path/to/file_chunk_1 (по ссылке от DownloadSvc)
+        alt PrimaryCDN недоступен или ошибка
+            PrimaryCDN-->>ClientApp: Ошибка (Timeout, 5xx)
+            ClientApp->>DownloadSvc: (REST/WebSocket) Сообщение об ошибке загрузки чанка (itemId, errorCode)
+            DownloadSvc->>DownloadSvc: Логирование ошибки. Инкремент счетчика ошибок для PrimaryCDN / файла.
+            DownloadSvc->>CatalogSvc: (gRPC, если информация о CDN там) Запрос альтернативных CDN для файла/продукта
+            CatalogSvc-->>DownloadSvc: Список альтернативных CDN или стратегия отката
+            alt Есть резервный CDN
+                DownloadSvc->>DownloadSvc: Генерация новой ссылки для SecondaryCDN
+                DownloadSvc->>ClientApp: (WebSocket) Новая ссылка для загрузки чанка с SecondaryCDN
+                ClientApp->>SecondaryCDN: GET /path/to/file_chunk_1 (новая ссылка)
+                SecondaryCDN-->>ClientApp: Данные чанка
+            else Нет резервного CDN или он тоже недоступен
+                DownloadSvc->>DownloadSvc: Планирование повторной попытки для PrimaryCDN через N секунд (backoff)
+                DownloadSvc->>ClientApp: (WebSocket) Уведомление о временной проблеме и планируемой повторной попытке
+            end
+        else PrimaryCDN отвечает успешно
+            PrimaryCDN-->>ClientApp: Данные чанка
+        end
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
+
+### 15.1. PostgreSQL (Метаданные сессий загрузок, истории обновлений, результатов верификации)
 *   **Процедура резервного копирования:**
     *   Ежедневный логический бэкап (`pg_dump`).
     *   Настроена непрерывная архивация WAL-сегментов (PITR), базовый бэкап еженедельно.
@@ -489,7 +749,7 @@ COMMENT ON TABLE verification_results IS 'Результаты проверки 
 *   **RPO:** < 15 минут.
 *   (Общие принципы см. `../../../../project_database_structure.md`).
 
-### 14.2. Redis (Очереди загрузок, состояние активных сессий, кэш токенов CDN)
+### 15.2. Redis (Очереди загрузок, состояние активных сессий, кэш токенов CDN)
 *   **Стратегия персистентности:**
     *   **AOF (Append Only File):** Включен с fsync `everysec` для очередей и состояний активных сессий, если их потеря критична для пользовательского опыта (например, чтобы не прерывать все активные загрузки при перезапуске Redis).
     *   **RDB Snapshots:** Регулярное создание снапшотов (например, каждые 1-6 часов).
@@ -498,19 +758,23 @@ COMMENT ON TABLE verification_results IS 'Результаты проверки 
 *   **RTO:** < 30 минут.
 *   **RPO:** < 1 минуты (для данных с AOF `everysec`). Для кэша токенов CDN RPO менее критичен.
 
-### 14.3. S3-совместимое хранилище (если используется для временного staging)
+### 15.3. S3-совместимое хранилище (если используется для временного staging)
 *   **Стратегия:** Данные во временном хранилище обычно имеют короткий срок жизни. Основные файлы игр управляются Developer/Catalog Service и их S3 бакетами. Download Service не отвечает за бэкап этих основных файлов.
 *   **Резервное копирование:** Обычно не требуется для временных файлов, специфичных для Download Service. Если есть критичные staging-файлы, создаваемые самим Download Service, можно настроить версионирование или репликацию в S3.
 *   **RTO/RPO:** Неприменимо для временных данных; для критичных staging-данных зависит от настроек S3.
 
-### 14.4. Общая стратегия
+### 15.4. Общая стратегия
 *   Восстановление PostgreSQL является приоритетным.
 *   Redis восстанавливается для минимизации прерываний текущих операций.
 *   Процедуры документированы и тестируются.
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+## 16. Приложения (Appendices)
+*   Детальные OpenAPI схемы для REST API, Protobuf определения для gRPC API, и форматы сообщений WebSocket поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
+*   DDL схемы базы данных управляются через систему миграций (например, `golang-migrate/migrate`) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
+
+## 17. Связанные Рабочие Процессы (Related Workflows)
 *   [Процесс покупки игры и обновления библиотеки пользователя](../../../../project_workflows/game_purchase_flow.md)
-*   [Процесс обновления клиентского приложения](../../../../project_workflows/client_update_flow.md) (Примечание: Создание документа `client_update_flow.md` является частью общей задачи по документированию проекта и выходит за рамки обновления документации данного микросервиса.)
+*   [Процесс обновления клиентского приложения](../../../../project_workflows/client_update_flow.md) <!-- {{TODO: Создание документа client_update_flow.md является частью общей задачи по документированию проекта и выходит за рамки обновления документации данного микросервиса.}} -->
 
 ---
 *Этот документ является основной спецификацией для Download Service и должен поддерживаться в актуальном состоянии.*
