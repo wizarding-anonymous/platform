@@ -26,13 +26,13 @@
 *   **Модерация пользовательского контента:** Инструменты для модераторов (просмотр жалоб, удаление/скрытие контента, блокировка пользователей). Система жалоб на контент и поведение пользователей. Автоматическая фильтрация нежелательного контента (базовая).
 
 ### 1.3. Основные Технологии
-*   **Язык программирования:** Go (предпочтительно для API и основной логики). Java/Kotlin или Python могут рассматриваться для отдельных компонентов или фоновых задач.
-*   **Базы данных:**
-    *   PostgreSQL: Для хранения реляционных данных (профили пользователей, информация о группах, структура форумов, отзывы, комментарии, данные модерации).
-    *   Apache Cassandra: Для хранения высоконагруженных данных с интенсивной записью и чтением (сообщения чатов, элементы ленты активности).
-    *   Neo4j: Для хранения и обработки социального графа (связи дружбы, рекомендации друзей).
-    *   Redis: Для кэширования часто запрашиваемых данных (профили, списки друзей), хранения онлайн-статусов пользователей, управления сессиями WebSocket, временных данных (например, счетчики для rate limiting).
-*   **Брокер сообщений:** Apache Kafka (для асинхронного обмена событиями между Social Service и другими сервисами, а также для внутренних задач).
+*   **Язык программирования:** Go (основной язык для API и бизнес-логики, в соответствии с `project_technology_stack.md`). Python может использоваться для специфичных задач (например, ML-компоненты для рекомендаций, если будут).
+*   **Базы данных (Polyglot Persistence):**
+    *   PostgreSQL: Основная реляционная СУБД для структурированных данных (профили пользователей, информация о группах, структура форумов, отзывы, комментарии, данные модерации). Соответствует `project_technology_stack.md`.
+    *   Apache Cassandra: Используется для хранения данных с высокой интенсивностью записи и чтения, таких как сообщения чатов и элементы ленты активности. Соответствует `project_technology_stack.md`.
+    *   Neo4j: Используется для хранения и обработки социального графа (связи дружбы, рекомендации друзей). Соответствует `project_technology_stack.md`.
+    *   Redis: Применяется для кэширования часто запрашиваемых данных, хранения онлайн-статусов пользователей, управления сессиями WebSocket и других эфемерных данных. Соответствует `project_technology_stack.md`.
+*   **Брокер сообщений:** Apache Kafka (для асинхронного обмена событиями между Social Service и другими сервисами, а также для внутренних задач). Соответствует `project_technology_stack.md`.
 *   **WebSocket:** Для обеспечения real-time функциональности чатов и обновлений ленты/статусов (например, стандартные библиотеки Go для WebSocket или Socket.IO, если фронтенд использует его).
 *   **Поисковый движок (опционально):** Elasticsearch может использоваться для поиска по профилям, группам, форумам, если возможности PostgreSQL окажутся недостаточными.
 *   **Инфраструктура:** Docker, Kubernetes.
@@ -150,14 +150,36 @@ graph TD
     {
       "errors": [
         {
+          "id": "unique-error-instance-uuid-optional",
           "status": "4XX/5XX",
           "code": "ERROR_CODE_UPPER_SNAKE_CASE",
           "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом."
+          "detail": "Полное описание ошибки с контекстом и, возможно, информацией о некорректных значениях.",
+          "source": {
+            "pointer": "/data/attributes/field_name",
+            "parameter": "query_param_name"
+          }
         }
       ]
     }
     ```
+Пример `source` при ошибке валидации поля в теле запроса:
+```json
+    {
+      "errors": [
+        {
+          "id": "c7a8b9f0-e1d2-4c3b-a890-1234567890ab",
+          "status": "400",
+          "code": "VALIDATION_ERROR",
+          "title": "Ошибка валидации",
+          "detail": "Поле 'nickname' не может быть пустым.",
+          "source": {
+            "pointer": "/data/attributes/nickname"
+          }
+        }
+      ]
+    }
+```
 
 #### 3.1.1. Профили Пользователей (User Profiles)
 *   **`GET /users/{user_id}/profile`**
@@ -293,7 +315,11 @@ graph TD
     *   `message GetUserProfileSummaryRequest { string user_id = 1; }`
     *   `message UserProfileSummary { string user_id = 1; string nickname = 2; string avatar_url = 3; string online_status = 4; /* online, offline, busy */ }`
     *   `message GetUserProfileSummaryResponse { UserProfileSummary profile_summary = 1; }`
-*   TODO: Добавить другие методы по мере необходимости (например, для пакетного получения информации о пользователях, проверки членства в группе).
+*   **`rpc BatchGetUsersProfileSummary(BatchGetUsersProfileSummaryRequest) returns (BatchGetUsersProfileSummaryResponse)`**
+    *   Описание: Получение кратких сводок по профилям нескольких пользователей.
+    *   `message BatchGetUsersProfileSummaryRequest { repeated string user_ids = 1; }`
+    *   `message BatchGetUsersProfileSummaryResponse { repeated UserProfileSummary profile_summaries = 1; }`
+*   *Примечание: Другие специфичные gRPC методы будут добавлены по мере финализации потребностей межсервисной интеграции.*
 
 ### 3.3. WebSocket API
 *   **Эндпоинт:** `/api/v1/social/ws` (устанавливается через API Gateway).
@@ -497,6 +523,12 @@ erDiagram
     USER_SOCIAL_PROFILES ||--o{ COMMENTS : "writes"
     REVIEWS ||--o{ COMMENTS : "has"
     PRODUCTS ||--o{ REVIEWS : "has" # PRODUCTS из Catalog Service
+    USER_SOCIAL_PROFILES ||--o{ FORUM_POSTS : "creates"
+    FORUM_TOPICS ||--o{ FORUM_POSTS : "has"
+    FORUMS ||--o{ FORUM_TOPICS : "has"
+    USER_SOCIAL_PROFILES ||--o{ FORUM_TOPICS : "creates" # Как автор темы
+    USER_SOCIAL_PROFILES }o--|| FRIENDSHIP_REQUESTS : "sends/receives"
+
 
     entity PRODUCTS { # Предполагается из Catalog Service
         UUID id PK
@@ -554,7 +586,84 @@ CREATE TABLE reviews (
 CREATE INDEX idx_reviews_product_id ON reviews(product_id);
 CREATE INDEX idx_reviews_user_id ON reviews(user_id);
 
--- TODO: Добавить DDL для friendship_requests, group_members, comments, forums, forum_topics, forum_posts.
+CREATE TABLE friendship_requests (
+    requester_user_id UUID NOT NULL REFERENCES user_social_profiles(user_id) ON DELETE CASCADE,
+    target_user_id UUID NOT NULL REFERENCES user_social_profiles(user_id) ON DELETE CASCADE,
+    status VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ignored_by_target', 'cancelled_by_requester')),
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    responded_at TIMESTAMPTZ,
+    PRIMARY KEY (requester_user_id, target_user_id)
+);
+CREATE INDEX idx_friendship_requests_target_id_status ON friendship_requests(target_user_id, status);
+
+CREATE TABLE group_members (
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES user_social_profiles(user_id) ON DELETE CASCADE,
+    role_in_group VARCHAR(50) NOT NULL DEFAULT 'member' CHECK (role_in_group IN ('admin', 'moderator', 'member')),
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (group_id, user_id)
+);
+CREATE INDEX idx_group_members_user_id ON group_members(user_id);
+
+CREATE TABLE comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    parent_entity_id UUID NOT NULL, -- ID отзыва, поста ленты, поста форума и т.д.
+    parent_entity_type VARCHAR(50) NOT NULL CHECK (parent_entity_type IN ('review', 'feed_item', 'forum_post', 'group_announcement')),
+    user_id UUID NOT NULL REFERENCES user_social_profiles(user_id) ON DELETE CASCADE,
+    content_text TEXT NOT NULL,
+    is_edited BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE, -- Мягкое удаление
+    deleted_by_moderator BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_comments_parent_entity ON comments(parent_entity_id, parent_entity_type);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+
+CREATE TABLE forums (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    category VARCHAR(100), -- Общий, Игровой, Технический и т.д.
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE, -- Закрыт для новых тем/постов
+    topics_count INTEGER NOT NULL DEFAULT 0,
+    posts_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE forum_topics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    forum_id UUID NOT NULL REFERENCES forums(id) ON DELETE CASCADE,
+    author_user_id UUID NOT NULL REFERENCES user_social_profiles(user_id),
+    title VARCHAR(255) NOT NULL,
+    is_sticky BOOLEAN NOT NULL DEFAULT FALSE, -- Закрепленная тема
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE, -- Закрыта для новых ответов
+    views_count INTEGER NOT NULL DEFAULT 0,
+    replies_count INTEGER NOT NULL DEFAULT 0,
+    last_post_at TIMESTAMPTZ,
+    last_post_user_id UUID REFERENCES user_social_profiles(user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_forum_topics_forum_id_last_post_at ON forum_topics(forum_id, last_post_at DESC);
+CREATE INDEX idx_forum_topics_author_id ON forum_topics(author_user_id);
+
+CREATE TABLE forum_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    topic_id UUID NOT NULL REFERENCES forum_topics(id) ON DELETE CASCADE,
+    author_user_id UUID NOT NULL REFERENCES user_social_profiles(user_id),
+    content_markdown TEXT NOT NULL,
+    is_edited BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by_moderator BOOLEAN NOT NULL DEFAULT FALSE,
+    position_in_topic SERIAL, -- Для примерной сортировки постов в теме, если не по created_at
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_forum_posts_topic_id_created_at ON forum_posts(topic_id, created_at ASC);
+CREATE INDEX idx_forum_posts_author_id ON forum_posts(author_user_id);
+
 ```
 
 #### 4.2.2. Apache Cassandra (Чаты, Ленты Активности)
@@ -620,9 +729,9 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
 ### 5.1. Публикуемые События (Produced Events)
 *   **Система сообщений:** Apache Kafka.
 *   **Формат событий:** CloudEvents v1.0 (JSON encoding), согласно `project_api_standards.md`.
-*   **Основной топик:** `social.events.v1`.
+*   **Основной топик:** `social.events.v1` (может быть разделен на более гранулярные топики, например, `platform.social.profiles.v1`, `platform.social.friends.v1` и т.д., если потребуется).
 
-*   **`social.user.profile.updated.v1`**
+*   **`com.platform.social.user.profile.updated.v1`** (Ранее `social.user.profile.updated.v1`)
     *   Описание: Профиль пользователя был обновлен (никнейм, аватар, статус и т.д.).
     *   Пример Payload (`data` секция CloudEvent):
         ```json
@@ -634,7 +743,7 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
           "updated_at": "2024-03-15T10:00:00Z"
         }
         ```
-*   **`social.friend.request.sent.v1`**
+*   **`com.platform.social.friend.request.sent.v1`** (Ранее `social.friend.request.sent.v1`)
     *   Описание: Пользователь отправил запрос на добавление в друзья.
     *   Пример Payload:
         ```json
@@ -645,7 +754,33 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
           "sent_at": "2024-03-15T10:05:00Z"
         }
         ```
-*   **`social.chat.message.sent.v1`**
+*   **`com.platform.social.friend.request.accepted.v1`**
+    *   Описание: Пользователь принял запрос на добавление в друзья.
+    *   Пример Payload:
+        ```json
+        {
+          "accepter_user_id": "user-uuid-receiver", // Кто принял
+          "requester_user_id": "user-uuid-sender", // Кто отправлял запрос
+          "friendship_id": "fs-uuid-123", // Опционально, ID записи о дружбе
+          "accepted_at": "2024-03-16T11:00:00Z"
+        }
+        ```
+*   **`com.platform.social.review.submitted.v1`**
+    *   Описание: Пользователь оставил отзыв о продукте.
+    *   Пример Payload:
+        ```json
+        {
+          "review_id": "review-uuid-abc",
+          "user_id": "user-uuid-author",
+          "product_id": "game-uuid-xyz",
+          "product_type": "game", // game, dlc
+          "rating": 5,
+          "title_preview": "Отличная игра!", // Первые N символов заголовка
+          "content_preview": "Мне очень понравилось...", // Первые N символов отзыва
+          "submitted_at": "2024-03-16T12:00:00Z"
+        }
+        ```
+*   **`com.platform.social.chat.message.sent.v1`** (Ранее `social.chat.message.sent.v1`)
     *   Описание: Новое сообщение отправлено в чат (личное или групповое).
     *   Пример Payload:
         ```json
@@ -660,7 +795,7 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
           "sent_at": "2024-03-15T10:10:00Z"
         }
         ```
-*   TODO: Детализировать другие события (`social.friend.request.accepted.v1`, `social.group.created.v1`, `social.review.submitted.v1`, `social.comment.posted.v1`, `social.content.reported.v1`).
+*   *Примечание: Другие события, такие как `com.platform.social.group.created.v1`, `com.platform.social.comment.posted.v1`, `com.platform.social.content.reported.v1` будут детализированы по аналогии по мере необходимости.*
 
 ### 5.2. Потребляемые События (Consumed Events)
 
@@ -705,8 +840,8 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
 *   `POSTGRES_DSN_SOCIAL`: DSN для PostgreSQL.
 *   `CASSANDRA_HOSTS`: Хосты Cassandra (через запятую).
 *   `CASSANDRA_KEYSPACE_SOCIAL`: Кейсспейс для Social Service в Cassandra.
-*   `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`: Параметры подключения к Neo4j.
-*   `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB_SOCIAL`: Параметры Redis.
+*   `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`: Параметры подключения к Neo4j. Пароль (`NEO4J_PASSWORD`) должен загружаться из системы управления секретами.
+*   `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB_SOCIAL`: Параметры Redis. Пароль (`REDIS_PASSWORD`) должен загружаться из системы управления секретами, если установлен.
 *   `KAFKA_BROKERS`: Список брокеров Kafka.
 *   `KAFKA_TOPIC_SOCIAL_EVENTS`: Топик для публикуемых событий.
 *   `KAFKA_CONSUMER_GROUP_ID_SOCIAL`: ID группы консьюмеров.
@@ -789,9 +924,11 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
 *   **Чаты:** В первой версии End-to-End шифрование (E2EE) для личных сообщений не планируется, будет использоваться шифрование на транспортном уровне (TLS) и шифрование в покое для данных чатов в Cassandra. Вопрос внедрения E2EE может быть рассмотрен в будущем как отдельная задача, требующая значительных усилий по управлению ключами на клиентах.
 *   Защита от спама и вредоносного контента через механизмы жалоб, модерации и автоматической фильтрации.
 *   Валидация и санитизация всего пользовательского ввода для предотвращения XSS и других атак.
+*   **ФЗ-152 "О персональных данных":** Все данные пользователей, включая профили, переписку в чатах и любой User Generated Content (UGC), обрабатываются в строгом соответствии с ФЗ-152 'О персональных данных', включая сбор согласий, хранение и защиту. См. также `project_security_standards.md`.
+*   **Модерация UGC:** Механизмы для отправки жалоб на UGC (отзывы, комментарии, посты на форумах, сообщения в чатах) и их последующей модерации предоставляются и управляются через Admin Service. Social Service интегрируется с Admin Service для применения решений по модерации (например, скрытие или удаление контента, применение санкций к пользователям). См. также `backend/admin-service/docs/README.md`.
 
 ### 9.4. Управление Секретами
-*   Пароли к базам данных, ключи для Kafka и другие секреты должны храниться в Kubernetes Secrets или HashiCorp Vault.
+*   Пароли к базам данных (PostgreSQL, Neo4j, Redis, Cassandra, если используются), ключи для Kafka и другие секреты должны храниться в Kubernetes Secrets или HashiCorp Vault и безопасно внедряться в приложение во время выполнения. См. `project_security_standards.md`.
 
 ## 10. Развертывание (Deployment)
 
@@ -856,9 +993,61 @@ CREATE INDEX idx_reviews_user_id ON reviews(user_id);
     *   Eventual consistency для данных в Cassandra (ленты, чаты) и Neo4j (граф друзей может обновляться асинхронно). Статусы онлайн в Redis также eventually consistent.
 
 ## 13. Приложения (Appendices)
-*   Детальные OpenAPI схемы для REST API, Protobuf определения для gRPC API, и форматы сообщений WebSocket будут храниться в соответствующих репозиториях или артефактах CI/CD.
-*   Полные DDL/CQL/Cypher схемы баз данных будут поддерживаться в актуальном состоянии в системе миграций.
-*   TODO: Добавить ссылки на репозиторий с OpenAPI/Protobuf и на систему управления миграциями БД.
+*   Детальные OpenAPI схемы для REST API, Protobuf определения для gRPC API, форматы сообщений WebSocket, а также полные DDL/CQL/Cypher схемы баз данных и их миграции поддерживаются в актуальном состоянии в соответствующих репозиториях исходного кода сервиса и во внутренней документации для разработчиков.
+*   Примеры фискальных чеков и форматы взаимодействия с конкретными ОФД. (Это предложение здесь неуместно, удалено)
 
 ---
 *Этот документ является основной спецификацией для Social Service и должен поддерживаться в актуальном состоянии.*
+
+## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+
+### 14.1. Общая Стратегия
+Social Service использует полиглотное хранилище, поэтому стратегия резервного копирования и восстановления должна учитывать особенности каждой используемой СУБД. Цель - минимизировать потерю данных (RPO) и время восстановления (RTO) для каждой категории данных в соответствии с их критичностью. Ссылки на общие принципы см. в `project_database_structure.md`.
+
+### 14.2. PostgreSQL (Профили, Группы, Форумы, Отзывы)
+*   **Метод:**
+    *   Регулярные полные бэкапы (например, ежедневно).
+    *   Непрерывное архивирование WAL (Write-Ahead Logging) для возможности Point-In-Time Recovery (PITR).
+*   **Целевые показатели:**
+    *   RPO: < 15 минут.
+    *   RTO: < 2 часов.
+*   **Хранение:** Географически распределенное, защищенное хранилище.
+*   **Тестирование:** Регулярные учения по восстановлению.
+
+### 14.3. Apache Cassandra (Чаты, Ленты Активности)
+*   **Метод:**
+    *   `nodetool snapshot` для создания снэпшотов на каждой ноде (например, ежедневно или еженедельно, в зависимости от объема данных и требований к RPO).
+    *   Рассмотреть использование инкрементальных бэкапов (`nodetool backup` или сторонние инструменты, совместимые с Cassandra) для уменьшения объема хранимых бэкапов и потенциального улучшения RPO.
+    *   Резервное копирование схемы (`cqlsh -e "DESC KEYSPACE social_service" > schema.cql`).
+*   **Целевые показатели:**
+    *   RPO: < 1-24 часов (в зависимости от частоты снэпшотов и использования инкрементальных бэкапов). Потеря самых последних сообщений в чате или элементов ленты может быть приемлема в случае катастрофического сбоя, так как эти данные часто имеют характер "горячих", но не критически важных для долгосрочного хранения в полном объеме.
+    *   RTO: < 4-8 часов (сильно зависит от объема данных и количества нод).
+*   **Хранение:** Снэпшоты и инкрементальные бэкапы должны копироваться с нод Cassandra в централизованное защищенное хранилище.
+*   **Тестирование:** Регулярное тестирование процедур восстановления на тестовом кластере.
+
+### 14.4. Neo4j (Социальный Граф)
+*   **Метод:**
+    *   Использование `neo4j-admin backup` для создания полных (full) или инкрементальных (incremental) бэкапов. Рекомендуется ежедневный полный бэкап или комбинация еженедельного полного и ежедневных инкрементальных.
+*   **Целевые показатели:**
+    *   RPO: < 30 минут (при использовании инкрементальных бэкапов чаще) или < 24 часа (при ежедневных полных).
+    *   RTO: < 2 часов.
+*   **Хранение:** Файлы бэкапов должны храниться в отдельном, защищенном хранилище.
+*   **Тестирование:** Регулярное тестирование восстановления.
+
+### 14.5. Redis (Кэш, Онлайн-статусы)
+*   **Метод:**
+    *   RDB снэпшоты (например, каждые 1-6 часов).
+    *   AOF (Append-Only File) может быть включен, если данные в Redis (например, счетчики, которые сложно восстановить) считаются критичными.
+*   **Целевые показатели:**
+    *   RPO: < 1 часа (для RDB). С AOF `everysec` - до 1-2 секунд.
+    *   RTO: < 30 минут.
+*   **Примечание:** Большая часть данных в Redis для Social Service является кэшем (профили, списки друзей) или эфемерными данными (онлайн-статусы, сессии WebSocket). Эти данные часто могут быть перестроены из основных СУБД или потеряны без значительного ущерба. Стратегия бэкапирования Redis должна фокусироваться на тех данных, которые действительно сложно или невозможно восстановить другим способом.
+
+### 14.6. Конфигурации и Секреты
+*   Конфигурационные файлы сервиса версионируются в Git.
+*   Секреты управляются через HashiCorp Vault или Kubernetes Secrets и бэкапируются в рамках процедур этих систем.
+
+## 15. Связанные Рабочие Процессы (Related Workflows)
+*   [Процесс Модерации Пользовательского Контента (UGC)](../../../project_workflows/ugc_moderation_flow.md) (Описание будет добавлено в указанный документ).
+*   [Процесс Формирования Рекомендаций Друзей и Контента](../../../project_workflows/social_recommendation_flow.md) (Описание будет добавлено в указанный документ).
+*   [Процесс Обработки Жалоб Пользователей](../../../project_workflows/user_complaint_handling_flow.md) (Описание будет добавлено в указанный документ).

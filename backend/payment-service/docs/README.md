@@ -38,7 +38,7 @@
 *   **Инфраструктура:** Docker, Kubernetes.
 *   **Мониторинг/Трассировка:** OpenTelemetry, Prometheus, Grafana, Jaeger/Tempo.
 *   **Безопасность:** HashiCorp Vault или Kubernetes Secrets для управления секретами.
-*   Выбор сторонних библиотек и пакетов должен осуществляться согласно `PACKAGE_STANDARDIZATION.md`.
+*   Выбор сторонних библиотек и пакетов должен осуществляться в строгом соответствии с `PACKAGE_STANDARDIZATION.md` и `CODING_STANDARDS.md`.
 *   *Примечание: Приведенные ниже примеры API и конфигураций основаны на предположении использования Java/Kotlin (Spring Boot) для основного API и бизнес-логики, PostgreSQL для хранения данных, Redis для кэширования и Kafka для обмена событиями.*
 
 ### 1.4. Термины и Определения (Glossary)
@@ -56,7 +56,8 @@
 ### 2.1. Общее Описание
 *   Payment Service построен на микросервисной архитектуре, где каждый компонент отвечает за определенную часть функциональности (например, обработка транзакций, взаимодействие с платежными шлюзами, фискализация, управление балансами). Компоненты взаимодействуют друг с другом через синхронные (gRPC/REST) и асинхронные (Kafka) интерфейсы.
 *   Сервис обеспечивает изоляцию взаимодействия с внешними платежными системами и ОФД, предоставляя унифицированный интерфейс для других сервисов платформы.
-*   Диаграмма взаимодействия компонентов (из предыдущей версии документа, актуальна концептуально):
+*   Детальная диаграмма верхнеуровневой архитектуры на данный момент опускается для краткости, так как ключевые взаимодействия компонентов описаны в тексте и на диаграмме ниже. Основные компоненты включают Presentation Layer, Application Layer, Domain Layer и Infrastructure Layer, взаимодействующие через REST/gRPC и Kafka.
+*   Диаграмма взаимодействия ключевых логических компонентов:
     ```mermaid
     graph TD
         subgraph Payment Service
@@ -136,14 +137,36 @@
     {
       "errors": [
         {
+          "id": "unique-error-instance-uuid-optional",
           "status": "4XX/5XX",
           "code": "ERROR_CODE_UPPER_SNAKE_CASE",
           "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом."
+          "detail": "Полное описание ошибки с контекстом и, возможно, информацией о некорректных значениях.",
+          "source": {
+            "pointer": "/data/attributes/field_name",
+            "parameter": "query_param_name"
+          }
         }
       ]
     }
     ```
+Пример `source` при ошибке валидации поля `amount_minor_units` в теле запроса:
+```json
+    {
+      "errors": [
+        {
+          "id": "b10a539e-9a25-4f9e-9a97-4092f0599167",
+          "status": "400",
+          "code": "VALIDATION_ERROR",
+          "title": "Ошибка валидации",
+          "detail": "Поле 'amount_minor_units' должно быть положительным числом.",
+          "source": {
+            "pointer": "/data/attributes/amount_minor_units"
+          }
+        }
+      ]
+    }
+```
 
 #### 3.1.1. Транзакции (Transactions)
 *   **`POST /transactions/initiate`**
@@ -272,8 +295,8 @@
             }
             ```
     *   Обработка:
-        1.  Валидация источника запроса (например, проверка IP-адреса, подписи запроса, если предоставляется провайдером).
-        2.  Проверка идемпотентности (например, по `psp-payment-uuid-abc` и `event`).
+        1.  Валидация источника запроса (например, проверка IP-адреса из белого списка PSP, и **обязательная проверка цифровой подписи запроса**, если предоставляется провайдером, используя общий секрет).
+        2.  Проверка идемпотентности (например, по уникальному идентификатору события от PSP (`psp_event_id`) и `internal_transaction_id`, если он известен на момент получения вебхука). Ключ идемпотентности должен храниться в Redis на определенный срок (например, 24 часа), чтобы предотвратить повторную обработку одного и того же события.
         3.  Извлечение `internal_transaction_id` из метаданных или поиск транзакции по `psp-payment-uuid-abc`.
         4.  Обновление статуса транзакции в БД Payment Service.
         5.  Если транзакция завершена успешно (`payment.succeeded`):
@@ -456,6 +479,10 @@ erDiagram
     USERS ||--o{ TRANSACTIONS : "initiates"
     DEVELOPERS ||--|| DEVELOPER_BALANCES : "has" # DEVELOPERS - предполагаемая таблица из Developer Service
     DEVELOPER_BALANCES ||--o{ DEVELOPER_PAYOUTS : "receives"
+    TRANSACTIONS }o--|| USED_PROMO_CODES : "applies"
+    PROMO_CODES ||--|{ USED_PROMO_CODES : "is applied via"
+    TRANSACTIONS }o--|| USED_GIFT_CARDS : "uses"
+    GIFT_CARDS ||--|{ USED_GIFT_CARDS : "is used via"
 ```
 
 **DDL (PostgreSQL - примеры ключевых таблиц):**
@@ -517,7 +544,108 @@ CREATE TABLE fiscal_receipts (
 );
 CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_id);
 
--- TODO: Добавить DDL для transaction_items, developer_balances, developer_payouts, promo_codes, gift_cards.
+CREATE TABLE transaction_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    item_id VARCHAR(255) NOT NULL, -- ID продукта/услуги из Catalog Service
+    item_name VARCHAR(512) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    price_per_unit_minor_units BIGINT NOT NULL,
+    total_amount_minor_units BIGINT NOT NULL, -- quantity * price_per_unit_minor_units
+    vat_code VARCHAR(50), -- Код ставки НДС (например, "VAT_20", "VAT_10", "VAT_0", "NONE")
+    item_type_code VARCHAR(100), -- Признак предмета расчета (например, "digital_goods", "service", "game_key")
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_transaction_items_transaction_id ON transaction_items(transaction_id);
+
+CREATE TABLE developer_balances (
+    developer_id UUID PRIMARY KEY, -- FK to developers table in Developer Service
+    balance_minor_units BIGINT NOT NULL DEFAULT 0,
+    currency_code VARCHAR(3) NOT NULL,
+    on_hold_minor_units BIGINT NOT NULL DEFAULT 0, -- Средства, зарезервированные для текущих выплат
+    last_transaction_id UUID, -- ID последней транзакции, повлиявшей на баланс
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE developer_payouts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    developer_id UUID NOT NULL REFERENCES developer_balances(developer_id),
+    amount_minor_units BIGINT NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
+    status VARCHAR(50) NOT NULL CHECK (status IN ('requested', 'processing', 'pending_approval', 'approved', 'sent_to_psp', 'completed', 'failed', 'cancelled')),
+    payout_method_details JSONB NOT NULL, -- Снимок реквизитов на момент выплаты (e.g., bank account, e-wallet)
+    psp_transaction_id VARCHAR(255) UNIQUE, -- ID транзакции в системе платежного провайдера (для выплат)
+    requested_by_user_id UUID, -- ID пользователя (разработчика или администратора), запросившего выплату
+    approved_by_user_id UUID, -- ID администратора, одобрившего выплату
+    rejection_reason TEXT,
+    error_message TEXT,
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processed_at TIMESTAMPTZ, -- Время отправки в PSP или завершения
+    completed_at TIMESTAMPTZ, -- Время фактического завершения
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_developer_payouts_developer_id ON developer_payouts(developer_id);
+CREATE INDEX idx_developer_payouts_status ON developer_payouts(status);
+
+CREATE TABLE promo_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    discount_type VARCHAR(50) NOT NULL CHECK (discount_type IN ('percentage', 'fixed_amount')),
+    discount_value NUMERIC(10, 2) NOT NULL, -- Для percentage от 0.01 до 100.00, для fixed_amount - сумма в основной единице валюты
+    currency_code VARCHAR(3), -- Обязательно для fixed_amount
+    valid_from TIMESTAMPTZ NOT NULL DEFAULT now(),
+    valid_to TIMESTAMPTZ,
+    max_usages INT, -- Максимальное общее количество использований
+    usages_per_user INT DEFAULT 1, -- Максимальное количество использований одним пользователем
+    current_total_usages INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    applicability_rules JSONB, -- { "product_ids": ["id1"], "min_order_amount_minor_units": 100000, "excluded_product_ids": ["id2"] }
+    created_by_user_id UUID, -- ID администратора, создавшего промокод
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_promo_codes_code_active_valid_to ON promo_codes(code, is_active, valid_to);
+
+CREATE TABLE used_promo_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_id UUID NOT NULL REFERENCES transactions(id),
+    promo_code_id UUID NOT NULL REFERENCES promo_codes(id),
+    user_id UUID NOT NULL, -- Пользователь, применивший промокод
+    used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    discount_applied_minor_units BIGINT NOT NULL,
+    UNIQUE (transaction_id, promo_code_id), -- Один промокод не может быть применен дважды к одной транзакции
+    UNIQUE (promo_code_id, user_id, transaction_id) -- Для подсчета usages_per_user (может быть избыточно, если считать через group by)
+);
+CREATE INDEX idx_used_promo_codes_user_id_promo_code_id ON used_promo_codes(user_id, promo_code_id);
+
+
+CREATE TABLE gift_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(100) UNIQUE NOT NULL, -- Уникальный код подарочной карты
+    initial_balance_minor_units BIGINT NOT NULL,
+    current_balance_minor_units BIGINT NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    valid_until TIMESTAMPTZ,
+    created_by_user_id UUID, -- ID администратора или системы, создавшей карту
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_gift_cards_code_active ON gift_cards(code, is_active);
+
+CREATE TABLE used_gift_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_id UUID NOT NULL REFERENCES transactions(id),
+    gift_card_id UUID NOT NULL REFERENCES gift_cards(id),
+    amount_used_minor_units BIGINT NOT NULL,
+    used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (transaction_id, gift_card_id) -- Одна карта может быть частично использована в нескольких транзакциях, но в одной транзакции - один раз
+);
+CREATE INDEX idx_used_gift_cards_transaction_id ON used_gift_cards(transaction_id);
+CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
+
 ```
 
 #### 4.2.2. Redis
@@ -536,9 +664,9 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 ### 5.1. Публикуемые События (Produced Events)
 *   **Система сообщений:** Apache Kafka.
 *   **Формат событий:** CloudEvents v1.0 (JSON encoding), согласно `project_api_standards.md`.
-*   **Основной топик:** `payment.events.v1`.
+*   **Основной топик:** `payment.events.v1` (может быть разделен на более гранулярные топики при необходимости, например `platform.payment.transactions.v1`, `platform.payment.payouts.v1`).
 
-*   **`payment.transaction.status.updated.v1`** (Заменяет `payment.transaction.completed` и `payment.transaction.failed`)
+*   **`com.platform.payment.transaction.status.updated.v1`** (Ранее `payment.transaction.status.updated.v1`)
     *   Описание: Статус транзакции изменился (например, создана, ожидает оплаты, успешно завершена, ошибка, отменена, возвращена).
     *   Пример Payload (`data` секция CloudEvent):
         ```json
@@ -557,7 +685,7 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
         }
         ```
     *   Потребители: Library Service (для предоставления доступа к контенту), Notification Service, Analytics Service, Order Service (для обновления статуса заказа).
-*   **`payment.payout.status.updated.v1`**
+*   **`com.platform.payment.payout.status.updated.v1`** (Ранее `payment.payout.status.updated.v1`)
     *   Описание: Статус выплаты разработчику изменился.
     *   Пример Payload:
         ```json
@@ -573,7 +701,7 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
         }
         ```
     *   Потребители: Developer Service, Notification Service.
-*   **`payment.fiscal.receipt.status.updated.v1`** (Заменяет `payment.fiscal.receipt.created`)
+*   **`com.platform.payment.fiscal.receipt.status.updated.v1`** (Ранее `payment.fiscal.receipt.status.updated.v1`)
     *   Описание: Статус фискального чека изменился (например, успешно фискализирован, ошибка фискализации).
     *   Пример Payload:
         ```json
@@ -592,7 +720,7 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 
 ### 5.2. Потребляемые События (Consumed Events)
 
-*   **`order.payment.initiation.requested.v1`** (Заменяет `order.created.v1` для Payment Service)
+*   **`com.platform.order.payment.initiation.requested.v1`** (Ранее `order.payment.initiation.requested.v1`)
     *   Источник: Order Service (или другой сервис, инициирующий платеж).
     *   Описание: Запрос на инициирование процесса оплаты для созданного заказа.
     *   Ожидаемый Payload:
@@ -611,7 +739,7 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
         }
         ```
     *   Логика обработки: Создать транзакцию (`Transaction`) в статусе `pending`. Вызвать `PaymentProcessingApplicationService` для взаимодействия с платежным шлюзом и получения URL для редиректа пользователя или данных для SDK.
-*   **`developer.payout.creation.requested.v1`** (Заменяет `developer.payout.requested`)
+*   **`com.platform.developer.payout.creation.requested.v1`** (Ранее `developer.payout.creation.requested.v1`)
     *   Источник: Developer Service.
     *   Описание: Запрос на создание и обработку выплаты разработчику.
     *   Ожидаемый Payload:
@@ -624,8 +752,8 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
           "payout_method_id_dev_service": "dev-payout-method-uuid-456" // ID метода выплаты из Developer Service
         }
         ```
-    *   Логика обработки: Валидировать запрос. Проверить баланс разработчика (`DeveloperBalance`). Создать транзакцию выплаты (`DeveloperPayout`) в статусе `processing`. Инициировать процесс перевода средств через соответствующий платежный шлюз или банковский API. Опубликовать событие `payment.payout.status.updated.v1`.
-*   **`admin.transaction.refund.requested.v1`** (Заменяет `admin.refund.request.manual`)
+    *   Логика обработки: Валидировать запрос. Проверить баланс разработчика (`DeveloperBalance`). Создать транзакцию выплаты (`DeveloperPayout`) в статусе `processing`. Инициировать процесс перевода средств через соответствующий платежный шлюз или банковский API. Опубликовать событие `com.platform.payment.payout.status.updated.v1`.
+*   **`com.platform.admin.transaction.refund.requested.v1`** (Ранее `admin.transaction.refund.requested.v1`)
     *   Источник: Admin Service.
     *   Описание: Запрос от администратора на полный или частичный возврат по существующей транзакции.
     *   Ожидаемый Payload:
@@ -638,8 +766,8 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
           "admin_user_id": "admin-user-uuid-superuser"
         }
         ```
-    *   Логика обработки: Найти оригинальную транзакцию. Проверить возможность возврата. Создать транзакцию возврата (`Transaction` с типом `refund`). Инициировать возврат через платежный шлюз. Инициировать фискализацию чека возврата. Опубликовать `payment.transaction.status.updated.v1` для транзакции возврата и, возможно, для оригинальной транзакции.
-*   **`user.subscription.renewal.payment.requested.v1`** (Заменяет `user.subscription.renewal_due.v1`)
+    *   Логика обработки: Найти оригинальную транзакцию. Проверить возможность возврата. Создать транзакцию возврата (`Transaction` с типом `refund`). Инициировать возврат через платежный шлюз. Инициировать фискализацию чека возврата. Опубликовать `com.platform.payment.transaction.status.updated.v1` для транзакции возврата и, возможно, для оригинальной транзакции.
+*   **`com.platform.user.subscription.renewal.payment.requested.v1`** (Ранее `user.subscription.renewal.payment.requested.v1`)
     *   Источник: Subscription Service (или Account Service).
     *   Описание: Запрос на автоматическое списание средств за продление подписки.
     *   Ожидаемый Payload:
@@ -671,8 +799,8 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 *   **Auth Service:** Валидация JWT токенов (обычно на уровне API Gateway).
 
 ### 6.2. Внешние Системы
-*   **Платежные Шлюзы (СБП, МИР, ЮMoney, эквайринг банков):** Интеграция через их API для инициирования платежей, обработки колбэков, проведения возвратов и выплат.
-*   **Операторы Фискальных Данных (ОФД):** Интеграция через их API для регистрации касс, отправки данных фискальных чеков и получения статусов.
+*   **Платежные Шлюзы (СБП, МИР, ЮMoney, эквайринг банков):** Интеграция через их API для инициирования платежей, обработки колбэков, проведения возвратов и выплат. Приоритет отдается российским платежным системам (СБП, МИР Пэй, ЮMoney и др.) и эквайринговым решениям от российских банков. Подробнее см. `project_integrations.md`.
+*   **Операторы Фискальных Данных (ОФД):** Интеграция через их API для регистрации касс, отправки данных фискальных чеков и получения статусов. Интеграция должна осуществляться с ОФД, аккредитованными в РФ. Подробнее см. `project_integrations.md`.
 
 ## 7. Конфигурация (Configuration)
 
@@ -684,8 +812,8 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 *   `KAFKA_BROKERS`: Список брокеров Kafka.
 *   `KAFKA_TOPIC_PAYMENT_EVENTS`: Топик для публикуемых событий Payment Service.
 *   `KAFKA_CONSUMER_GROUP_ID_PAYMENT`: ID группы консьюмеров для входящих событий.
-*   Различные API ключи, ID мерчантов, секреты для каждого платежного шлюза (например, `SBP_MERCHANT_ID_SECRET`, `YOOKASSA_SHOP_ID_SECRET`, `YOOKASSA_API_KEY_SECRET`). **Эти значения должны извлекаться из системы управления секретами (например, Vault или Kubernetes Secrets).**
-*   Параметры для ОФД (например, `OFD_API_URL`, `OFD_API_KEY_SECRET`, `OFD_INN`, `OFD_KKT_REG_NUMBER`).
+*   Различные API ключи, ID мерчантов, секреты для каждого платежного шлюза (например, `SBP_MERCHANT_ID_SECRET`, `YOOKASSA_SHOP_ID_SECRET`, `YOOKASSA_API_KEY_SECRET`). **Все секретные ключи (`*_SECRET`) **должны** загружаться из защищенного хранилища (HashiCorp Vault или Kubernetes Secrets) в рантайме и не должны присутствовать в переменных окружения напрямую в конфигурации пода/деплоймента.**
+*   Параметры для ОФД (например, `OFD_API_URL`, `OFD_API_KEY_SECRET`, `OFD_INN`, `OFD_KKT_REG_NUMBER`). Аналогично, секреты ОФД должны загружаться из защищенного хранилища.
 *   `PLATFORM_COMMISSION_PERCENTAGE`: Процент комиссии платформы с продаж.
 *   `MIN_DEVELOPER_PAYOUT_AMOUNT_RUB`: Минимальная сумма для выплаты разработчику.
 *   `DEFAULT_PAYMENT_CURRENCY`: Валюта по умолчанию (например, `RUB`).
@@ -772,7 +900,9 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 *   **PCI DSS Compliance:** Прямая обработка полных номеров банковских карт **не предполагается**. Сервис должен полагаться на токенизацию на стороне платежных шлюзов (PSP) и использование iFrame/редиректов на страницы оплаты PSP для минимизации области действия PCI DSS. Если в будущем потребуется работа с PAN, этот раздел должен быть кардинально пересмотрен с привлечением специалистов по PCI DSS.
 *   Шифрование чувствительных данных при хранении (например, токенизированные платежные методы, если они кэшируются/хранятся локально; реквизиты для выплат разработчикам) и при передаче (TLS 1.2+ для всех коммуникаций).
 *   Защита от мошенничества (fraud prevention): базовая проверка транзакций, возможно, интеграция с внешними антифрод-системами.
-*   Соблюдение требований 54-ФЗ (фискализация), ФЗ-152 "О персональных данных", ФЗ-115 "О противодействии легализации (отмыванию) доходов..." (AML).
+    *   Соблюдение требований 54-ФЗ (фискализация).
+    *   **ФЗ-152 "О персональных данных":** Обработка персональных данных пользователей и разработчиков (включая платежные данные, которые могут считаться ПДн) осуществляется в строгом соответствии с ФЗ-152 'О персональных данных', включая получение согласий, определение целей обработки, и обеспечение безопасности при их обработке и хранении. См. также `project_security_standards.md`.
+    *   ФЗ-115 "О противодействии легализации (отмыванию) доходов..." (AML).
 
 ### 9.4. Управление Секретами
 *   API ключи для взаимодействия с платежными системами, ОФД, ключи шифрования должны храниться в HashiCorp Vault или Kubernetes Secrets и безопасно внедряться в приложение.
@@ -841,15 +971,49 @@ CREATE INDEX idx_fiscal_receipts_transaction_id ON fiscal_receipts(transaction_i
 *   **Сопровождаемость:** Четкое логирование, полные трассировки, подробные метрики.
 
 ## 13. Приложения (Appendices)
-*   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API будут храниться в соответствующих репозиториях или артефактах CI/CD.
-*   Полные DDL схемы базы данных будут поддерживаться в актуальном состоянии в системе миграций.
+*   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API будут доступны во внутреннем репозитории артефактов `[Ссылка на репозиторий/артефакт OpenAPI схем]` и `[Ссылка на репозиторий/артефакт Protobuf определений]` соответственно.
+*   Полные DDL схемы базы данных и миграции управляются с помощью [Liquibase] и доступны в репозитории исходного кода сервиса в директории `src/main/resources/db/changelog`.
 *   Примеры фискальных чеков и форматы взаимодействия с конкретными ОФД.
-*   TODO: Добавить ссылки на репозиторий с OpenAPI/Protobuf и на систему управления миграциями БД, когда они будут определены.
 
 ---
 *Этот документ является основной спецификацией для Payment Service и должен поддерживаться в актуальном состоянии.*
 
-## 14. Связанные Рабочие Процессы (Related Workflows)
+## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+
+### 14.1. Общая Стратегия
+Данные, обрабатываемые Payment Service, являются критически важными для бизнеса и пользователей. Стратегия резервного копирования и восстановления направлена на минимизацию потерь данных (RPO) и времени восстановления работоспособности сервиса (RTO) в случае сбоев. Особое внимание уделяется транзакционным данным.
+
+### 14.2. PostgreSQL
+*   **Метод:**
+    *   **Полные резервные копии:** Регулярно (например, ежедневно в часы наименьшей нагрузки) создаются полные резервные копии базы данных с использованием `pg_dumpall` или аналогичных инструментов.
+    *   **Непрерывное архивирование WAL (Write-Ahead Logging):** WAL-сегменты непрерывно архивируются в отдельное, безопасное хранилище. Это позволяет осуществить Point-In-Time Recovery (PITR), восстановив состояние базы данных на любой момент времени.
+*   **Целевые показатели:**
+    *   **RPO (Recovery Point Objective):** < 5 минут для транзакционных данных (благодаря WAL).
+    *   **RTO (Recovery Time Objective):** < 1 часа (включая восстановление БД из бэкапа и применение WAL-логов).
+*   **Хранение бэкапов:**
+    *   Резервные копии и архивы WAL хранятся в географически распределенном и отказоустойчивом объектном хранилище (например, S3-совместимое хранилище с репликацией между зонами доступности/регионами).
+    *   Применяются политики хранения для различных типов бэкапов (например, ежедневные - 14 дней, еженедельные - 2 месяца, ежемесячные - 1 год).
+*   **Тестирование восстановления:** Процедуры восстановления регулярно тестируются (не реже одного раза в квартал) на тестовом или staging-окружении для проверки их работоспособности и актуальности.
+
+### 14.3. Redis
+*   **Метод:**
+    *   **RDB Снэпшоты:** Регулярное создание RDB-снэпшотов (например, каждые 1-6 часов, в зависимости от критичности данных в Redis).
+    *   **AOF (Append-Only File):** Для данных, требующих максимальной сохранности (например, активные сессии платежей, если они долгоживущие и не могут быть легко восстановлены), может быть включен режим AOF с fsync `everysec`. Это обеспечивает более высокую устойчивость к потере данных по сравнению только с RDB.
+*   **Целевые показатели:**
+    *   **RPO:** < 1 часа (для RDB). С AOF `everysec` - до 1-2 секунд.
+    *   **RTO:** < 30 минут.
+*   **Хранение бэкапов:** RDB-файлы сохраняются в защищенное хранилище.
+*   **Примечание:** Многие данные в Redis для Payment Service являются временными или кэшируемыми (например, ключи идемпотентности, лимиты скорости). Их потеря может не требовать восстановления из бэкапа, а приведет к пересчету или временному снижению производительности. Критичные данные, если таковые есть в Redis, должны быть идентифицированы и защищены соответствующим образом.
+
+### 14.4. Конфигурации Сервиса и Секреты
+*   **Конфигурационные файлы (не секреты):** Версионируются в Git и управляются через GitOps. Бэкап Git-репозитория является частью общей стратегии бэкапирования инфраструктуры.
+*   **Секреты (API-ключи, пароли БД):** Управляются через HashiCorp Vault или Kubernetes Secrets. Резервное копирование этих систем выполняется отдельно в соответствии с их документацией и общей политикой безопасности платформы. Payment Service не хранит секреты напрямую.
+
+### 14.5. Kafka (данные конфигурации)
+*   **Конфигурации топиков, ACL, квоты:** Управляются декларативно через GitOps или специализированные инструменты для управления Kafka. Резервные копии этих конфигураций хранятся в Git.
+*   **Сообщения в топиках:** Kafka обеспечивает собственную репликацию данных для отказоустойчивости. Payment Service, как правило, не отвечает за "бэкап" самих сообщений в Kafka, так как они предназначены для потоковой обработки. Сервис должен быть спроектирован так, чтобы выдерживать повторную обработку сообщений или пропуск уже обработанных при перезапуске консьюмеров. Политики хранения (retention policies) в Kafka настраиваются так, чтобы данные были доступны достаточно долго для обработки всеми консьюмерами.
+
+## 15. Связанные Рабочие Процессы (Related Workflows)
 *   [Game Purchase and Library Update](../../../project_workflows/game_purchase_flow.md)
-*   [Developer Payout Flow](../../../project_workflows/developer_payout_flow.md) (TODO: Создать этот документ)
-*   [Refund Processing Flow](../../../project_workflows/refund_processing_flow.md) (TODO: Создать этот документ)
+*   [Процесс Выплат Разработчикам](../../../project_workflows/developer_payout_flow.md) (Описание будет добавлено в указанный документ).
+*   [Процесс Обработки Возвратов](../../../project_workflows/refund_processing_flow.md) (Описание будет добавлено в указанный документ).
