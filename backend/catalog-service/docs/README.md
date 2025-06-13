@@ -1,67 +1,57 @@
 # Спецификация Микросервиса: Catalog Service
 
-**Версия:** 1.1 (адаптировано из v3.0 внешней спецификации)
-**Дата последнего обновления:** 2024-03-15
+**Версия:** 1.1
+**Дата последнего обновления:** {{YYYY-MM-DD}}
 
 ## 1. Обзор Сервиса (Overview)
 
 ### 1.1. Назначение и Роль
 *   **Назначение документа:** Данный документ представляет собой спецификацию микросервиса Catalog Service, являющегося ядром платформы "Российский Аналог Steam" и отвечающего за всю информацию о цифровых продуктах.
-*   **Роль в общей архитектуре платформы:** Централизованное управление каталогом продуктов (игры, DLC, программное обеспечение, комплекты), ценообразованием, акциями, таксономией (жанры, теги, категории), медиа-контентом и метаданными достижений. Предоставляет данные другим микросервисам (например, Payment Service, Library Service, Analytics Service) и обеспечивает поиск и обнаружение продуктов пользователями через клиентские приложения.
-*   **Основные бизнес-задачи:**
-    *   Управление жизненным циклом продуктов.
-    *   Управление метаданными продуктов, включая локализованные данные.
-    *   Управление ценами, скидками и промо-акциями.
-    *   Структурирование каталога (жанры, теги, категории, коллекции, франшизы).
-    *   Обеспечение поиска, фильтрации и навигации по каталогу.
-    *   Управление медиа-контентом.
-    *   Управление метаданными достижений.
-    *   Поддержка процесса модерации контента продуктов.
+*   **Роль в общей архитектуре платформы:** Централизованное управление каталогом продуктов (игры, DLC, программное обеспечение, комплекты), ценообразованием, акциями, таксономией (жанры, теги, категории), медиа-контентом и метаданными достижений. Предоставляет данные другим микросервисам и обеспечивает поиск и обнаружение продуктов пользователями.
+*   **Основные бизнес-задачи:** Управление жизненным циклом продуктов, метаданными, ценами, скидками, таксономией, медиа-контентом, метаданными достижений; обеспечение поиска и навигации; поддержка модерации.
 *   Разработка сервиса должна вестись в соответствии с `../../../../CODING_STANDARDS.md`.
 
 ### 1.2. Ключевые Функциональности
-*   CRUD операции для продуктов, жанров, тегов, категорий, цен, медиа-элементов, метаданных достижений.
-*   Управление локализованными метаданными продуктов.
-*   Управление ценообразованием: установка базовых цен, региональных цен, управление скидками и промо-акциями.
-*   Управление таксономией: присвоение продуктам жанров, тегов, категорий; управление франшизами и коллекциями.
-*   Предоставление API для полнотекстового поиска продуктов с возможностью фильтрации (по жанрам, тегам, ценам, платформам, языкам и т.д.) и сортировки.
-*   Пагинированный вывод списков продуктов и других сущностей каталога.
-*   Управление медиа-контентом: загрузка, хранение ссылок, определение типов медиа.
-*   Управление метаданными достижений: названия, описания, иконки, условия разблокировки.
-*   Отслеживание и предоставление статусов модерации продуктов.
-*   Предоставление API для систем рекомендаций (например, "похожие товары", "новые релизы").
-*   Публикация событий об изменениях в каталоге (например, создание продукта, обновление цены).
+*   CRUD операции для продуктов, жанров, тегов, категорий, цен, медиа, достижений.
+*   Управление локализованными метаданными.
+*   Управление ценообразованием (базовые/региональные цены, скидки, акции).
+*   Управление таксономией (жанры, теги, категории, франшизы, коллекции).
+*   API для полнотекстового поиска, фильтрации, сортировки. Пагинация.
+*   Управление медиа-контентом.
+*   Управление метаданными достижений.
+*   Отслеживание и предоставление статусов модерации.
+*   API для систем рекомендаций.
+*   Публикация событий об изменениях в каталоге.
 
 ### 1.3. Основные Технологии
-*   **Язык программирования:** Go (версия 1.21+, согласно `../../../../project_technology_stack.md`).
-*   **Веб-фреймворк (REST):** Echo (`github.com/labstack/echo/v4`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **RPC фреймворк (gRPC):** `google.golang.org/grpc` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **База данных (основная):** PostgreSQL (версия 15+) для хранения структурированных данных каталога. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` или `pgx` (`github.com/jackc/pgx/v5`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Поисковый движок:** Elasticsearch (версия 8.x+) для полнотекстового поиска и сложной фильтрации. Клиент: официальный Go клиент для Elasticsearch. (согласно `../../../../project_technology_stack.md`).
-*   **Кэширование:** Redis (версия 7.0+) для кэширования часто запрашиваемых данных. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Брокер сообщений:** Apache Kafka (версия 3.x+). Клиент: `github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Логирование:** Zap (`go.uber.org/zap`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client (`github.com/prometheus/client_golang`). (согласно `../../../../project_observability_standards.md`).
+*   **Язык программирования:** Go (1.21+).
+*   **Веб-фреймворк (REST):** Echo.
+*   **RPC фреймворк (gRPC):** `google.golang.org/grpc`.
+*   **База данных (основная):** PostgreSQL (GORM/pgx).
+*   **Поисковый движок:** Elasticsearch.
+*   **Кэширование:** Redis.
+*   **Брокер сообщений:** Apache Kafka.
+*   **Управление конфигурацией:** Viper.
+*   **Логирование:** Zap.
+*   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client.
 *   **Инфраструктура:** Docker, Kubernetes.
-*   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`.
+*   Выбор сторонних библиотек и пакетов должен осуществляться согласно `../../../../PACKAGE_STANDARDIZATION.md`.
+*   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`, `../../../../project_observability_standards.md`.
 
 ### 1.4. Термины и Определения (Glossary)
-*   **Продукт (Product):** Любой цифровой товар, доступный на платформе (например, Игра, Дополнение (DLC), Программное обеспечение, Комплект продуктов).
-*   **Метаданные (Metadata):** Описательная информация о Продукте, такая как название, описание, разработчик, издатель, системные требования, дата выпуска и т.д.
-*   **Таксономия (Taxonomy):** Система классификации Продуктов, включающая Жанры, Теги, Категории.
-*   **Цена (Price):** Стоимость Продукта. Может включать базовую цену, региональные цены и временные скидки.
-*   **Медиа-контент (Media Content):** Графические и видео материалы, связанные с продуктом (скриншоты, трейлеры, арты).
-*   **Достижение (Achievement):** Внутриигровое достижение, метаданные которого хранятся в каталоге.
-*   Для других общих терминов см. `../../../../project_glossary.md`.
+*   См. `../../../../project_glossary.md`.
+*   **Продукт (Product):** Цифровой товар (Игра, DLC, ПО, Комплект).
+*   **Метаданные (Metadata):** Описательная информация о Продукте.
+*   **Таксономия (Taxonomy):** Система классификации (Жанры, Теги, Категории).
+*   **Цена (Price):** Стоимость Продукта.
+*   **Медиа-контент (Media Content):** Графические/видео материалы.
+*   **Достижение (Achievement):** Внутриигровое достижение.
 
 ## 2. Внутренняя Архитектура (Internal Architecture)
 
 ### 2.1. Общее Описание
-*   Catalog Service реализуется как независимый микросервис, следуя принципам **Чистой Архитектуры (Clean Architecture)** для разделения ответственностей и улучшения тестируемости.
-*   Для оптимизации операций чтения и записи используется подход **CQRS (Command Query Responsibility Segregation)** на логическом уровне. Команды (операции записи) работают с основной доменной моделью и персистентным хранилищем (PostgreSQL). Запросы (операции чтения) могут использовать оптимизированные для чтения реплики, денормализованные данные или специализированные индексы (Elasticsearch, Redis кэш) для повышения производительности и гибкости.
-
-**Диаграмма Архитектуры (Clean Architecture + CQRS):**
+*   Catalog Service реализуется как независимый микросервис, следуя принципам **Чистой Архитектуры (Clean Architecture)** и **CQRS (Command Query Responsibility Segregation)** на логическом уровне.
+*   Диаграмма Архитектуры (Clean Architecture + CQRS):
 ```mermaid
 graph TD
     subgraph User/Client Interaction
@@ -130,89 +120,97 @@ graph TD
 ### 2.2. Слои Сервиса
 
 #### 2.2.1. Presentation Layer (Слой Представления / Адаптеры Транспорта)
-*   **Ответственность:** Обработка входящих REST (через Echo) и gRPC запросов от внешних клиентов или других микросервисов. Валидация данных запроса (DTO), аутентификация/авторизация (частично, основная проверка на API Gateway), вызов соответствующих сервисов в Application Layer. Преобразование результатов из Application Layer в формат ответа (JSON, Protobuf).
-*   **Ключевые компоненты/модули:** HTTP хендлеры (контроллеры), gRPC серверы и их реализации, DTO для запросов и ответов, парсеры запросов, форматеры ответов.
+*   Ответственность: Обработка REST и gRPC запросов, валидация DTO, вызов Application Layer, преобразование результатов.
+*   Ключевые компоненты/модули: HTTP хендлеры, gRPC серверы, DTO.
 
 #### 2.2.2. Application Layer (Прикладной Слой)
-*   **Ответственность:** Реализация сценариев использования (use cases) системы. Координирует взаимодействие между Domain Layer и Infrastructure Layer. Содержит логику команд (изменение состояния системы) и запросов (получение данных). Не содержит бизнес-правил напрямую, а делегирует их Domain Layer.
-*   **Ключевые компоненты/модули:** Сервисы сценариев использования (например, `ProductApplicationService`, `PriceApplicationService`), обработчики команд (`CreateProductCommandHandler`), обработчики запросов (`GetProductQueryHandler`), DTO, используемые для передачи данных между слоями.
+*   Ответственность: Реализация use cases, координация Domain и Infrastructure Layers.
+*   Ключевые компоненты/модули: Сервисы сценариев использования (`ProductApplicationService`), обработчики команд/запросов, DTO.
 
 #### 2.2.3. Domain Layer (Доменный Слой)
-*   **Ответственность:** Содержит всю бизнес-логику, бизнес-правила, сущности и агрегаты. Этот слой не зависит от деталей реализации других слоев (например, от конкретной СУБД или фреймворка).
-*   **Ключевые компоненты/модули:**
-    *   **Entities (Сущности):** Основные объекты домена, обладающие идентичностью (например, `Product`, `Genre`, `Tag`, `Category`, `ProductPrice`, `MediaItem`, `AchievementMeta`).
-    *   **Aggregates (Агрегаты):** Кластеры сущностей и объектов-значений, рассматриваемые как единое целое для операций изменения данных (например, `ProductAggregate` может включать сам продукт, его цены, медиа-файлы). Корень агрегата обеспечивает консистентность.
-    *   **Value Objects (Объекты-значения):** Неизменяемые объекты, характеризующиеся своими атрибутами (например, `LocalizedString` для локализованных строк, `SystemRequirements`).
-    *   **Domain Services:** Сервисы, инкапсулирующие доменную логику, которая не принадлежит естественным образом ни одной сущности.
-    *   **Domain Events:** События, отражающие значимые изменения в домене (например, `ProductCreated`, `PriceUpdated`).
-    *   **Repository Interfaces:** Интерфейсы, определяющие контракты для сохранения и извлечения агрегатов из хранилища.
+*   Ответственность: Бизнес-логика, правила, сущности, агрегаты.
+*   Ключевые компоненты/модули: Entities (`Product`, `Genre`, `Tag`, `Category`), Aggregates (`ProductAggregate`), Value Objects (`LocalizedString`), Domain Events (`ProductCreated`), Repository Interfaces.
 
 #### 2.2.4. Infrastructure Layer (Инфраструктурный Слой)
-*   **Ответственность:** Реализация интерфейсов, определенных в Domain Layer (например, репозиториев) и Application Layer (например, для внешних сервисов). Взаимодействие с внешними системами: базы данных (PostgreSQL), поисковые движки (Elasticsearch), кэши (Redis), брокеры сообщений (Kafka). Также включает утилиты для логирования, конфигурации, метрик, трассировки.
-*   **Ключевые компоненты/модули:** Адаптеры для PostgreSQL (например, с использованием GORM или Squirrel), адаптеры для Elasticsearch, адаптеры для Redis, продюсеры/консьюмеры Kafka, клиенты для других микросервисов (если Catalog Service их вызывает), утилиты для работы с конфигурацией (Viper), логированием (Zap), метриками (Prometheus), трассировкой (OpenTelemetry).
+*   Ответственность: Реализация интерфейсов, взаимодействие с PostgreSQL, Elasticsearch, Redis, Kafka.
+*   Ключевые компоненты/модули: Адаптеры БД/поиска/кэша, Kafka продюсеры/консьюмеры, утилиты.
 
 ## 3. API Endpoints
+Общие принципы и форматы см. `../../../../project_api_standards.md`.
 
 ### 3.1. REST API
-*   **Базовый URL:** `/api/v1/catalog` (маршрутизируется через API Gateway).
-*   **Формат данных:** JSON.
-*   **Аутентификация:** Большинство публичных эндпоинтов для чтения данных доступны анонимно или требуют JWT с правами пользователя. Управляющие эндпоинты (например, с префиксом `/manage`) требуют JWT с правами администратора или менеджера каталога. Информация о пользователе (ID, роли, регион) передается API Gateway в заголовках (например, `X-User-Id`, `X-User-Roles`, `X-User-Region`).
-*   **Авторизация:** На основе ролей (RBAC).
-*   **Пагинация:** Используются query-параметры `page` (номер страницы, по умолчанию 1) и `limit` (количество элементов на странице, по умолчанию 20, максимум 100). Ответ содержит метаданные пагинации.
-*   **Локализация:** Для локализованных полей (названия, описания) используется заголовок `Accept-Language` (например, `ru-RU, ru;q=0.9, en-US;q=0.8, en;q=0.7`). Если заголовок не указан, используется язык по умолчанию (`DEFAULT_LANGUAGE` из конфигурации).
-*   **Стандартный формат ответа об ошибке (согласно `../../../../project_api_standards.md`):**
-    ```json
-    {
-      "errors": [
-        {
-          "code": "ERROR_CODE_UPPER_SNAKE_CASE",
-          "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом, если применимо.",
-          "source": { "pointer": "/data/attributes/field_name", "parameter": "query_param_name" }
-        }
-      ]
-    }
-    ```
+*   **Базовый URL:** `/api/v1/catalog`.
+*   **Аутентификация:** Публичные эндпоинты для чтения. Управляющие эндпоинты (`/manage`) требуют JWT (admin, manager).
+*   **Авторизация:** RBAC.
+*   **Пагинация:** `page`, `limit`.
+*   **Локализация:** Заголовок `Accept-Language`.
 
 #### 3.1.1. Ресурс: Продукты (Products)
 *   **`GET /products`**
-    *   Описание: Получение списка продуктов с возможностью фильтрации, сортировки и пагинации.
+    *   Описание: Список продуктов с фильтрацией, сортировкой, пагинацией.
     *   Query параметры: `search`, `genre_ids`, `tag_ids`, `category_ids`, `platform`, `min_price`, `max_price`, `is_on_sale`, `sort_by`, `page`, `limit`.
-    *   Пример ответа (Успех 200 OK): (Как в существующем документе)
-    *   Пример ответа (Ошибка 400 Validation Error - стандартизированный):
-        ```json
-        {
-          "errors": [
-            {
-              "code": "VALIDATION_ERROR",
-              "title": "Ошибка валидации параметров запроса",
-              "detail": "Параметр 'sort_by' имеет недопустимое значение 'invalid_field'.",
-              "source": { "parameter": "sort_by" }
-            }
-          ]
-        }
-        ```
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example JSON response for GET /products, including localized fields and price info]`
+    *   Пример ответа (Ошибка 400 Validation Error): (см. существующий документ).
     *   Требуемые права доступа: Публичный.
 *   **`GET /products/{product_id}`**
-    *   Описание: Получение детальной информации о продукте.
-    *   Пример ответа (Успех 200 OK): (Как в существующем документе)
+    *   Описание: Детальная информация о продукте.
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example JSON response for GET /products/{product_id}, including all relevant nested structures like media, achievements, system requirements, etc.]`
+    *   Требуемые права доступа: Публичный.
+*   **`GET /products/slug/{product_slug}`**
+    *   Описание: Получение продукта по его уникальному текстовому идентификатору (slug).
     *   Требуемые права доступа: Публичный.
 
 #### 3.1.2. Ресурс: Жанры (Genres)
 *   **`GET /genres`**
-    *   Описание: Получение списка всех жанров.
-    *   Пример ответа (Успех 200 OK): (Как в существующем документе)
+    *   Описание: Список всех жанров.
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example JSON response for GET /genres]`
+    *   Требуемые права доступа: Публичный.
+*   **`GET /genres/{genre_id_or_slug}/products`**
+    *   Описание: Список продуктов, принадлежащих указанному жанру.
     *   Требуемые права доступа: Публичный.
 
-#### 3.1.3. Управление Каталогом (Management API - пример)
-*   **`POST /manage/products`**
-    *   Описание: Создание нового продукта (административная функция).
-    *   Тело запроса: (Как в существующем документе)
-    *   Пример ответа (Успех 201 Created): (Возвращает созданный продукт)
-    *   Требуемые права доступа: `catalog_admin`, `product_manager`.
+#### 3.1.3. Ресурс: Теги (Tags)
+*   **`GET /tags`**
+    *   Описание: Список всех тегов.
+    *   Требуемые права доступа: Публичный.
+*   **`GET /tags/{tag_id_or_slug}/products`**
+    *   Описание: Список продуктов с указанным тегом.
+    *   Требуемые права доступа: Публичный.
+
+#### 3.1.4. Ресурс: Категории (Categories)
+*   **`GET /categories`**
+    *   Описание: Список всех категорий (может быть иерархическим).
+    *   Требуемые права доступа: Публичный.
+*   **`GET /categories/{category_id_or_slug}/products`**
+    *   Описание: Список продуктов из указанной категории.
+    *   Требуемые права доступа: Публичный.
+
+#### 3.1.5. Ресурс: Поиск (Search)
+*   **`GET /search`**
+    *   Описание: Полнотекстовый поиск по продуктам с расширенными возможностями фильтрации. Является основным способом поиска для клиентов.
+    *   Query параметры: `query` (текстовый запрос), `filters` (JSON объект или набор параметров для фильтрации по жанрам, тегам, цене, платформе, языку и т.д.), `sort_by`, `page`, `limit`.
+    *   Пример ответа: `[NEEDS DEVELOPER INPUT: Example JSON response for GET /search, showing search results structure and facets/aggregations if supported]`
+    *   Требуемые права доступа: Публичный.
+
+#### 3.1.6. Управление Каталогом (Management API - префикс `/manage`)
+*   **`POST /manage/products`**: Создание продукта. Тело запроса: (см. существующий документ). Требуемые права: `catalog_admin`, `product_manager`.
+*   **`PUT /manage/products/{product_id}`**: Полное обновление продукта.
+*   **`PATCH /manage/products/{product_id}`**: Частичное обновление продукта.
+*   **`DELETE /manage/products/{product_id}`**: Удаление продукта (логическое или физическое).
+*   **`POST /manage/genres`**: Создание жанра.
+*   **`PUT /manage/genres/{genre_id}`**: Обновление жанра.
+*   `[NEEDS DEVELOPER INPUT: List other key management endpoints for products, genres, tags, categories, prices, media, achievements, including request/response examples and permissions.]`
 
 ### 3.2. gRPC API
-(Содержимое существующего раздела актуально).
+*   **Пакет:** `catalog.v1`
+*   **Файл .proto:** `proto/catalog/v1/catalog_service.proto` (или в `platform-protos`).
+*   **Аутентификация:** mTLS.
+#### 3.2.1. Сервис: CatalogService
+*   **`rpc GetProductInternal(GetProductInternalRequest) returns (ProductInternalResponse)`**: Для внутреннего использования (например, Payment Service для получения цены).
+    *   `message GetProductInternalRequest { string product_id = 1; string region_code = 2; string currency_code = 3; string language_code = 4; }`
+    *   `message ProductInternalResponse { Product product = 1; ProductPrice current_price = 2; }` (`Product` и `ProductPrice` - proto-версии сущностей).
+*   **`rpc GetProductsBatchInternal(GetProductsBatchInternalRequest) returns (GetProductsBatchInternalResponse)`**: Получение информации по нескольким продуктам.
+*   `[NEEDS DEVELOPER INPUT: Add other relevant gRPC methods for internal service communication, e.g., for price validation, stock checking if applicable (though less for digital goods).]`
 
 ### 3.3. WebSocket API
 *   Не применимо для данного сервиса.
@@ -221,323 +219,179 @@ graph TD
 См. также `../../../../project_database_structure.md`.
 
 ### 4.1. Основные Сущности
-*   **`Product` (Продукт)** (Как в существующем документе)
-*   **`Genre` (Жанр)** (Как в существующем документе)
-*   **`ProductPrice` (Цена Продукта)** (Как в существующем документе)
-*   **`MediaItem` (Медиа-элемент)** (Как в существующем документе)
-*   **`AchievementMeta` (Метаданные Достижения)** (Как в существующем документе)
-*   **`Tag` (Тег)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `name` (JSONB/Map<String, String>): Локализованное имя тега. Пример: `{"ru-RU": "Открытый мир", "en-US": "Open World"}`. Обязательность: Required.
-    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `open-world`. Валидация: unique, slug format. Обязательность: Required.
-*   **`Category` (Категория)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `name` (JSONB/Map<String, String>): Локализованное имя категории. Пример: `{"ru-RU": "Лучшие продажи", "en-US": "Top Sellers"}`. Обязательность: Required.
-    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `top-sellers`. Валидация: unique, slug format. Обязательность: Required.
-    *   `description` (JSONB/Map<String, String>): Локализованное описание. Обязательность: Optional.
-    *   `parent_category_id` (UUID, FK to Categories, Nullable): Для иерархических категорий.
+*   **`Product`**: Продукт (ID, тип, статус, локализованные названия/описания, дата релиза, разработчики, издатели).
+*   **`Genre`**: Жанр (ID, локализованное имя, slug).
+*   **`Tag`**: Тег (ID, локализованное имя, slug).
+*   **`Category`**: Категория (ID, локализованное имя, slug, родительская категория).
+*   **`ProductPrice`**: Цена Продукта (ID, ProductID, регион, валюта, базовая сумма, сумма скидки, даты действия).
+*   **`MediaItem`**: Медиа-элемент (ID, ProductID, тип, URL, URL превью, порядок).
+*   **`AchievementMeta`**: Метаданные Достижения (ID, ProductID, API имя, локализованные имя/описание, URL иконок, скрытость).
+*   **`SystemRequirements`**: Системные требования (тип: min/rec, платформа: pc/mac, ОС, процессор, память, графика, диск). Внедряется в `Product`.
+*   **`LocalizedString`**: Объект для локализованных строк (например, `{"ru-RU": "текст", "en-US": "text"}`).
+*   `[NEEDS DEVELOPER INPUT: Review and confirm if any other key entities are missing, e.g., Bundles, Editions, Franchises, Collections, and their detailed attributes and relationships.]`
 
 ### 4.2. Схема Базы Данных
 
 #### 4.2.1. PostgreSQL
-**ERD Диаграмма (дополненная):**
-```mermaid
-erDiagram
-    PRODUCTS {
-        UUID id PK
-        VARCHAR product_type
-        VARCHAR status
-        JSONB titles
-        JSONB descriptions
-        TIMESTAMPTZ release_date
-        ARRAY_UUID developer_ids
-        ARRAY_UUID publisher_ids
-        TIMESTAMPTZ created_at
-        TIMESTAMPTZ updated_at
-    }
-    GENRES {
-        UUID id PK
-        JSONB name UK
-        VARCHAR slug UK
-    }
-    TAGS {
-        UUID id PK
-        JSONB name UK
-        VARCHAR slug UK
-    }
-    CATEGORIES {
-        UUID id PK
-        JSONB name UK
-        VARCHAR slug UK
-        UUID parent_category_id FK "nullable"
-    }
-    PRODUCT_GENRES {
-        UUID product_id PK FK
-        UUID genre_id PK FK
-    }
-    PRODUCT_TAGS {
-        UUID product_id PK FK
-        UUID tag_id PK FK
-    }
-    PRODUCT_CATEGORIES {
-        UUID product_id PK FK
-        UUID category_id PK FK
-    }
-    PRODUCT_PRICES {
-        UUID id PK
-        UUID product_id FK
-        VARCHAR region_code
-        VARCHAR currency_code
-        BIGINT base_amount
-        BIGINT discount_amount
-        TIMESTAMPTZ effective_from
-        TIMESTAMPTZ effective_to
-        BOOLEAN is_active
-    }
-    MEDIA_ITEMS {
-        UUID id PK
-        UUID product_id FK
-        VARCHAR media_type
-        VARCHAR url
-        VARCHAR thumbnail_url
-        INTEGER sort_order
-    }
-    ACHIEVEMENT_METADATA {
-        UUID id PK
-        UUID product_id FK
-        VARCHAR achievement_api_name "UK (product_id, achievement_api_name)"
-        JSONB name
-        JSONB description
-        VARCHAR icon_url_unlocked
-        VARCHAR icon_url_locked
-        BOOLEAN is_hidden
-    }
-
-    PRODUCTS ||--o{ PRODUCT_GENRES : "has"
-    GENRES ||--o{ PRODUCT_GENRES : "belongs_to"
-    PRODUCTS ||--o{ PRODUCT_TAGS : "has"
-    TAGS ||--o{ PRODUCT_TAGS : "belongs_to"
-    PRODUCTS ||--o{ PRODUCT_CATEGORIES : "belongs_to"
-    CATEGORIES ||--o{ PRODUCT_CATEGORIES : "contains"
-    CATEGORIES }o--o{ CATEGORIES : "parent_of (self-ref)"
-    PRODUCTS ||--o{ PRODUCT_PRICES : "has_prices"
-    PRODUCTS ||--o{ MEDIA_ITEMS : "has_media"
-    PRODUCTS ||--o{ ACHIEVEMENT_METADATA : "has_achievements"
-```
-
-**DDL (PostgreSQL - дополнения для TODO таблиц):**
-```sql
--- Таблица тегов
-CREATE TABLE tags (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name JSONB NOT NULL DEFAULT '{}'::jsonb,
-    slug VARCHAR(100) NOT NULL UNIQUE,
-    description JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_tags_name_gin ON tags USING GIN (name);
-CREATE INDEX idx_tags_slug ON tags(slug);
-
--- Связь продуктов и тегов (многие-ко-многим)
-CREATE TABLE product_tags (
-    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (product_id, tag_id)
-);
-
--- Таблица категорий
-CREATE TABLE categories (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name JSONB NOT NULL DEFAULT '{}'::jsonb,
-    slug VARCHAR(100) NOT NULL UNIQUE,
-    description JSONB,
-    parent_category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_categories_name_gin ON categories USING GIN (name);
-CREATE INDEX idx_categories_slug ON categories(slug);
-CREATE INDEX idx_categories_parent_id ON categories(parent_category_id);
-
--- Связь продуктов и категорий (многие-ко-многим)
-CREATE TABLE product_categories (
-    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    PRIMARY KEY (product_id, category_id)
-);
-
--- Таблица метаданных достижений
-CREATE TABLE achievement_metadata (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    achievement_api_name VARCHAR(100) NOT NULL,
-    name JSONB NOT NULL DEFAULT '{}'::jsonb,
-    description JSONB NOT NULL DEFAULT '{}'::jsonb,
-    icon_url_unlocked VARCHAR(2048) NOT NULL,
-    icon_url_locked VARCHAR(2048) NOT NULL,
-    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
-    sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (product_id, achievement_api_name)
-);
-CREATE INDEX idx_achievement_metadata_product_id ON achievement_metadata(product_id);
-```
+*   ERD Диаграмма: (см. существующий документ).
+*   DDL: (см. существующий документ, включая таблицы `tags`, `product_tags`, `categories`, `product_categories`, `achievement_metadata`).
+*   `[NEEDS DEVELOPER INPUT: Ensure DDL includes tables for any missing entities like Bundles, Editions, Franchises, Collections and their linking tables if they are part of Catalog Service's direct responsibility.]`
 
 #### 4.2.2. Elasticsearch
-*   **Индексы:** Основной индекс `products_catalog_vX` (с версионированием).
-*   **Структура документа:** (Как в существующем документе).
-*   **Анализаторы:** Для полей `titles.*` и `descriptions.*` должны использоваться специфичные для языка анализаторы (например, `russian` и `english` анализаторы Elasticsearch), включающие стемминг, обработку стоп-слов и, возможно, синонимы для улучшения качества поиска. Пример конфигурации анализатора для русского языка:
-    ```json
-    // Пример настройки анализатора в Elasticsearch
-    // "analysis": {
-    //   "analyzer": {
-    //     "default_russian": { // Может быть использован как 'analyzer' для русских полей
-    //       "tokenizer": "standard",
-    //       "filter": [
-    //         "lowercase",
-    //         "russian_morphology", // Использует морфологию для русского языка
-    //         "english_morphology", // Можно добавить и для английского, если тексты смешанные
-    //         "russian_stop",       // Фильтр стоп-слов для русского
-    //         "english_stop"        // Фильтр стоп-слов для английского
-    //       ]
-    //     }
-    //   },
-    //   "filter": {
-    //      "russian_stop": { "type": "stop", "stopwords": "_russian_" },
-    //      "english_stop": { "type": "stop", "stopwords": "_english_" },
-    //      "russian_morphology": { "type": "russian_morphology" },
-    //      "english_morphology": { "type": "english_morphology" }
-    //   }
-    // }
-    ```
+*   **Индексы:** `products_catalog_vX`.
+*   **Структура документа:** Денормализованный документ продукта, включающий ключевые поля для поиска и фильтрации (названия, описания, жанры, теги, категории, цены, платформы, языки, рейтинг).
+*   **Анализаторы:** Специфичные для языка анализаторы (russian, english) для текстовых полей.
+*   `[NEEDS DEVELOPER INPUT: Provide a more detailed Elasticsearch mapping example for the 'products_catalog_vX' index, showing key fields, types, and analyzer configurations.]`
 
-#### 4.2.3. Redis
-*   **Стратегия кэширования:**
-    *   **Детали продукта (`product:<product_id>:<lang>:<region>`):** Кэшируются полные или частично денормализованные объекты продуктов. Инвалидация при обновлении продукта или связанных сущностей (цены, основной категории). TTL: 5-60 минут.
-    *   **Списки продуктов (популярные, новые, по жанрам/тегам):** Ключ может включать хэш параметров запроса (`products_list:genre_rpg_page_1_limit_10:lang_ru`). Кэшируются ID продуктов или сокращенные данные. Инвалидация при добавлении/изменении продуктов, влияющих на список, или по TTL. TTL: 1-15 минут.
-    *   **Таксономия (жанры, теги, категории):** `genres_all:lang_ru`, `tags_all:lang_en`. Кэшируются полные списки. Инвалидация при изменении таксономии. TTL: 1-24 часа.
-    *   **Цены:** `price:product_id:<product_id>:region_GLOBAL`. Кэшируются объекты цен. Инвалидация при обновлении цен. TTL: 15-60 минут.
-    *   Используется стратегия Cache-Aside. При обновлении данных в PostgreSQL, соответствующие ключи в Redis инвалидируются (удаляются) или обновляются асинхронно через обработку событий Kafka.
+#### 4.2.3. Redis (Кэширование)
+*   **Стратегия:** Cache-Aside. Инвалидация при обновлении данных в PostgreSQL или через события Kafka.
+*   **Ключи:** `product:<product_id>:<lang>:<region>`, `products_list:<hash_params>`, `genres_all:<lang>`, `price:<product_id>:<region>`.
+*   TTL: Варьируется (1 мин - 24 часа).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
 ### 5.1. Публикуемые События (Produced Events)
-*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
-*   **Основные топики Kafka:** `com.platform.catalog.events.v1`.
-
-*   **`com.platform.catalog.product.created.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`).
-*   **`com.platform.catalog.product.updated.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`).
-*   **`com.platform.catalog.product.status.changed.v1`**
-    *   Описание: Статус продукта изменен (например, опубликован, снят с публикации, отправлен на модерацию).
-    *   `data` Payload:
-        ```json
-        {
-          "productId": "game-uuid-abc",
-          "oldStatus": "in_review",
-          "newStatus": "published",
-          "changedBy": "user-uuid-admin",
-          "changeTimestamp": "2024-03-18T12:00:00Z"
-        }
-        ```
-*   **`com.platform.catalog.price.updated.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`, `priceId`).
-*   **`com.platform.catalog.genre.created.v1`**
-    *   Описание: Создан новый жанр.
-    *   `data` Payload:
-        ```json
-        {
-          "genreId": "genre-uuid-new",
-          "names": { "ru-RU": "Иммерсивный симулятор", "en-US": "Immersive Sim" },
-          "slug": "immersive-sim",
-          "createdBy": "user-uuid-admin",
-          "creationTimestamp": "2024-03-18T13:00:00Z"
-        }
-        ```
-*   **`com.platform.catalog.tag.assigned.v1`**
-    *   Описание: Тег был присвоен продукту.
-    *   `data` Payload:
-        ```json
-        {
-          "productId": "game-uuid-xyz",
-          "tagId": "tag-uuid-open-world",
-          "assignedBy": "user-uuid-curator",
-          "assignmentTimestamp": "2024-03-18T14:00:00Z"
-        }
-        ```
+*   Формат: CloudEvents JSON. Топик: `com.platform.catalog.events.v1`.
+*   **`com.platform.catalog.product.created.v1`**: `data`: `{ "productId": "uuid", "type": "game", ... }`
+*   **`com.platform.catalog.product.updated.v1`**: `data`: `{ "productId": "uuid", "updatedFields": ["titles", "descriptions"], ... }`
+*   **`com.platform.catalog.product.status.changed.v1`**: `data`: `{ "productId": "uuid", "oldStatus": "in_review", "newStatus": "published", ... }`
+*   **`com.platform.catalog.price.updated.v1`**: `data`: `{ "productId": "uuid", "priceId": "uuid", ... }`
+*   **`com.platform.catalog.genre.created.v1`**: `data`: `{ "genreId": "uuid", "names": {...}, ... }`
+*   **`com.platform.catalog.tag.assigned.v1`**: `data`: `{ "productId": "uuid", "tagId": "uuid", ... }`
+*   `[NEEDS DEVELOPER INPUT: List or confirm other key published events for catalog changes (e.g., product_deleted, category_created, media_added, achievement_updated) including their payload structures.]`
 
 ### 5.2. Потребляемые События (Consumed Events)
-(Содержимое существующего раздела актуально).
+*   **`com.platform.developer.product.submitted.v1`** (от Developer Service)
+    *   Описание: Разработчик отправил новый продукт или обновление на рассмотрение/модерацию.
+    *   Логика обработки: Создание/обновление продукта в статусе "на рассмотрении", запуск процесса модерации.
+*   **`com.platform.admin.product.moderation.approved.v1`** (от Admin Service)
+    *   Описание: Продукт одобрен модератором.
+    *   Логика обработки: Изменение статуса продукта на "опубликован" или "готов к публикации".
+*   **`com.platform.admin.product.moderation.rejected.v1`** (от Admin Service)
+    *   Описание: Продукт отклонен модератором.
+    *   Логика обработки: Изменение статуса продукта на "отклонен", уведомление разработчика.
+*   `[NEEDS DEVELOPER INPUT: List or confirm other key consumed events (e.g., from Payment Service for sales events if they influence 'top sellers' categories directly, or from Social Service for review counts/ratings if denormalized here).]`
 
 ## 6. Интеграции (Integrations)
-(Содержимое существующего раздела актуально, ссылки на `../../../../project_integrations.md` проверены).
+См. `../../../../project_integrations.md`.
+[NEEDS DEVELOPER INPUT: Review and confirm service boundaries and reliability strategies for each integration for catalog-service.]
+
+### 6.1. Внутренние Микросервисы
+*   **API Gateway**: Проксирование запросов.
+*   **Developer Service**: Управление продуктами со стороны разработчиков (через события или прямое API Catalog Service для создания/обновления). `[NEEDS DEVELOPER INPUT: Clarify if Developer Service calls Catalog's management API or if it's event-driven]`
+*   **Admin Service**: Модерация контента, управление глобальными настройками каталога.
+*   **Payment Service**: Получение актуальных цен (через gRPC).
+*   **Library Service, Download Service**: Предоставление метаданных продуктов.
+*   **Analytics Service**: Обмен данными о продуктах.
+*   **Auth Service**: Валидация токенов.
+*   **Social Service**: Потенциально для получения информации о пользовательских отзывах/рейтингах для агрегации в каталоге. `[NEEDS DEVELOPER INPUT: Clarify integration with Social Service for reviews/ratings.]`
+
+### 6.2. Внешние Системы
+*   Не предполагается прямых интеграций.
 
 ## 7. Конфигурация (Configuration)
-(Содержимое существующего раздела YAML и описание переменных окружения в целом актуальны, проверено соответствие именования переменных общим стандартам).
+Общие стандарты: `../../../../project_api_standards.md` и `../../../../DOCUMENTATION_GUIDELINES.md`.
+
+### 7.1. Переменные Окружения
+*   `CATALOG_HTTP_PORT`, `CATALOG_GRPC_PORT`
+*   `POSTGRES_DSN`, `ELASTICSEARCH_URLS`, `REDIS_ADDR`, `KAFKA_BROKERS`
+*   `DEFAULT_LANGUAGE`, `DEFAULT_REGION`, `DEFAULT_CURRENCY`
+*   `JWT_PUBLIC_KEY_PATH` (для валидации токенов админов/менеджеров)
+*   `LOG_LEVEL`, `OTEL_EXPORTER_JAEGER_ENDPOINT`
+*   `[NEEDS DEVELOPER INPUT: Add specific env vars for search indexing parameters, cache TTLs, or any recommendation algorithm parameters if managed here.]`
+
+### 7.2. Файлы Конфигурации (`configs/config.yaml`)
+*   Расположение: `backend/catalog-service/configs/config.yaml`.
+*   Структура: (см. существующий документ, проверено).
 
 ## 8. Обработка Ошибок (Error Handling)
-(Содержимое существующего раздела актуально, форматы ошибок исправлены в разделе API).
+*   Стандартные HTTP коды и форматы ошибок REST согласно `../../../../project_api_standards.md`.
+*   gRPC ошибки согласно стандартам gRPC.
+
+### 8.1. Общие Принципы
+*   Стандартный JSON формат ответа об ошибке для REST.
+
+### 8.2. Распространенные Коды Ошибок
+*   `PRODUCT_NOT_FOUND`, `GENRE_NOT_FOUND`, `PRICE_NOT_FOUND`, `VALIDATION_ERROR`, `SEARCH_ENGINE_UNAVAILABLE`.
+*   `[NEEDS DEVELOPER INPUT: Review and add other specific error codes for catalog-service.]`
 
 ## 9. Безопасность (Security)
-(Содержимое существующего раздела в целом актуально).
-*   **ФЗ-152 "О персональных данных":** Catalog Service хранит локализованные названия и описания, которые могут быть созданы пользователями (разработчиками). ID разработчиков/издателей являются ссылками на другие сервисы, где может храниться ПДн. Необходимо обеспечить, чтобы при обработке и отображении этих данных соблюдались принципы ФЗ-152, особенно если описания или другие метаданные могут случайно содержать ПДн. Данные о региональных ценах также могут быть чувствительны.
-*   Ссылки на `../../../../project_security_standards.md` и `../../../../project_roles_and_permissions.md` актуальны.
+См. `../../../../project_security_standards.md`.
+
+### 9.1. Аутентификация
+*   Публичные API для чтения. JWT для управляющих API.
+
+### 9.2. Авторизация
+*   RBAC для управляющих API (роли `catalog_admin`, `product_manager`).
+
+### 9.3. Защита Данных
+*   ФЗ-152: Локализованные метаданные могут содержать ПДн (если созданы пользователями). ID разработчиков.
+*   Защита от SQL-инъекций (через ORM/драйверы), XSS (при отображении данных).
+
+### 9.4. Управление Секретами
+*   Пароли БД, ключи доступа к Kafka/Elasticsearch через Kubernetes Secrets / Vault.
 
 ## 10. Развертывание (Deployment)
-(Содержимое существующего раздела актуально, ссылки на `../../../../project_deployment_standards.md` актуальны).
+См. `../../../../project_deployment_standards.md`.
+
+### 10.1. Инфраструктурные Файлы
+*   Dockerfile: `backend/catalog-service/Dockerfile`.
+*   Helm-чарты: `deploy/charts/catalog-service/`.
+
+### 10.2. Зависимости при Развертывании
+*   PostgreSQL, Elasticsearch, Redis, Kafka.
+*   API Gateway, Auth Service.
+
+### 10.3. CI/CD
+*   Стандартный пайплайн. Автоматические миграции БД. Индексация Elasticsearch при необходимости.
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
-(Содержимое существующего раздела актуально, ссылки на `../../../../project_observability_standards.md` актуальны).
+См. `../../../../project_observability_standards.md`.
+
+### 11.1. Логирование
+*   Формат: JSON (Zap).
+*   Ключевые события: CRUD операции, поиск, ошибки, обновления цен/статусов.
+*   Интеграция: Loki/ELK.
+
+### 11.2. Мониторинг
+*   Метрики (Prometheus): Запросы API, ошибки, задержки, производительность Elasticsearch, Kafka лаги, размеры кэша.
+*   Дашборды (Grafana): Обзор состояния, API, Elasticsearch, Kafka, PostgreSQL.
+*   Алерты (AlertManager): Ошибки API, недоступность зависимостей, проблемы с индексацией/кэшем.
+
+### 11.3. Трассировка
+*   Интеграция: OpenTelemetry. Экспорт: Jaeger.
 
 ## 12. Нефункциональные Требования (NFRs)
-(Содержимое существующего раздела актуально).
+*   **Производительность**: P99 поиск < 200мс. P99 детали продукта < 100мс. P99 обновление < 300мс.
+*   **Масштабируемость**: >1 млн продуктов. >1000 запросов/сек на чтение.
+*   **Надежность**: Доступность 99.95%.
+*   **Консистентность данных**: Strong consistency для основного хранилища (PostgreSQL), eventual consistency для Elasticsearch и кэшей (задержка < 1 мин).
+*   [NEEDS DEVELOPER INPUT: Confirm or update specific NFR values for catalog-service.]
 
-## 13. Приложения (Appendices)
-*   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
-*   DDL схемы базы данных и конфигурации Elasticsearch управляются через систему миграций (например, `golang-migrate/migrate` для PostgreSQL) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
+## 13. Резервное Копирование и Восстановление (Backup and Recovery)
+Общие принципы см. в `../../../../project_database_structure.md`.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+### 13.1. PostgreSQL
+*   Процедура: Ежедневный `pg_dump`. Непрерывная архивация WAL (PITR).
+*   Хранение: S3. RTO: < 2ч. RPO: < 5мин.
 
-### 14.1. PostgreSQL (Основные данные каталога)
-*   **Процедура резервного копирования:**
-    *   **Логические бэкапы:** Ежедневный `pg_dump` для базы данных Catalog Service.
-    *   **Физические бэкапы (PITR):** Настроена непрерывная архивация WAL-сегментов. Базовый бэкап создается еженедельно.
-    *   **Хранение:** Бэкапы и WAL-архивы хранятся в S3-совместимом хранилище с шифрованием и версионированием, в другом регионе. Срок хранения: полные логические бэкапы - 30 дней, WAL - 14 дней.
-*   **Процедура восстановления:** Тестируется ежеквартально.
-*   **RTO (Recovery Time Objective):** < 2 часов.
-*   **RPO (Recovery Point Objective):** < 5 минут.
-*   (Общие принципы см. `../../../../project_database_structure.md`).
+### 13.2. Elasticsearch
+*   Стратегия: Переиндексация из PostgreSQL (источник правды). Снапшоты для ускорения.
+*   RTO: < 1ч (снапшот), < 6-12ч (переиндексация). RPO: 24ч (снапшот), 0 (переиндексация).
 
-### 14.2. Elasticsearch (Поисковые индексы)
-*   **Стратегия:** Основным источником правды для данных является PostgreSQL. Индексы Elasticsearch могут быть перестроены из PostgreSQL.
-*   **Резервное копирование (опционально, для ускорения восстановления):**
-    *   Использование Elasticsearch Snapshots для создания резервных копий индексов.
-    *   **Частота:** Ежедневно.
-    *   **Хранение:** Снапшоты хранятся в S3-совместимом репозитории. Срок хранения - 7-14 дней.
-*   **Процедура восстановления:**
-    1.  Предпочтительно: Переиндексация данных из PostgreSQL. Это гарантирует актуальность и консистентность.
-    2.  Альтернативно (быстрее, если данные не сильно изменились): Восстановление из снапшота Elasticsearch.
-*   **RTO:** < 1 час (из снапшота), < 6-12 часов (при полной переиндексации, зависит от объема данных).
-*   **RPO:** 24 часа (если восстановление из снапшота). 0 (если переиндексация из PostgreSQL, данные в индексе будут актуальны на момент начала переиндексации).
+### 13.3. Redis
+*   Стратегия: Данные - кэш, восстановимы. Персистентность для "прогрева".
+*   RTO/RPO: Неприменимо для потери данных.
 
-### 14.3. Redis (Кэш)
-*   **Стратегия:** Данные в Redis являются кэшем и могут быть полностью перестроены из PostgreSQL и Elasticsearch.
-*   **Персистентность (опционально):** Может быть включена RDB-снапшотирование для ускорения "прогрева" кэша после перезапуска Redis, но это не является критичным для восстановления данных.
-*   **Резервное копирование:** Не требуется для данных кэша.
-*   **RTO/RPO:** Неприменимо в контексте потери данных. Восстановление функциональности кэша происходит по мере его заполнения при работе сервиса.
-
-### 14.4. Общая стратегия
-*   Приоритет отдается восстановлению данных из основного хранилища (PostgreSQL).
-*   Бэкапы Elasticsearch и персистентность Redis используются для ускорения восстановления и снижения нагрузки на основные системы.
-*   Все процедуры документированы и регулярно пересматриваются.
+## 14. Приложения (Appendices) (Опционально)
+*   OpenAPI спецификация: `[NEEDS DEVELOPER INPUT: Link to OpenAPI spec or state if generated from code for catalog-service]`
+*   Protobuf схемы: `platform-protos/catalog/v1/catalog_service.proto` (предположительно).
+*   `[NEEDS DEVELOPER INPUT: Add any other appendices if necessary for catalog-service.]`
 
 ## 15. Связанные Рабочие Процессы (Related Workflows)
 *   [Процесс покупки игры и обновления библиотеки пользователя](../../../../project_workflows/game_purchase_flow.md)
 *   [Процесс подачи разработчиком новой игры на модерацию](../../../../project_workflows/game_submission_flow.md)
+*   [Процесс управления промо-акциями и скидками] `[NEEDS DEVELOPER INPUT: Create and link workflow document, e.g., project_workflows/promo_management_flow.md]`
 
 ---
 *Этот документ является основной спецификацией для Catalog Service и должен поддерживаться в актуальном состоянии.*

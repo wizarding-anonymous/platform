@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Account Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2023-10-28
+**Дата последнего обновления:** {{YYYY-MM-DD}} <!-- Placeholder for date -->
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -20,17 +20,18 @@
 
 ### 1.3. Основные Технологии
 *   **Язык программирования:** Go (версия 1.21+, согласно `../../../../project_technology_stack.md`)
-*   **REST Framework:** Echo (`github.com/labstack/echo/v4`) (согласно `../../../../project_technology_stack.md` и `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **gRPC Framework:** `google.golang.org/grpc` (согласно `../../../../project_technology_stack.md` и `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **База данных:** PostgreSQL (версия 15+) (согласно `../../../../project_technology_stack.md`)
-*   **Кэширование:** Redis (версия 7.0+) (согласно `../../../../project_technology_stack.md`)
-*   **Брокер сообщений:** Kafka (`github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **Валидация:** `go-playground/validator/v10` (согласно `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **ORM/DB Driver:** GORM (`gorm.io/gorm`) с драйвером `gorm.io/driver/postgres` (согласно `../../../../project_technology_stack.md` и `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **Логирование:** Zap (`go.uber.org/zap`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`)
-*   **Трассировка и метрики:** OpenTelemetry (`go.opentelemetry.io/otel`), Prometheus client (`github.com/prometheus/client_golang`) (согласно `../../../../PACKAGE_STANDARDIZATION.md` и `../../../../project_observability_standards.md`)
-*   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`.
+*   **REST Framework:** Echo (`github.com/labstack/echo/v4`)
+*   **gRPC Framework:** `google.golang.org/grpc`
+*   **База данных:** PostgreSQL (версия 15+)
+*   **Кэширование:** Redis (версия 7.0+)
+*   **Брокер сообщений:** Kafka (`github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go`)
+*   **Валидация:** `go-playground/validator/v10`
+*   **ORM/DB Driver:** GORM (`gorm.io/gorm`) с драйвером `gorm.io/driver/postgres`
+*   **Управление конфигурацией:** Viper (`github.com/spf13/viper`)
+*   **Логирование:** Zap (`go.uber.org/zap`)
+*   **Трассировка и метрики:** OpenTelemetry (`go.opentelemetry.io/otel`), Prometheus client (`github.com/prometheus/client_golang`)
+*   Выбор сторонних библиотек и пакетов должен осуществляться согласно `../../../../PACKAGE_STANDARDIZATION.md`.
+*   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`, `../../../../project_observability_standards.md`.
 
 ### 1.4. Термины и Определения (Glossary)
 *   См. `../../../../project_glossary.md`.
@@ -44,7 +45,7 @@
 ### 2.1. Общее Описание
 *   Сервис построен с использованием принципов чистой архитектуры (Clean Architecture) для разделения ответственностей на слои: Presentation, Application, Domain, Infrastructure.
 *   Основные модули: управление аккаунтами, управление профилями, управление контактами, управление настройками.
-*   Ниже представлена упрощенная диаграмма слоев сервиса. Детальная диаграмма компонентов и их взаимодействий будет добавлена в будущих версиях, если потребуется большая детализация. Текущая структура соответствует стандартному подходу Clean Architecture.
+*   Диаграмма верхнеуровневой архитектуры сервиса:
 ```mermaid
 graph TD
     A[Presentation Layer (HTTP/gRPC Handlers)] --> B(Application Layer (Use Cases/Services))
@@ -73,6 +74,8 @@ graph TD
 *   Ответственность: Бизнес-сущности, агрегаты, доменные события, бизнес-правила. Независим от других слоев.
 *   Ключевые компоненты/модули:
     *   Entities: `Account` (ID, UserID (из Auth Service), Status, Timestamps), `Profile` (Nickname, Bio, AvatarURL, CountryCode), `ContactInfo` (Email, Phone, VerifiedStatus), `UserSetting` (SettingsData JSONB).
+    *   Value Objects: [NEEDS DEVELOPER INPUT: Specific Value Objects for account-service, if any, e.g., EmailAddress, PhoneNumber]
+    *   Domain Services: [NEEDS DEVELOPER INPUT: Specific Domain Services for account-service, if any]
     *   Domain Events: `AccountCreatedEvent`, `ProfileUpdatedEvent`, `ContactVerifiedEvent`.
     *   Интерфейсы репозиториев (определяются здесь, реализуются в Infrastructure Layer).
 
@@ -82,7 +85,8 @@ graph TD
     *   PostgreSQL Repositories (GORM): Реализации `AccountRepository`, `ProfileRepository` и т.д.
     *   Redis Cache: Для кэширования профилей, настроек.
     *   Kafka Producer: Для отправки доменных событий в формате CloudEvents.
-    *   Клиенты для других сервисов (например, gRPC клиент для Auth Service для получения UserID по необходимости, если эта информация не приходит с событием).
+    *   External Service Clients: Клиенты для других сервисов (например, gRPC клиент для Auth Service).
+    *   Адаптеры для файловых хранилищ: [NEEDS DEVELOPER INPUT: Specific S3/Object Storage adapter details if Account Service handles uploads directly]
 
 ## 3. API Endpoints
 Общие принципы и форматы см. `../../../../project_api_standards.md`.
@@ -90,7 +94,7 @@ graph TD
 ### 3.1. REST API
 *   **Базовый URL (через API Gateway):** `/api/v1/account` (уточненный базовый URL для ресурсов Account Service).
 *   **Версионирование:** `/v1/`.
-*   **Формат данных:** `application/json` (согласно `project_api_standards.md`).
+*   **Формат данных:** `application/json` (согласно `../../../../project_api_standards.md`).
 *   **Аутентификация:** JWT Bearer Token (проверяется API Gateway, UserID и роли передаются в заголовках, например, `X-User-ID`, `X-User-Roles`).
 *   **Стандартные заголовки:** `X-Request-ID`.
 
@@ -124,6 +128,7 @@ graph TD
           }
         }
         ```
+    *   Пример ответа (Ошибка 4xx/5xx): `[NEEDS DEVELOPER INPUT: Example error response for GET /me]`
     *   Требуемые права доступа: Аутентифицированный пользователь (`user`).
 *   **`PUT /me/profile`**
     *   Описание: Обновление профиля текущего пользователя.
@@ -142,6 +147,7 @@ graph TD
           }
         }
         ```
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for PUT /me/profile]`
     *   Требуемые права доступа: Владелец профиля (`user`).
 *   **`POST /me/profile/avatar`**
     *   Описание: Загрузка нового аватара для текущего пользователя (multipart/form-data).
@@ -160,11 +166,13 @@ graph TD
     *   Требуемые права доступа: Владелец профиля (`user`).
 *   **`DELETE /me`**
     *   Описание: Запрос на удаление аккаунта текущего пользователя (инициирует процесс деактивации/удаления согласно политикам платформы).
+    *   Пример ответа (Успех 202 Accepted): `[NEEDS DEVELOPER INPUT: Example success response for DELETE /me]`
     *   Требуемые права доступа: Владелец аккаунта (`user`).
 
 #### 3.1.2. Ресурс: Публичные Профили (Public Profiles)
 *   **`GET /profiles/{profile_id_or_custom_url}`**
     *   Описание: Получение публичного профиля пользователя по его ID профиля или кастомному URL. Объем возвращаемых данных зависит от настроек приватности профиля.
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for GET /profiles/{id}]`
     *   Требуемые права доступа: `anonymous` (для публичных данных), `user` (для данных, видимых другим пользователям).
 
 #### 3.1.3. Ресурс: Контактная Информация (Contact Info) - `/me/contact-info`
@@ -183,19 +191,24 @@ graph TD
 *   **`POST /me/contact-info`**
     *   Описание: Добавление нового контактного метода (email/телефон). Инициирует процесс верификации (отправка кода через Notification Service).
     *   Тело запроса: `{"data": {"type": "contactMethodCreation", "attributes": {"contactType": "email", "value": "new@example.com"}}}`.
+    *   Пример ответа (Успех 201 Created): `[NEEDS DEVELOPER INPUT: Example success response for POST /me/contact-info]`
     *   Требуемые права доступа: Владелец (`user`).
 *   **`DELETE /me/contact-info/{contact_id}`**
     *   Описание: Удаление контактного метода. Нельзя удалить основной метод, если он единственный верифицированный.
+    *   Пример ответа (Успех 204 No Content): `[NEEDS DEVELOPER INPUT: Example success response for DELETE /me/contact-info/{id}]`
     *   Требуемые права доступа: Владелец (`user`).
 *   **`POST /me/contact-info/{contact_id}/set-primary`**
     *   Описание: Установка контактного метода как основного (если он верифицирован).
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for POST /me/contact-info/{id}/set-primary]`
     *   Требуемые права доступа: Владелец (`user`).
 *   **`POST /me/contact-info/{contact_id}/request-verification`**
     *   Описание: Повторный запрос кода верификации.
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for POST /me/contact-info/{id}/request-verification]`
     *   Требуемые права доступа: Владелец (`user`).
 *   **`POST /me/contact-info/{contact_id}/verify`**
     *   Описание: Подтверждение контактного метода с помощью кода.
     *   Тело запроса: `{"data": {"type": "verificationConfirmation", "attributes": {"code": "123456"}}}`.
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for POST /me/contact-info/{id}/verify]`
     *   Требуемые права доступа: Владелец (`user`).
 
 #### 3.1.4. Ресурс: Настройки (Settings) - `/me/settings`
@@ -219,6 +232,7 @@ graph TD
 *   **`PUT /me/settings`**
     *   Описание: Обновление всех настроек текущего пользователя (полное обновление).
     *   Тело запроса: (Аналогично структуре ответа).
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for PUT /me/settings]`
     *   Требуемые права доступа: Владелец (`user`).
 *   **`PATCH /me/settings`**
     *   Описание: Частичное обновление настроек текущего пользователя.
@@ -233,6 +247,7 @@ graph TD
           }
         }
         ```
+    *   Пример ответа (Успех 200 OK): `[NEEDS DEVELOPER INPUT: Example success response for PATCH /me/settings]`
     *   Требуемые права доступа: Владелец (`user`).
 
 #### 3.1.5. Административные эндпоинты
@@ -245,35 +260,38 @@ graph TD
 
 ### 3.2. gRPC API
 *   **Пакет:** `account.v1`
-*   **Файл .proto:** `proto/account/v1/account_service.proto` (предполагаемое расположение в репозитории `platform-protos` или локально)
 *   **Аутентификация:** mTLS для межсервисного взаимодействия, опционально передача UserID/токена в метаданных для служебных запросов.
 
 #### 3.2.1. Сервис: AccountService
+*   Ссылка на `.proto` файл: `proto/account/v1/account_service.proto` (предполагаемое расположение в репозитории `platform-protos` или локально в `backend/account-service/proto/v1/account_service.proto`).
 *   **`rpc GetAccountInfo(GetAccountInfoRequest) returns (GetAccountInfoResponse)`**
     *   Описание: Получение основной информации об аккаунте пользователя (статус, UserID).
-    *   `message GetAccountInfoRequest { string user_id = 1; }`
-    *   `message AccountInfo { string account_id = 1; string user_id = 2; string status = 3; google.protobuf.Timestamp created_at = 4; }`
-    *   `message GetAccountInfoResponse { AccountInfo account_info = 1; }`
+    *   Сообщение запроса `GetAccountInfoRequest`: `message GetAccountInfoRequest { string user_id = 1; }`
+    *   Сообщение ответа `GetAccountInfoResponse`: `message GetAccountInfoResponse { AccountInfo account_info = 1; } message AccountInfo { string account_id = 1; string user_id = 2; string status = 3; google.protobuf.Timestamp created_at = 4; }`
+    *   Требуемые права доступа: [NEEDS DEVELOPER INPUT: Permissions for gRPC GetAccountInfo, e.g., internal service]
 *   **`rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse)`**
     *   Описание: Получение профиля пользователя.
-    *   `message GetUserProfileRequest { string user_id = 1; }`
-    *   `message Profile { string profile_id = 1; string account_id = 2; string nickname = 3; string bio = 4; string avatar_url = 5; string country_code = 6; string custom_url_slug = 7; google.protobuf.Struct privacy_settings = 8; }`
-    *   `message GetUserProfileResponse { Profile profile = 1; }`
+    *   Сообщение запроса `GetUserProfileRequest`: `message GetUserProfileRequest { string user_id = 1; }`
+    *   Сообщение ответа `GetUserProfileResponse`: `message GetUserProfileResponse { Profile profile = 1; } message Profile { string profile_id = 1; string account_id = 2; string nickname = 3; string bio = 4; string avatar_url = 5; string country_code = 6; string custom_url_slug = 7; google.protobuf.Struct privacy_settings = 8; }`
+    *   Требуемые права доступа: [NEEDS DEVELOPER INPUT: Permissions for gRPC GetUserProfile]
 *   **`rpc GetUserProfilesBatch(GetUserProfilesBatchRequest) returns (GetUserProfilesBatchResponse)`**
     *   Описание: Получение профилей нескольких пользователей.
-    *   `message GetUserProfilesBatchRequest { repeated string user_ids = 1; }`
-    *   `message GetUserProfilesBatchResponse { repeated Profile profiles = 1; }`
+    *   Сообщение запроса `GetUserProfilesBatchRequest`: `message GetUserProfilesBatchRequest { repeated string user_ids = 1; }`
+    *   Сообщение ответа `GetUserProfilesBatchResponse`: `message GetUserProfilesBatchResponse { repeated Profile profiles = 1; }`
+    *   Требуемые права доступа: [NEEDS DEVELOPER INPUT: Permissions for gRPC GetUserProfilesBatch]
 *   **`rpc CheckUsernameAvailability(CheckUsernameAvailabilityRequest) returns (CheckUsernameAvailabilityResponse)`**
     *   Описание: Проверка, доступен ли никнейм или кастомный URL профиля.
-    *   `message CheckUsernameAvailabilityRequest { string username = 1; }` // Может быть и custom_url_slug
-    *   `message CheckUsernameAvailabilityResponse { bool is_available = 1; }`
+    *   Сообщение запроса `CheckUsernameAvailabilityRequest`: `message CheckUsernameAvailabilityRequest { string username = 1; }`
+    *   Сообщение ответа `CheckUsernameAvailabilityResponse`: `message CheckUsernameAvailabilityResponse { bool is_available = 1; }`
+    *   Требуемые права доступа: [NEEDS DEVELOPER INPUT: Permissions for gRPC CheckUsernameAvailability]
 *   **`rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse)`**
-    *   Описание: Получение настроек пользователя для использования другими сервисами (например, Notification Service для проверки предпочтений).
-    *   `message GetUserSettingsRequest { string user_id = 1; repeated string categories = 2; }` // categories - опционально, для фильтрации
-    *   `message GetUserSettingsResponse { google.protobuf.Struct settings_data = 1; }` // JSONB как Struct
+    *   Описание: Получение настроек пользователя для использования другими сервисами.
+    *   Сообщение запроса `GetUserSettingsRequest`: `message GetUserSettingsRequest { string user_id = 1; repeated string categories = 2; }`
+    *   Сообщение ответа `GetUserSettingsResponse`: `message GetUserSettingsResponse { google.protobuf.Struct settings_data = 1; }`
+    *   Требуемые права доступа: [NEEDS DEVELOPER INPUT: Permissions for gRPC GetUserSettings]
 
-### 3.3. WebSocket API
-*   Не предполагается для основного функционала Account Service. Обновления статуса пользователя или профиля могут передаваться через события Kafka другим сервисам, которые поддерживают WebSocket (например, Social Service, Notification Service).
+### 3.3. WebSocket API (если применимо)
+*   Не предполагается для основного функционала Account Service. Обновления статуса пользователя или профиля могут передаваться через события Kafka другим сервисам, которые поддерживают WebSocket.
 
 ## 4. Модели Данных (Data Models)
 См. также `../../../../project_database_structure.md`.
@@ -293,7 +311,7 @@ graph TD
     *   `avatar_url` (VARCHAR, Nullable).
     *   `country_code` (CHAR(2), Nullable): ISO 3166-1 alpha-2.
     *   `custom_url_slug` (VARCHAR, Nullable, Unique): Кастомный URL для профиля.
-    *   `privacy_settings` (JSONB): Настройки приватности профиля (например, `{"inventory_visibility": "public", "friends_list_visibility": "private"}`).
+    *   `privacy_settings` (JSONB): Настройки приватности профиля.
     *   `created_at` (TIMESTAMPTZ).
     *   `updated_at` (TIMESTAMPTZ).
 *   **ContactInfo**:
@@ -307,11 +325,10 @@ graph TD
     *   `verification_code_expires_at` (TIMESTAMPTZ, Nullable).
     *   `created_at` (TIMESTAMPTZ).
     *   `updated_at` (TIMESTAMPTZ).
-    *   (Constraint: Unique(account_id, type, value), Unique(account_id, type, is_primary) WHERE is_primary = TRUE)
 *   **UserSetting**:
     *   `id` (UUID, PK).
     *   `account_id` (UUID, FK, Unique): Ссылка на Account. **Обязательное поле.**
-    *   `settings_data` (JSONB): Все настройки пользователя, сгруппированные по категориям (например, `{"notifications": {"email_updates": true}, "interface": {"language": "ru"}}`).
+    *   `settings_data` (JSONB): Все настройки пользователя, сгруппированные по категориям.
     *   `created_at` (TIMESTAMPTZ).
     *   `updated_at` (TIMESTAMPTZ).
 
@@ -353,8 +370,6 @@ graph TD
             TIMESTAMPTZ verification_code_expires_at "Nullable"
             TIMESTAMPTZ created_at
             TIMESTAMPTZ updated_at
-            %% Unique(account_id, type, value)
-            %% Unique(account_id, type, is_primary) WHERE is_primary = TRUE
         }
         USER_SETTING {
             UUID id PK
@@ -370,7 +385,7 @@ graph TD
     CREATE TABLE accounts (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID NOT NULL UNIQUE, -- Внешний ключ на Auth Service (логическая связь, не физическая)
-        status VARCHAR(50) NOT NULL DEFAULT 'inactive', -- e.g., inactive, active, blocked, pending_deletion, deleted
+        status VARCHAR(50) NOT NULL DEFAULT 'inactive',
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -390,8 +405,8 @@ graph TD
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
-    CREATE INDEX idx_profiles_nickname ON profiles(nickname text_pattern_ops); -- для LIKE запросов, если нужны
-    CREATE INDEX idx_profiles_custom_url_slug ON profiles(custom_url_slug text_pattern_ops); -- для LIKE запросов
+    CREATE INDEX idx_profiles_nickname ON profiles(nickname text_pattern_ops);
+    CREATE INDEX idx_profiles_custom_url_slug ON profiles(custom_url_slug text_pattern_ops);
 
     -- Таблица: contact_infos
     CREATE TABLE contact_infos (
@@ -409,13 +424,13 @@ graph TD
         CONSTRAINT unique_primary_contact_per_account_type UNIQUE (account_id, type, is_primary) WHERE is_primary = TRUE
     );
     CREATE INDEX idx_contact_infos_account_id_type ON contact_infos(account_id, type);
-    CREATE INDEX idx_contact_infos_value ON contact_infos(value); -- для поиска по email/телефону
+    CREATE INDEX idx_contact_infos_value ON contact_infos(value);
 
     -- Таблица: user_settings
     CREATE TABLE user_settings (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         account_id UUID NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
-        settings_data JSONB DEFAULT '{}'::jsonb, -- {"privacy": {...}, "notifications": {...}}
+        settings_data JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -425,23 +440,25 @@ graph TD
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
 ### 5.1. Публикуемые События (Produced Events)
-*   **Система сообщений:** Kafka (согласно `../../../../project_technology_stack.md`).
-*   **Формат событий:** CloudEvents JSON (согласно `../../../../project_api_standards.md`).
-*   **Основные топики Kafka:** `ru.steam.account.events.v1` (или более гранулярные, если потребуется).
+*   Используемая система сообщений: Kafka (согласно `../../../../project_technology_stack.md`).
+*   Формат событий: CloudEvents JSON (согласно `../../../../project_api_standards.md`).
+*   Основные топики Kafka: `ru.steam.account.events.v1` (или более гранулярные, если потребуется).
 
 *   **`ru.steam.account.created.v1`**
-    *   Описание: Публикуется после успешного создания базовой записи аккаунта (обычно после события `ru.steam.auth.user.registered.v1` от Auth Service).
+    *   Описание: Публикуется после успешного создания базовой записи аккаунта.
+    *   Топик: `ru.steam.account.events.v1`
     *   Структура Payload (`data` в CloudEvent):
         ```json
         {
           "accountId": "uuid-account-id",
           "userId": "uuid-auth-user-id",
-          "status": "inactive", // Начальный статус
+          "status": "inactive",
           "createdAt": "ISO8601_timestamp"
         }
         ```
 *   **`ru.steam.account.status.updated.v1`**
-    *   Описание: Статус аккаунта изменен (например, активирован, заблокирован).
+    *   Описание: Статус аккаунта изменен.
+    *   Топик: `ru.steam.account.events.v1`
     *   Структура Payload:
         ```json
         {
@@ -449,37 +466,26 @@ graph TD
           "userId": "uuid-auth-user-id",
           "oldStatus": "active",
           "newStatus": "blocked",
-          "reason": "Violation of terms", // Опционально
+          "reason": "Violation of terms",
           "updatedAt": "ISO8601_timestamp"
         }
         ```
 *   **`ru.steam.account.profile.updated.v1`**
     *   Описание: Профиль пользователя обновлен.
+    *   Топик: `ru.steam.account.events.v1`
     *   Структура Payload:
         ```json
         {
           "accountId": "uuid-account-id",
           "userId": "uuid-auth-user_id",
           "profileId": "uuid-profile-id",
-          "updatedFields": ["nickname", "avatarUrl"], // Список измененных полей
+          "updatedFields": ["nickname", "avatarUrl"],
           "updatedAt": "ISO8601_timestamp"
         }
         ```
 *   **`ru.steam.account.contact.added.v1`**
     *   Описание: Добавлен новый контактный метод.
-    *   Структура Payload:
-        ```json
-        {
-          "accountId": "uuid-account-id",
-          "userId": "uuid-auth-user_id",
-          "contactId": "uuid-contact-id",
-          "type": "email", // "email" or "phone"
-          "value": "new_contact@example.com", // Немаскированное значение для внутренних обработчиков, если необходимо (например, Notification Service)
-          "addedAt": "ISO8601_timestamp"
-        }
-        ```
-*   **`ru.steam.account.contact.verified.v1`**
-    *   Описание: Контактный метод успешно верифицирован.
+    *   Топик: `ru.steam.account.events.v1`
     *   Структура Payload:
         ```json
         {
@@ -487,18 +493,33 @@ graph TD
           "userId": "uuid-auth-user_id",
           "contactId": "uuid-contact-id",
           "type": "email",
-          "value": "verified_contact@example.com", // Немаскированное значение
-          "verifiedAt": "ISO8601_timestamp"
+          "value": "new_contact@example.com",
+          "addedAt": "ISO8601_timestamp"
         }
         ```
-*   **`ru.steam.account.settings.updated.v1`**
-    *   Описание: Настройки пользователя обновлены.
+*   **`ru.steam.account.contact.verified.v1`**
+    *   Описание: Контактный метод успешно верифицирован.
+    *   Топик: `ru.steam.account.events.v1`
     *   Структура Payload:
         ```json
         {
           "accountId": "uuid-account-id",
           "userId": "uuid-auth-user_id",
-          "updatedCategories": ["privacy", "notifications"], // Список обновленных категорий настроек
+          "contactId": "uuid-contact-id",
+          "type": "email",
+          "value": "verified_contact@example.com",
+          "verifiedAt": "ISO8601_timestamp"
+        }
+        ```
+*   **`ru.steam.account.settings.updated.v1`**
+    *   Описание: Настройки пользователя обновлены.
+    *   Топик: `ru.steam.account.events.v1`
+    *   Структура Payload:
+        ```json
+        {
+          "accountId": "uuid-account-id",
+          "userId": "uuid-auth-user_id",
+          "updatedCategories": ["privacy", "notifications"],
           "updatedAt": "ISO8601_timestamp"
         }
         ```
@@ -506,99 +527,114 @@ graph TD
 ### 5.2. Потребляемые События (Consumed Events)
 *   **`ru.steam.auth.user.registered.v1`**
     *   Описание: От Auth Service. Инициирует создание аккаунта и профиля по умолчанию.
-    *   Топик: `ru.steam.auth.events.v1` (или аналогичный, согласно спецификации Auth Service)
-    *   Ожидаемая структура Payload (`data` в CloudEvent):
+    *   Топик: `ru.steam.auth.events.v1` (согласно спецификации Auth Service)
+    *   Структура Payload (`data` в CloudEvent):
         ```json
         {
           "userId": "uuid-auth-user-id",
-          "email": "user@example.com", // Опционально, если email используется как username или начальный контакт
-          "username": "User123", // Опционально, может быть использован для начального nickname
+          "email": "user@example.com",
+          "username": "User123",
           "registrationTimestamp": "ISO8601_timestamp"
         }
         ```
-    *   Логика обработки: Создать новую запись `Account` (статус `inactive` или `pending_email_verification`), связанный `Profile` (с дефолтными значениями или из данных события), и `ContactInfo` если email предоставлен. Опубликовать событие `ru.steam.account.created.v1`.
-*   **`ru.steam.auth.user.email.updated.v1`** (Если основной email управляется в Auth Service и может меняться, и это изменение должно отражаться в Account Service как основной верифицированный email)
+    *   Логика обработки: Создать `Account`, `Profile`, `ContactInfo`. Опубликовать `ru.steam.account.created.v1`.
+*   **`ru.steam.auth.user.email.updated.v1`**
     *   Описание: От Auth Service. Обновление основного email пользователя.
     *   Топик: `ru.steam.auth.events.v1`
-    *   Ожидаемая структура Payload:
+    *   Структура Payload:
         ```json
         {
           "userId": "uuid-auth-user-id",
           "newEmail": "new_primary@example.com",
-          "isVerified": true // Предполагается, что Auth Service уже верифицировал email
+          "isVerified": true
         }
         ```
-    *   Логика обработки: Найти или создать `ContactInfo` для `newEmail`, пометить его как основной и верифицированный. Если старый email был основным, он перестает им быть.
-*   **`ru.steam.admin.user.action.v1`** (Пример общего события от Admin Service)
-    *   Описание: От Admin Service, например, для принудительной блокировки аккаунта или изменения профиля.
+    *   Логика обработки: Обновить/создать `ContactInfo`, пометить как основной и верифицированный.
+*   **`ru.steam.admin.user.action.v1`**
+    *   Описание: От Admin Service для административных действий.
     *   Топик: `ru.steam.admin.events.v1`
-    *   Структура Payload: Зависит от конкретного действия, но должна включать `userId` и детали действия.
+    *   Структура Payload:
         ```json
         {
           "userId": "uuid-auth-user-id",
-          "actionType": "BLOCK_ACCOUNT", // "UPDATE_PROFILE", "DELETE_ACCOUNT"
-          "payload": { // Специфичные данные для действия
-            "reason": "Terms of Service violation" // для BLOCK_ACCOUNT
-          }
+          "actionType": "BLOCK_ACCOUNT",
+          "payload": { "reason": "Terms of Service violation" }
         }
         ```
-    *   Логика обработки: Выполнить соответствующее административное действие над аккаунтом/профилем.
+    *   Логика обработки: Выполнить административное действие.
 
 ## 6. Интеграции (Integrations)
 См. `../../../../project_integrations.md` для общей карты и деталей.
+[NEEDS DEVELOPER INPUT: Review and confirm service boundaries and reliability strategies for each integration for account-service]
 
 ### 6.1. Внутренние Микросервисы
 *   **Auth Service:**
-    *   Тип интеграции: Потребление событий Kafka (`ru.steam.auth.user.registered.v1`), gRPC вызовы (опционально, для получения деталей пользователя по UserID, если они не приходят в событии и требуются синхронно).
-    *   Назначение: Получение информации о зарегистрированных пользователях для создания аккаунтов. Account Service предоставляет UserID, полученный от Auth Service, во всех своих событиях и API для связи.
+    *   Тип интеграции: Потребление событий Kafka, gRPC вызовы (опционально).
+    *   Назначение: Получение информации о зарегистрированных пользователях.
+    *   Контракт: `ru.steam.auth.user.registered.v1`, `GetUserByID` (gRPC).
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for Auth Service integration]
 *   **Notification Service:**
-    *   Тип интеграции: Account Service инициирует отправку уведомлений (например, верификационные письма/SMS, изменение статуса аккаунта) через Notification Service. Это может быть реализовано через публикацию специфичных событий в Kafka, на которые подписан Notification Service (например, `ru.steam.account.contact.verification.requested.v1`), либо через прямые gRPC вызовы к Notification Service.
+    *   Тип интеграции: События Kafka или gRPC вызовы.
     *   Назначение: Отправка пользовательских уведомлений.
+    *   Контракт: `ru.steam.account.contact.verification.requested.v1` (Kafka), `SendEmail` (gRPC).
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for Notification Service integration]
 *   **Social Service:**
-    *   Тип интеграции: Social Service потребляет события `ru.steam.account.profile.updated.v1` от Account Service для обновления своей локальной копии профильных данных. Account Service может вызывать gRPC Social Service для проверки уникальности никнейма, если это не делается локально или если никнейм глобален для платформы.
-    *   Назначение: Обмен информацией о профиле пользователя.
+    *   Тип интеграции: Потребление событий Kafka, gRPC вызовы.
+    *   Назначение: Обмен информацией о профиле.
+    *   Контракт: `ru.steam.account.profile.updated.v1` (Kafka), `CheckNicknameUniqueness` (gRPC).
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for Social Service integration]
 *   **Payment Service:**
-    *   Тип интеграции: Payment Service может вызывать gRPC Account Service (`GetAccountInfo`, `GetUserProfile`) для получения базовой информации о пользователе (например, страна для определения региональных цен или налогов).
-    *   Назначение: Предоставление информации о пользователе для финансовых операций.
+    *   Тип интеграции: gRPC вызовы.
+    *   Назначение: Предоставление информации о пользователе.
+    *   Контракт: `GetAccountInfo`, `GetUserProfile` (gRPC).
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for Payment Service integration]
 *   **Admin Service:**
-    *   Тип интеграции: Admin Service вызывает REST/gRPC эндпоинты Account Service для управления аккаунтами и профилями (см. раздел 3.1.5). Account Service может публиковать события об административных действиях для аудита.
+    *   Тип интеграции: REST/gRPC эндпоинты.
     *   Назначение: Администрирование пользователей.
+    *   Контракт: См. раздел 3.1.5.
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for Admin Service integration]
 *   **API Gateway:**
-    *   Тип интеграции: Проксирование REST запросов к Account Service.
-    *   Назначение: Единая точка входа для клиентских приложений.
+    *   Тип интеграции: Проксирование REST запросов.
+    *   Назначение: Единая точка входа.
+    *   Контракт: REST API Account Service.
+    *   Надежность: [NEEDS DEVELOPER INPUT: Reliability strategy for API Gateway integration]
 
 ### 6.2. Внешние Системы
 *   **S3-совместимое хранилище (Yandex Object Storage, VK Cloud, etc.):**
-    *   Тип интеграции: Если аватары загружаются через Account Service, он будет взаимодействовать с S3 для сохранения файлов. Чаще загрузка идет через клиентское приложение или API Gateway напрямую в S3, а Account Service только сохраняет URL.
-    *   Назначение: Хранение аватаров пользователей.
-*   **Интеграция с системами аутентификации (VK, Telegram):**
-    *   Account Service напрямую не интегрируется с VK/Telegram для аутентификации. Этим занимается Auth Service. Account Service потребляет событие `ru.steam.auth.user.registered.v1`, которое может быть результатом такой внешней аутентификации.
+    *   Тип интеграции: SDK.
+    *   Назначение: Хранение аватаров пользователей (если управляется сервисом).
+    *   Контракт: S3 API.
+*   **PostgreSQL:**
+    *   Тип интеграции: Прямое подключение (DB Driver).
+    *   Назначение: Основное хранилище данных.
+*   **Redis:**
+    *   Тип интеграции: Прямое подключение (Redis Client).
+    *   Назначение: Кэширование.
+*   **Kafka:**
+    *   Тип интеграции: Прямое подключение (Kafka Client).
+    *   Назначение: Брокер сообщений.
 
 ## 7. Конфигурация (Configuration)
-Общие стандарты конфигурации см. в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6).
+Общие стандарты конфигурационных файлов определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6).
 
-### 7.1. Переменные Окружения (Примеры)
+### 7.1. Переменные Окружения
 *   `ACCOUNT_HTTP_PORT`: Порт для REST API (например, `8081`)
 *   `ACCOUNT_GRPC_PORT`: Порт для gRPC API (например, `9091`)
-*   `POSTGRES_DSN`: Строка подключения к PostgreSQL (например, `postgres://user:pass@host:port/dbname?sslmode=disable`)
-*   `REDIS_ADDR`: Адрес Redis (например, `redis-host:6379`)
-*   `REDIS_PASSWORD`: Пароль для Redis (если используется)
-*   `REDIS_DB_ACCOUNT`: Номер базы данных Redis для Account Service (например, `0`)
-*   `KAFKA_BROKERS`: Список брокеров Kafka (например, `kafka1:9092,kafka2:9092`)
-*   `KAFKA_TOPIC_ACCOUNT_EVENTS`: Имя топика для публикуемых событий (например, `ru.steam.account.events.v1`)
-*   `KAFKA_CONSUMER_GROUP_ACCOUNT`: Имя группы потребителей Kafka (например, `account-service-consumer-group`)
-*   `JWT_PUBLIC_KEY_PATH`: Путь к публичному ключу для валидации JWT токенов (если API Gateway не полностью берет на себя эту задачу, или для служебных нужд). Обычно не требуется, если валидация на API Gateway.
-*   `LOG_LEVEL`: Уровень логирования (например, `info`, `debug`, `error`)
-*   `AVATAR_MAX_SIZE_BYTES`: Максимальный размер аватара в байтах (например, `5242880` для 5MB).
-*   `AVATAR_S3_BUCKET`: S3 бакет для аватаров (если Account Service управляет загрузкой).
-*   `AVATAR_S3_REGION`: Регион S3 бакета.
-*   `AVATAR_S3_ENDPOINT`: Endpoint S3-совместимого хранилища.
-*   `AVATAR_S3_ACCESS_KEY_ID`: Ключ доступа S3.
-*   `AVATAR_S3_SECRET_ACCESS_KEY`: Секретный ключ S3.
-*   `OTEL_EXPORTER_JAEGER_ENDPOINT`: Endpoint для экспорта трейсов в Jaeger (например, `http://jaeger-collector:14268/api/traces`).
-*   `DEFAULT_USER_SETTINGS_JSON`: Строка JSON с настройками по умолчанию для новых пользователей.
+*   `POSTGRES_DSN`: Строка подключения к PostgreSQL.
+*   `REDIS_ADDR`: Адрес Redis.
+*   `REDIS_PASSWORD`: Пароль для Redis.
+*   `REDIS_DB_ACCOUNT`: Номер базы данных Redis.
+*   `KAFKA_BROKERS`: Список брокеров Kafka.
+*   `KAFKA_TOPIC_ACCOUNT_EVENTS`: Имя топика для публикуемых событий.
+*   `KAFKA_CONSUMER_GROUP_ACCOUNT`: Имя группы потребителей Kafka.
+*   `LOG_LEVEL`: Уровень логирования (например, `info`).
+*   `AVATAR_MAX_SIZE_BYTES`: Максимальный размер аватара.
+*   `OTEL_EXPORTER_JAEGER_ENDPOINT`: Endpoint для экспорта трейсов.
+*   `DEFAULT_USER_SETTINGS_JSON`: JSON с настройками по умолчанию.
+*   `JWT_PUBLIC_KEY_PATH`: [NEEDS DEVELOPER INPUT: Clarify if needed, or remove if API Gateway handles all JWT validation]
 
 ### 7.2. Файлы Конфигурации (`configs/config.yaml`)
+*   Расположение: `backend/account-service/configs/config.yaml`
 *   Структура:
     ```yaml
     http_server:
@@ -612,193 +648,185 @@ graph TD
       pool_max_conns: 10
     redis:
       address: ${REDIS_ADDR}
-      password: ${REDIS_PASSWORD:""} # Пустое значение по умолчанию, если пароль не указан
+      password: ${REDIS_PASSWORD:""}
       db: ${REDIS_DB_ACCOUNT:0}
     kafka:
       brokers: ${KAFKA_BROKERS}
       producer_topics:
         account_events: ${KAFKA_TOPIC_ACCOUNT_EVENTS:"ru.steam.account.events.v1"}
       consumer_topics:
-        auth_events: ${KAFKA_TOPIC_AUTH_EVENTS:"ru.steam.auth.events.v1"} # Пример потребляемого топика
+        auth_events: ${KAFKA_TOPIC_AUTH_EVENTS:"ru.steam.auth.events.v1"}
       consumer_group: ${KAFKA_CONSUMER_GROUP_ACCOUNT:"account-service-consumer-group"}
     logging:
-      level: ${LOG_LEVEL:"info"} # debug, info, warn, error, fatal
-      format: "json" # text, json
+      level: ${LOG_LEVEL:"info"}
+      format: "json"
     security:
-      jwt_public_key_path: ${JWT_PUBLIC_KEY_PATH:""} # Если используется
-      # ФЗ-152 специфичные настройки, если есть (например, пути к логам доступа к ПДн)
+      jwt_public_key_path: ${JWT_PUBLIC_KEY_PATH:""} # [NEEDS DEVELOPER INPUT: Confirm or remove]
     avatar:
       max_size_bytes: ${AVATAR_MAX_SIZE_BYTES:5242880} # 5MB
-      # S3 settings if service handles uploads directly
-      # s3:
+      # s3: # [NEEDS DEVELOPER INPUT: Uncomment and fill if service handles S3 uploads directly]
       #   bucket: ${AVATAR_S3_BUCKET:""}
       #   region: ${AVATAR_S3_REGION:""}
       #   endpoint: ${AVATAR_S3_ENDPOINT:""}
       #   access_key_id: ${AVATAR_S3_ACCESS_KEY_ID:""}
       #   secret_access_key: ${AVATAR_S3_SECRET_ACCESS_KEY:""}
-    otel: # OpenTelemetry
+    otel:
       exporter_jaeger_endpoint: ${OTEL_EXPORTER_JAEGER_ENDPOINT:""}
       service_name: "account-service"
     default_settings:
       user_settings_json: ${DEFAULT_USER_SETTINGS_JSON:'{"privacy": {"inventoryVisibility": "private"}, "notifications": {"newFriendRequestEmail": true}}'}
-
     ```
 
 ## 8. Обработка Ошибок (Error Handling)
-*   Следование `../../../../project_api_standards.md` для форматов ошибок REST и gRPC.
+Следование `../../../../project_api_standards.md` для форматов ошибок REST и gRPC.
+
+### 8.1. Общие Принципы
+*   Стандартный формат ответа об ошибке (JSON).
+*   Использование стандартных HTTP кодов состояния для REST API.
+*   Использование стандартных кодов gRPC для gRPC API.
 *   Подробное логирование ошибок с `trace_id` и контекстом.
 
-### 8.1. Распространенные Коды Ошибок (в дополнение к стандартным HTTP/gRPC)
+### 8.2. Распространенные Коды Ошибок
 *   **`ACCOUNT_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`): Аккаунт не найден.
 *   **`PROFILE_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`): Профиль не найден.
 *   **`CONTACT_INFO_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`): Контактная информация не найдена.
-*   **`SETTINGS_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`): Настройки не найдены (редко, обычно создаются по умолчанию).
+*   **`SETTINGS_NOT_FOUND`** (HTTP 404, gRPC `NOT_FOUND`): Настройки не найдены.
 *   **`NICKNAME_TAKEN`** (HTTP 409, gRPC `ALREADY_EXISTS`): Никнейм уже занят.
 *   **`CUSTOM_URL_TAKEN`** (HTTP 409, gRPC `ALREADY_EXISTS`): Кастомный URL уже занят.
 *   **`EMAIL_ALREADY_EXISTS_FOR_USER`** (HTTP 409, gRPC `ALREADY_EXISTS`): Email уже используется этим пользователем.
 *   **`PHONE_ALREADY_EXISTS_FOR_USER`** (HTTP 409, gRPC `ALREADY_EXISTS`): Телефон уже используется этим пользователем.
 *   **`VERIFICATION_CODE_INVALID`** (HTTP 400, gRPC `INVALID_ARGUMENT`): Неверный код верификации.
 *   **`VERIFICATION_CODE_EXPIRED`** (HTTP 400, gRPC `INVALID_ARGUMENT`): Срок действия кода верификации истек.
-*   **`CANNOT_DELETE_PRIMARY_CONTACT`** (HTTP 400, gRPC `FAILED_PRECONDITION`): Нельзя удалить основной контакт, если он единственный верифицированный.
-*   **`CONTACT_NOT_VERIFIED`** (HTTP 400, gRPC `FAILED_PRECONDITION`): Например, при попытке сделать не верифицированный контакт основным.
-*   **`INVALID_AVATAR_FILE`** (HTTP 400, gRPC `INVALID_ARGUMENT`): Некорректный файл аватара (формат, размер).
-*   **`UPDATE_CONFLICT`** (HTTP 409, gRPC `ABORTED`): Конфликт одновременного обновления, требуется повторить операцию (с использованием ETag или версионирования).
+*   **`CANNOT_DELETE_PRIMARY_CONTACT`** (HTTP 400, gRPC `FAILED_PRECONDITION`): Нельзя удалить основной контакт.
+*   **`CONTACT_NOT_VERIFIED`** (HTTP 400, gRPC `FAILED_PRECONDITION`): Контакт не верифицирован.
+*   **`INVALID_AVATAR_FILE`** (HTTP 400, gRPC `INVALID_ARGUMENT`): Некорректный файл аватара.
+*   **`UPDATE_CONFLICT`** (HTTP 409, gRPC `ABORTED`): Конфликт одновременного обновления.
+*   Пример ответа (для `NICKNAME_TAKEN`):
+    ```json
+    {
+      "error": {
+        "code": "NICKNAME_TAKEN",
+        "message": "Выбранный никнейм уже занят.",
+        "details": { "nickname": "User123" }
+      }
+    }
+    ```
 
 ## 9. Безопасность (Security)
 См. `../../../../project_security_standards.md` для общих стандартов.
 
 ### 9.1. Аутентификация
-*   REST API: Все эндпоинты (кроме, возможно, публичного GET `/profiles/{id_or_slug}`) требуют JWT аутентификации. Проверка JWT и извлечение UserID/ролей выполняется API Gateway. Account Service доверяет этим данным.
-*   gRPC API: Межсервисное взаимодействие защищено mTLS. Для запросов, инициируемых пользователем и проходящих через другие сервисы, UserID передается в метаданных.
+*   REST API: JWT аутентификация (проверяется API Gateway).
+*   gRPC API: mTLS для межсервисного взаимодействия. UserID передается в метаданных.
 
 ### 9.2. Авторизация
-*   Проверка владения ресурсом: Пользователь может редактировать только свой профиль, свои настройки и т.д. (на основе `X-User-ID` из API Gateway).
-*   Административные эндпоинты (префикс `/admin/`) требуют роль `admin` (на основе `X-User-Roles` из API Gateway).
-*   Детализация ролей и разрешений: см. `../../../../project_roles_and_permissions.md`.
+*   Проверка владения ресурсом (на основе `X-User-ID`).
+*   Административные эндпоинты требуют роль `admin` (на основе `X-User-Roles`).
+*   Детализация ролей: см. `../../../../project_roles_and_permissions.md`.
 
 ### 9.3. Защита Данных
 *   **ФЗ-152 "О персональных данных":**
-    *   Хранение ПДн граждан РФ на территории РФ (PostgreSQL и Redis серверы расположены в РФ).
-    *   Согласие на обработку ПДн получается при регистрации (управляется Auth Service и клиентским приложением).
-    *   Логирование доступа к ПДн (кто, когда, какие данные запрашивал/изменял).
+    *   Хранение ПДн в РФ.
+    *   Согласие на обработку ПДн.
+    *   Логирование доступа к ПДн.
     *   Шифрование при передаче (TLS).
-    *   Хеширование кодов верификации (например, SHA256 + соль). Пароли пользователей не хранятся в Account Service.
-    *   Анонимизация или удаление данных по запросу пользователя (в рамках политик платформы).
-*   Валидация всех входных данных для предотвращения XSS, SQL Injection (через ORM и валидаторы).
-*   Ограничение на размер загружаемых аватаров и их содержимого (проверка на стороне сервиса или через внешний сервис).
+    *   Хеширование кодов верификации.
+    *   Анонимизация/удаление данных.
+*   Валидация входных данных.
+*   Ограничение на размер и тип загружаемых файлов.
 
 ### 9.4. Управление Секретами
-*   Пароли к БД, Redis, ключи для Kafka и другие секреты сервиса хранятся в Kubernetes Secrets или HashiCorp Vault (согласно `../../../../project_security_standards.md`).
-*   Доступ к секретам осуществляется через переменные окружения, внедряемые Kubernetes, или через API Vault.
+*   Использование Kubernetes Secrets или HashiCorp Vault (согласно `../../../../project_security_standards.md`).
+*   Доступ через переменные окружения или API Vault.
 
 ## 10. Развертывание (Deployment)
 См. `../../../../project_deployment_standards.md` для общих стандартов.
 
 ### 10.1. Инфраструктурные Файлы
-*   **Dockerfile:** `backend/account-service/Dockerfile` (стандартный многоэтапный для Go, см. `project_deployment_standards.md`).
-*   **Helm-чарты/Kubernetes манифесты:** `deploy/charts/account-service/` (предполагаемое расположение, согласно `project_deployment_standards.md`).
-    *   Включает Deployment, Service, ConfigMap, Secret, HorizontalPodAutoscaler.
+*   Dockerfile: `backend/account-service/Dockerfile`
+*   Helm-чарты/Kubernetes манифесты: `deploy/charts/account-service/` (предполагаемое расположение).
 
 ### 10.2. Зависимости при Развертывании
-*   PostgreSQL (доступен по DSN).
-*   Redis (доступен по адресу).
-*   Kafka (доступен список брокеров).
-*   Auth Service (для координации при регистрации, хотя основное взаимодействие через события).
-*   API Gateway (для проксирования REST API).
-*   (Опционально) Jaeger/OpenTelemetry Collector (для экспорта трейсов).
+*   PostgreSQL.
+*   Redis.
+*   Kafka.
+*   Auth Service.
+*   API Gateway.
+*   Jaeger/OpenTelemetry Collector (опционально).
 
 ### 10.3. CI/CD
-*   Стандартный пайплайн CI/CD (определен в `project_deployment_standards.md`):
-    1.  Сборка бинарного файла.
-    2.  Unit-тесты.
-    3.  Интеграционные тесты (с PostgreSQL, Redis).
-    4.  SAST/DAST сканирование (например, `gosec`).
-    5.  Сборка Docker-образа.
-    6.  Публикация Docker-образа в приватный реестр.
-    7.  Деплой на окружения (dev, staging, prod) с использованием Helm.
-*   Автоматическое применение миграций БД при деплое (через init-контейнер или хуки Helm).
-*   Файлы CI/CD: `.github/workflows/account-service.yml` или аналогичный для GitLab CI.
+*   Стандартный пайплайн CI/CD (сборка, тесты, SAST/DAST, сборка образа, публикация, деплой).
+*   Автоматическое применение миграций БД.
+*   Файлы CI/CD: `.github/workflows/account-service.yml` или аналогичный.
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
 См. `../../../../project_observability_standards.md` для общих стандартов.
 
 ### 11.1. Логирование
-*   **Формат:** JSON (с использованием Zap).
-*   **Уровни:** DEBUG, INFO, WARN, ERROR, FATAL.
-*   **Ключевые поля:** `timestamp`, `level`, `service`, `instance`, `message`, `trace_id`, `span_id`, `user_id` (если применимо), `error_details` (для ошибок).
-*   **Интеграция:** Fluent Bit для сбора логов и отправки в ELK/Loki.
+*   Формат: JSON (Zap).
+*   Уровни: DEBUG, INFO, WARN, ERROR, FATAL.
+*   Ключевые поля: `timestamp`, `level`, `service`, `instance`, `message`, `trace_id`, `span_id`, `user_id`, `error_details`.
+*   Интеграция: Fluent Bit для сбора логов в ELK/Loki.
 
 ### 11.2. Мониторинг
-*   **Метрики (Prometheus):**
-    *   **HTTP:** `http_requests_total{handler="/me/profile", method="GET", status="200"}`, `http_request_duration_seconds{handler="/me/profile", method="GET"}`.
-    *   **gRPC:** `grpc_requests_total{service="AccountService", method="GetAccountInfo", status_code="OK"}`, `grpc_request_duration_seconds{...}`.
-    *   **База данных (GORM/pgx):** `db_query_duration_seconds{query_type="select_profile"}`, `db_errors_total`.
-    *   **Kafka:** `kafka_messages_produced_total{topic="ru.steam.account.events.v1"}`, `kafka_producer_errors_total`.
-    *   **Кэш (Redis):** `cache_hits_total{cache_name="profile"}`, `cache_misses_total{cache_name="profile"}`.
-    *   **Бизнес-метрики:** `accounts_created_total`, `profiles_updated_total`, `active_accounts_gauge`.
-*   **Дашборды (Grafana):** Стандартный дашборд для Account Service, включающий обзор состояния, производительность API, использование БД/кэша, статистику по событиям Kafka.
-*   **Алерты (AlertManager):**
-    *   Высокий % ошибок REST/gRPC API.
-    *   Большая задержка ответов API.
-    *   Проблемы с подключением к PostgreSQL/Redis/Kafka.
-    *   Ошибки публикации/потребления сообщений Kafka.
-    *   Низкий уровень успешных верификаций контактов (аномалия).
+*   Метрики (Prometheus): HTTP, gRPC, База данных, Kafka, Кэш, Бизнес-метрики.
+*   Эндпоинт для метрик: `/metrics`
+*   Дашборды (Grafana): Стандартный дашборд для Account Service.
+*   Алерты (AlertManager): Высокий % ошибок, большая задержка, проблемы с подключением к зависимостям, ошибки Kafka.
 
 ### 11.3. Трассировка
-*   **Интеграция:** OpenTelemetry SDK для Go.
-*   **Экспорт:** Jaeger или другой совместимый коллектор.
-*   **Контекст трассировки:** Передается через все HTTP/gRPC запросы и Kafka события (`trace_id`, `span_id`).
-*   Автоматическая инструментация для HTTP, gRPC, SQL запросов. Ручная для специфичных бизнес-операций.
+*   Интеграция: OpenTelemetry SDK для Go.
+*   Экспорт: Jaeger.
+*   Контекст трассировки: передается через HTTP/gRPC запросы и Kafka события.
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Производительность**:
     *   API чтения профиля (`GET /me`): P95 < 100мс.
     *   API обновления профиля (`PUT /me/profile`): P95 < 200мс.
     *   gRPC `GetAccountInfo`: P99 < 50мс.
-*   **Масштабируемость**: Горизонтальное масштабирование для поддержки >10 млн активных пользователей (требуется уточнение профиля нагрузки). Способность обрабатывать до 1000 RPS на чтение и 200 RPS на запись профильных данных.
-*   **Надежность**: Доступность > 99.95%. Отсутствие единой точки отказа (кроме БД, которая должна иметь свою стратегию HA).
-*   **Сопровождаемость**: Покрытие кода unit-тестами > 80%. Покрытие интеграционными тестами ключевых сценариев > 70%.
-*   **Безопасность**: Соответствие `project_security_standards.md` и ФЗ-152.
-*   [Конкретные цифры NFR для Account Service могут быть доработаны на последующих этапах проектирования и нагрузочного тестирования.]
+    *   [NEEDS DEVELOPER INPUT: Confirm or update performance NFRs for account-service]
+*   **Надежность**:
+    *   Доступность > 99.95%.
+    *   RTO/RPO: См. раздел "Резервное Копирование и Восстановление".
+    *   [NEEDS DEVELOPER INPUT: Confirm or update reliability NFRs for account-service]
+*   **Масштабируемость**:
+    *   Горизонтальное масштабирование для поддержки >10 млн активных пользователей.
+    *   Способность обрабатывать до 1000 RPS на чтение и 200 RPS на запись.
+    *   [NEEDS DEVELOPER INPUT: Confirm or update scalability NFRs for account-service]
+*   **Сопровождаемость**:
+    *   Покрытие кода unit-тестами > 80%.
+    *   Покрытие интеграционными тестами > 70%.
+    *   [NEEDS DEVELOPER INPUT: Confirm or update maintainability NFRs for account-service]
+*   **Безопасность**: Соответствие `../../../../project_security_standards.md` и ФЗ-152.
 
-## 13. Приложения (Appendices)
-*   Детальные схемы Protobuf для gRPC API находятся в репозитории `platform-protos` (или локально `proto/account/v1/`).
-*   Примеры полных JSON для всех REST DTO могут быть добавлены при необходимости или генерироваться из OpenAPI спецификации.
+## 13. Резервное Копирование и Восстановление (Backup and Recovery)
+Общие принципы см. в `../../../../project_database_structure.md`.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+### 13.1. PostgreSQL
+*   **Процедура резервного копирования:** Ежедневный `pg_dumpall`, непрерывная архивация WAL (PITR).
+*   **Частота:** Базовый бэкап еженедельно, WAL непрерывно.
+*   **Хранение:** S3, шифрование, версионирование, другой регион. Срок хранения: полные - 30 дней, WAL - 14 дней.
+*   **Процедура восстановления:** Тестируется ежеквартально.
+*   **RTO (Recovery Time Objective):** < 4 часов.
+*   **RPO (Recovery Point Objective):** < 5 минут.
 
-### 14.1. PostgreSQL
-*   **Процедура резервного копирования:**
-    *   **Логические бэкапы:** Ежедневный `pg_dumpall` для полной копии схемы и данных. Хранение на отдельном защищенном хранилище.
-    *   **Физические бэкапы (Point-in-Time Recovery - PITR):** Настроена непрерывная архивация WAL-сегментов (Write-Ahead Logging) с использованием `pg_basebackup` для создания базовой копии и `archive_command` для архивации WAL. Это позволяет восстановить состояние БД на любой момент времени.
-    *   **Частота:** Базовый бэкап еженедельно, WAL-файлы архивируются непрерывно.
-    *   **Хранение:** Бэкапы хранятся в S3-совместимом хранилище с шифрованием и версионированием, в другом регионе от основной БД. Срок хранения полных бэкапов - 30 дней, WAL-сегментов - 14 дней.
-*   **Процедура восстановления:**
-    *   Тестируется ежеквартально.
-    *   Восстановление из `pg_dumpall` (для полного восстановления на новую систему).
-    *   Восстановление PITR (для восстановления на конкретный момент времени).
-*   **RTO (Recovery Time Objective):** < 4 часов для полного восстановления.
-*   **RPO (Recovery Point Objective):** < 5 минут (максимальная потеря данных при сбое).
-
-### 14.2. Redis
-*   **Процедура резервного копирования:**
-    *   **RDB Snapshots:** Автоматическое сохранение RDB-снапшотов каждые 6 часов.
-    *   **AOF (Append Only File):** Включен режим AOF с fsync `everysec` для минимизации потерь данных при сбое сервера.
-    *   **Хранение:** RDB-снапшоты и AOF-файлы (при необходимости) копируются в S3-совместимое хранилище ежедневно. Срок хранения - 7 дней.
-*   **Процедура восстановления:**
-    *   Восстановление из последнего RDB-снапшота. Если AOF включен, Redis также использует его для восстановления данных, записанных после последнего снапшота.
-    *   Тестируется ежеквартально.
+### 13.2. Redis
+*   **Процедура резервного копирования:** RDB Snapshots каждые 6 часов, AOF с fsync `everysec`.
+*   **Хранение:** S3, ежедневно. Срок хранения - 7 дней.
+*   **Процедура восстановления:** Из RDB + AOF. Тестируется ежеквартально.
 *   **RTO:** < 1 часа.
-*   **RPO:** < 1 минуты (при fsync `everysec` для AOF). Redis используется в основном для кэширования и данных, которые могут быть пересозданы из PostgreSQL, поэтому требования к RPO могут быть менее строгими, чем для основной БД.
+*   **RPO:** < 1 минуты. (Может быть менее строгим, т.к. в основном кэш).
 
-### 14.3. Общая стратегия
-*   Резервное копирование и восстановление являются частью общей стратегии обеспечения непрерывности бизнеса и аварийного восстановления платформы.
-*   Все процедуры документированы и регулярно пересматриваются.
-*   Мониторинг процессов резервного копирования настроен для своевременного обнаружения сбоев.
-*   Общие принципы резервного копирования для различных СУБД описаны в `../../../../project_database_structure.md`.
+### 13.3. Общая стратегия
+*   Часть общей стратегии BCDR. Документировано, регулярно пересматривается. Мониторинг бэкапов.
+
+## 14. Приложения (Appendices) (Опционально)
+*   Детальные схемы Protobuf: репозиторий `platform-protos` или локально `backend/account-service/proto/v1/`.
+*   [NEEDS DEVELOPER INPUT: Add full JSON examples for DTOs if required, or link to OpenAPI spec for account-service]
 
 ## 15. Связанные Рабочие Процессы (Related Workflows)
 *   [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md)
+*   [NEEDS DEVELOPER INPUT: Add links to other relevant high-level workflow documents for account-service]
 
 ---
 *Этот документ является отправной точкой и должен регулярно обновляться по мере развития сервиса.*
