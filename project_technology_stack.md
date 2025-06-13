@@ -40,6 +40,11 @@
 *   **Трассировка**: OpenTelemetry + Jaeger/Tempo.
 *   **Управление секретами**: HashiCorp Vault или Kubernetes Secrets (с шифрованием at-rest).
 
+### 2.5. Ключевые Интеграции с Российскими Сервисами
+*   **Платежные шлюзы:** ЮKassa, Тинькофф Касса, Сбербанк (SberPay), ВТБ (Эквайринг), Система быстрых платежей (СБП).
+*   **Сервисы Авторизации:** ВКонтакте (OAuth), Telegram (Telegram Login).
+*   **Фискализация:** Интеграция с Оператором Фискальных Данных (ОФД) согласно 54-ФЗ.
+
 ## 3. Стандарты Разработки на Go
 
 ### 3.1. Версия Go
@@ -186,14 +191,46 @@ flutter_app/
 ### 6.8. Авторизация и аутентификация (Go)
 *   JWT: `golang-jwt/jwt/v5`. OAuth2: `golang.org/x/oauth2`. RBAC: `casbin/casbin/v2`.
 
-### 6.9. Основные библиотеки Flutter
-*   **Состояние:** `flutter_bloc`, `provider`, `riverpod`, `get_it`.
-*   **Сеть:** `dio`, `retrofit`, `grpc`, `web_socket_channel`.
-*   **Хранение:** `hive`, `sqflite`, `shared_preferences`, `flutter_secure_storage`.
-*   **Навигация:** `go_router`, `auto_route`.
-*   **UI:** `flutter_screenutil`, `cached_network_image`, `flutter_svg`, `shimmer`.
-*   **Аналитика/Мониторинг:** `firebase_crashlytics`, `sentry_flutter`, `flutter_fimber`.
-*   **Тестирование:** `mockito`, `bloc_test`, `integration_test`.
+### 6.9. Frontend (Flutter/Dart) - Основные Библиотеки и Пакеты
+*   **State Management:**
+    *   **`flutter_bloc` / `bloc`** (Primary)
+    *   *Alternatives:* `provider`, `riverpod`.
+*   **Routing / Navigation:**
+    *   **`go_router`** (Primary)
+    *   *Alternative:* `auto_route`.
+*   **HTTP Client:**
+    *   **`dio`** (Primary)
+    *   *Alternative:* `http` (standard Dart package).
+    *   *(Specialized network libraries like `grpc`, `web_socket_channel` can be used as needed.)*
+*   **Local Storage:**
+    *   **`hive` / `hive_flutter`**
+    *   **`shared_preferences`**
+    *   **`flutter_secure_storage`**
+    *   *Alternative for SQL:* `sqflite`.
+*   **JSON Serialization/Deserialization:**
+    *   **`json_serializable`** (build_runner based)
+    *   **`freezed`** (often used with `json_serializable` for model generation).
+*   **Equality & Immutability for Models:**
+    *   **`equatable`**
+    *   **`freezed`** (also covers this).
+*   **Dependency Injection:**
+    *   **`get_it`** (Primary)
+    *   *Alternative:* `injectable` (code generator for `get_it`).
+*   **Testing:**
+    *   **`flutter_test`** (SDK testing framework for unit and widget tests)
+    *   **`bloc_test`** (for testing BLoCs/Cubits)
+    *   **`mockito` / `mocktail`** (for creating mock objects)
+    *   **`integration_test`** (SDK testing framework for integration tests).
+*   **Linting:**
+    *   **`flutter_lints` / `lints`** (Official lint rules)
+    *   **`dart_code_metrics`** (Additional static analysis).
+*   **Localization / Internationalization (i18n):**
+    *   **`intl`** package with Flutter's `flutter_localizations` delegate.
+*   **Utility:**
+    *   **`dartz`** (Functional programming utilities)
+    *   **`cached_network_image`** (For image caching; other UI utility libraries like `flutter_screenutil`, `flutter_svg`, `shimmer` can be used as per design needs).
+*   **Аналитика/Мониторинг:** `firebase_crashlytics`, `sentry_flutter`, `flutter_fimber` (as previously listed, these are valid choices).
+*   *Примечание: Выбор конкретных библиотек из альтернатив и их версии должны быть зафиксированы и согласованы командой frontend-разработки. Список приоритетных библиотек также отражен в `PACKAGE_STANDARDIZATION.md`.*
 
 ### 6.10. Тестирование (Go)
 *   `testing`, `testify/mock`, `testify/assert`, `net/http/httptest`, `testcontainers-go`.

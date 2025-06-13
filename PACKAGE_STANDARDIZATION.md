@@ -109,6 +109,46 @@ This section will be populated based on the primary programming language(s) used
 
 ---
 
+### 2.4. Frontend (Flutter/Dart)
+*   **Note:** The choice of packages should be consistent with `project_technology_stack.md`. This list aims to standardize packages for common frontend development needs. One primary solution from the alternatives should be chosen for consistency across the project.
+*   **State Management:**
+    *   **`flutter_bloc` / `bloc`**: For BLoC pattern.
+    *   *Alternative:* `provider`, `riverpod`.
+*   **Routing / Navigation:**
+    *   **`go_router`**: For declarative routing.
+    *   *Alternative:* `auto_route`.
+*   **HTTP Client:**
+    *   **`dio`**: Powerful HTTP client for Dart, supports interceptors, FormData, request cancellation, etc.
+    *   *Alternative:* `http` (standard Dart package, for simpler needs).
+*   **Local Storage:**
+    *   **`hive` / `hive_flutter`**: Lightweight and fast NoSQL database.
+    *   **`shared_preferences`**: For simple key-value data.
+    *   **`flutter_secure_storage`**: For securely storing sensitive data.
+    *   *Alternative for SQL:* `sqflite`.
+*   **JSON Serialization/Deserialization:**
+    *   **`json_serializable`** (build_runner based) / **`freezed`**: For generating boilerplate code for models.
+*   **Equality & Immutability for Models:**
+    *   **`equatable`**: For value equality.
+    *   **`freezed`**: (Also covers this, often used with `json_serializable`).
+*   **Dependency Injection:**
+    *   **`get_it`**: Simple service locator.
+    *   *Alternative:* `injectable` (code generator for `get_it`).
+*   **Testing:**
+    *   **`flutter_test`**: (SDK testing framework for unit and widget tests).
+    *   **`bloc_test`**: For testing BLoCs/Cubits.
+    *   **`mockito` / `mocktail`**: For creating mock objects.
+    *   **`integration_test`**: (SDK testing framework for integration tests).
+*   **Linting:**
+    *   **`flutter_lints`** or **`lints`**: Official lint rules.
+    *   **`dart_code_metrics`**: Additional static analysis metrics.
+*   **Localization / Internationalization (i18n):**
+    *   **`intl`** package with Flutter's `flutter_localizations` delegate.
+*   **Utility:**
+    *   **`dartz`**: Functional programming utilities (e.g., `Either`, `Option`).
+    *   **`cached_network_image`**: For displaying images from the internet and keeping them in the cache.
+
+---
+
 ## 3. Process for Adding New Standard Packages
 
 1.  **Proposal:** If a new common task requires a library, or a better alternative to an existing standard is found, a developer can propose it. The proposal should include justification (why this library, alternatives considered).

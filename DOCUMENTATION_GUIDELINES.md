@@ -9,6 +9,8 @@ This document outlines the guidelines and processes for maintaining the document
     *   Changes to these documents should be proposed via Pull Requests and require review from the Architecture Team.
 *   **Microservice-Specific Documentation:**
     *   The documentation for each microservice (typically located in `backend/<service-name>/docs/README.md`) is owned by the **technical lead or team responsible for that microservice**.
+*   **Frontend Application Documentation:**
+    *   The documentation for the frontend application (typically located in `frontend/docs/README.md` and based on `standard_frontend_template.md`) is owned by the **Frontend Team Lead** or a designated **Lead Frontend Documentation Maintainer**.
 *   **Workflow Diagrams (`project_workflows/`):**
     *   Owned by the **Architecture Team**, with input from the teams involved in those workflows.
 
@@ -41,6 +43,8 @@ This document outlines the guidelines and processes for maintaining the document
 *   **Microservice Documentation:**
     *   All microservices **must** use the `standard_microservice_template.md` as the basis for their detailed documentation in `backend/<service-name>/docs/README.md`.
     *   The root `backend/<service-name>/README.md` should provide a brief overview and a link to the detailed `docs/README.md`.
+*   **Frontend Documentation:**
+    *   The main frontend application **must** use the `standard_frontend_template.md` as the basis for its detailed documentation in `frontend/docs/README.md`. The root `frontend/README.md` should provide a brief overview and a link to the detailed `frontend/docs/README.md`.
 *   **Diagrams:**
     *   Use Mermaid.js for sequence diagrams, ERDs, flowcharts, etc., embedded directly in Markdown.
     *   Ensure diagrams are kept up-to-date with architectural changes.
@@ -48,6 +52,7 @@ This document outlines the guidelines and processes for maintaining the document
 *   **Cross-Referencing:**
     *   Use relative links to refer to other documents within the repository.
     *   Refer to project-wide standards documents instead of duplicating information. For example, service API docs should refer to `project_api_standards.md` for common principles.
+*   **Placeholders and TODOs:** All documentation should be actively maintained. Any placeholders (e.g., "TODO", "{{PLACEHOLDER}}", "[будет дополнено]") must be treated as temporary and should be replaced with actual information as soon as it becomes available. If information cannot be provided immediately, the placeholder should clearly state what is missing, why, and who is responsible for providing it, along with an estimated timeline if possible. Stale placeholders that are no longer relevant should be removed.
 *   **Glossary:** All project-specific terms or acronyms should be defined in `project_glossary.md`.
 
 ## 4. Periodic Review Process
