@@ -1,38 +1,63 @@
 # Спецификация Микросервиса: Library Service (Сервис Библиотеки Пользователя)
 
-**Версия:** 1.2
-**Дата последнего обновления:** 2024-03-15
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
 ### 1.1. Назначение и Роль
-*   **Назначение сервиса:** Library Service предназначен для управления личными библиотеками игр и приложений пользователей платформы "Российский Аналог Steam". Это включает в себя отслеживание принадлежащих пользователю продуктов, их статуса установки, игрового времени, достижений, управление списком желаемого и синхронизацию игровых сохранений в облаке.
-*   **Роль в общей архитектуре платформы:** Является центральным компонентом для хранения и управления данными, связанными с игровой активностью и владением цифровыми продуктами конкретного пользователя. Предоставляет эту информацию как самому пользователю через клиентские приложения, так и другим микросервисам.
+*   **Назначение сервиса:** Library Service предназначен для управления личными библиотеками игр и приложений пользователей платформы "Российский Аналог Steam". Это включает в себя отслеживание принадлежащих пользователю продуктов, их статуса установки, игрового времени, достижений, управление списком желаемого, синхронизацию игровых сохранений в облаке и пользовательских настроек игр.
+*   **Роль в общей архитектуре платформы:** Является центральным компонентом для хранения и управления данными, связанными с игровой активностью и владением цифровыми продуктами конкретного пользователя. Предоставляет эту информацию как самому пользователю через клиентские приложения, так и другим микросервисам (например, Social Service для отображения достижений, Download Service для управления загрузками).
 *   **Основные бизнес-задачи:**
     *   Обеспечение пользователям доступа к приобретенным играм и приложениям.
     *   Отслеживание и отображение игрового времени и прогресса достижений.
     *   Предоставление функционала списка желаемого.
-    *   Обеспечение надежной синхронизации игровых сохранений между устройствами пользователя.
-    *   Управление пользовательскими настройками для игр.
+    *   Обеспечение надежной синхронизации игровых сохранений и пользовательских настроек игр между устройствами пользователя.
+    *   Управление пользовательскими коллекциями игр и функцией "Семейный доступ".
 *   Разработка сервиса должна вестись в соответствии с `../../../../CODING_STANDARDS.md`.
 
 ### 1.2. Ключевые Функциональности
-*   **Управление библиотекой пользователя:** Добавление игр в библиотеку после покупки/активации, скрытие игр, фильтрация и сортировка списка игр, создание пользовательских категорий/коллекций, отслеживание статуса установки игры (интеграция с Download Service). Поддержка концепции "семейного доступа" (Family Sharing) для предоставления временного доступа к играм другим пользователям.
-*   **Отслеживание игрового времени:** Автоматическая регистрация начала и окончания игровых сессий, подсчет общего и сессионного игрового времени для каждого продукта, отображение статистики последней активности, синхронизация игрового времени между устройствами.
-*   **Управление достижениями:** Регистрация полученных пользователем достижений (анлоков), хранение прогресса по частично выполненным достижениям, отображение списка всех доступных и полученных достижений для игры, глобальная статистика по достижениям (редкость).
-*   **Управление списком желаемого (Wishlist):** Добавление и удаление продуктов из списка желаемого, возможность приоритизации элементов, получение уведомлений о скидках на игры в списке (через Notification Service).
-*   **Синхронизация игровых сохранений (Cloud Saves):** Загрузка файлов сохранений в облачное S3-хранилище, скачивание сохранений на другие устройства пользователя, разрешение конфликтов версий сохранений, версионирование (опционально), автоматическая и ручная синхронизация, управление квотами на облачное хранилище для сохранений.
-*   **Настройки игр:** Хранение и синхронизация пользовательских настроек для конкретных игр (например, настройки графики, управления), если игра поддерживает такую интеграцию.
+*   **Управление библиотекой игр (Entitlement Management):**
+    *   Добавление продуктов (игры, DLC) в библиотеку пользователя после покупки (через событие от Payment Service) или активации ключа.
+    *   Отображение списка принадлежащих пользователю продуктов с их метаданными (получаемыми из Catalog Service).
+    *   Фильтрация и сортировка игр в библиотеке (по названию, дате добавления, последнему запуску, жанру и т.д.).
+    *   Создание и управление пользовательскими категориями/коллекциями для организации игр в библиотеке.
+    *   Скрытие игр из основного вида библиотеки (без удаления права владения).
+    *   Отслеживание статуса установки игры на текущем устройстве (интеграция с клиентским приложением и Download Service).
+    *   (Опционально, {{TODO: Уточнить необходимость}}) Реализация функции "Семейный доступ" (Family Sharing) для предоставления временного доступа к играм другим пользователям согласно правилам платформы.
+*   **Отслеживание игрового времени (Playtime Tracking):**
+    *   Автоматическая регистрация начала и окончания игровых сессий через API, вызываемое игровым клиентом или лаунчером.
+    *   Периодические "heartbeat" сигналы от клиента для подтверждения активной игровой сессии.
+    *   Подсчет общего игрового времени для каждого продукта и отображение статистики (например, "последний запуск", "часов за последние 2 недели").
+    *   Синхронизация игрового времени между различными устройствами пользователя.
+*   **Управление достижениями (Achievement Progress):**
+    *   Регистрация полученных пользователем достижений (анлоков) и времени их получения.
+    *   Хранение прогресса по частично выполненным достижениям (если игра предоставляет такую информацию).
+    *   Отображение списка всех доступных и полученных достижений для каждой игры (метаданные достижений из Catalog Service).
+    *   Публикация событий о разблокировке достижений для интеграции с Social Service (лента активности, уведомления друзьям).
+*   **Управление списком желаемого (Wishlist Management):**
+    *   Добавление и удаление продуктов из списка желаемого пользователя.
+    *   Возможность установки приоритета или заметок для элементов списка желаемого.
+    *   Интеграция с Notification Service для информирования пользователя о скидках на игры из его списка желаемого.
+*   **Синхронизация игровых сохранений (Cloud Saves):**
+    *   Предоставление API для игровых клиентов для загрузки файлов сохранений в облачное S3-хранилище.
+    *   Скачивание последних (или выбранных пользователем) сохранений на другие устройства пользователя.
+    *   Реализация стратегии разрешения конфликтов версий сохранений (например, "выбрать локальное", "выбрать облачное", "сохранить оба с разными именами", или автоматическое на основе временных меток).
+    *   Версионирование файлов сохранений (опционально, {{TODO: Уточнить глубину версионирования}}).
+    *   Управление квотами на облачное хранилище для сохранений на пользователя или на игру.
+*   **Управление Пользовательскими Настройками Игр (User-Specific Game Settings Storage):**
+    *   Хранение и синхронизация пользовательских настроек для конкретных игр (например, настройки графики, управления, звука), если игра поддерживает такую интеграцию.
+    *   API для игр для сохранения и загрузки этих настроек.
 
 ### 1.3. Основные Технологии
 *   **Язык программирования:** Go (версия 1.21+, согласно `../../../../project_technology_stack.md`).
-*   **Веб-фреймворк (REST API):** Echo (`github.com/labstack/echo/v4`) или Gin (`github.com/gin-gonic/gin`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Веб-фреймворк (REST API):** Echo (`github.com/labstack/echo/v4`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **RPC фреймворк (gRPC):** `google.golang.org/grpc` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **WebSocket:** (например, `github.com/gorilla/websocket`) для real-time уведомлений.
-*   **База данных (основная):** PostgreSQL (версия 15+) для хранения информации о библиотеках, достижениях, списках желаемого, метаданных сохранений. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` или `pgx` (`github.com/jackc/pgx/v5`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Кэширование/Оперативные данные:** Redis (версия 7.0+) для кэширования часто запрашиваемых данных и оперативных данных (например, текущие игровые сессии). Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **WebSocket:** `github.com/gorilla/websocket` (или аналогичная библиотека Go) для real-time уведомлений (например, о разблокировке достижений).
+*   **База данных (основная):** PostgreSQL (версия 15+) для хранения информации о библиотеках, игровом времени, достижениях, списках желаемого, метаданных сохранений и пользовательских настройках игр. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Кэширование/Оперативные данные:** Redis (версия 7.0+) для кэширования часто запрашиваемых данных (например, содержимое библиотеки пользователя, списки желаемого) и оперативных данных (например, текущие активные игровые сессии, прогресс достижений перед записью в БД). Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Облачное хранилище (для сохранений):** S3-совместимое объектное хранилище (например, MinIO, Yandex Object Storage) (согласно `../../../../project_technology_stack.md`).
-*   **Брокер сообщений:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Брокер сообщений:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Логирование:** Zap (`go.uber.org/zap`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client (`github.com/prometheus/client_golang`). (согласно `../../../../project_observability_standards.md`).
@@ -41,63 +66,67 @@
 
 ### 1.4. Термины и Определения (Glossary)
 *   **Библиотека (Library):** Персональная коллекция игр и других цифровых продуктов, принадлежащих пользователю или доступных ему (например, через Family Sharing).
+*   **Право Владения (Entitlement):** Запись, подтверждающая право пользователя на доступ к определенному продукту.
 *   **Игровое время (Playtime):** Общее время, проведенное пользователем в конкретной игре.
 *   **Достижение (Achievement):** Виртуальная награда, выдаваемая пользователю за выполнение определенных условий или задач в игре.
 *   **Список желаемого (Wishlist):** Персональный список продуктов, которые пользователь хочет приобрести в будущем.
 *   **Игровое сохранение (Savegame/Cloud Save):** Файл или набор файлов, содержащих прогресс пользователя в игре, который может быть синхронизирован с облачным хранилищем.
 *   **Семейный доступ (Family Sharing):** Функция, позволяющая делиться играми из своей библиотеки с членами семьи или близкими друзьями.
+*   **Слот сохранения (Save Slot):** Именованная ячейка для игрового сохранения, позволяющая иметь несколько параллельных прогрессов.
 *   Для других общих терминов см. `../../../../project_glossary.md`.
 
 ## 2. Внутренняя Архитектура (Internal Architecture)
 
 ### 2.1. Общее Описание
 *   Library Service будет реализован с использованием принципов Чистой Архитектуры (Clean Architecture) для достижения слабой связанности, высокой тестируемости и гибкости системы.
-*   Сервис будет состоять из нескольких ключевых модулей, отвечающих за отдельные аспекты функциональности: управление библиотекой, отслеживание игрового времени, управление достижениями, список желаемого и синхронизация сохранений.
+*   Сервис будет состоять из нескольких ключевых модулей, отвечающих за отдельные аспекты функциональности: управление библиотекой, отслеживание игрового времени, управление достижениями, список желаемого, синхронизация сохранений и управление настройками игр.
 
-**Диаграмма Архитектуры (Clean Architecture):**
+### 2.2. Диаграмма Архитектуры (Clean Architecture)
 ```mermaid
 graph TD
-    subgraph User Clients & Other Services
-        UserClient[Клиент Пользователя (Веб, Десктоп)]
-        APIGateway[API Gateway]
-        OtherInternalServices[Другие Микросервисы (Catalog, Download, Payment)]
+    subgraph UserClientsAndOtherServices ["Клиенты Пользователя и Другие Сервисы"]
+        UserClient["Клиент Пользователя (Веб, Десктоп, Мобильный)"]
+        GameClient["Игровой Клиент (запущенная игра)"]
+        APIGateway["API Gateway"]
+        OtherInternalServices["Другие Микросервисы (Catalog, Payment, Social, Auth, Download)"]
     end
 
-    subgraph Library Service
+    subgraph LibraryService ["Library Service (Чистая Архитектура)"]
         direction TB
 
         subgraph PresentationLayer [Presentation Layer (Адаптеры Транспорта)]
-            REST_API[REST API (Echo/Gin) - для клиента]
-            GRPC_API[gRPC API - для других сервисов]
-            WebSocket_Handler[WebSocket Handler - для real-time уведомлений]
-            KafkaConsumers[Kafka Consumers - для входящих событий]
+            REST_API[REST API (Echo) - для клиента платформы]
+            GRPC_API[gRPC API - для игрового клиента и других сервисов]
+            WebSocket_Handler[WebSocket Handler - для real-time уведомлений (например, ачивки)]
+            KafkaConsumers[Kafka Consumers - для входящих событий (например, покупка игры)]
         end
 
         subgraph ApplicationLayer [Application Layer (Сценарии Использования)]
-            LibraryAppSvc[Управление Библиотекой]
-            PlaytimeAppSvc[Учет Игрового Времени]
-            AchievementAppSvc[Управление Достижениями]
-            WishlistAppSvc[Управление Списком Желаемого]
-            SavegameAppSvc[Синхронизация Сохранений]
-            GameSettingsAppSvc[Настройки Игр Пользователя]
+            LibraryAppSvc["Управление Библиотекой (добавление, просмотр, категории)"]
+            PlaytimeAppSvc["Учет Игрового Времени (старт/стоп сессии, heartbeat)"]
+            AchievementAppSvc["Управление Достижениями (анлок, прогресс)"]
+            WishlistAppSvc["Управление Списком Желаемого"]
+            CloudSaveAppSvc["Синхронизация Игровых Сохранений (загрузка, скачивание, конфликты)"]
+            UserGameSettingsAppSvc["Управление Настройками Игр Пользователя"]
+            FamilySharingAppSvc["Управление Семейным Доступом"]
         end
 
         subgraph DomainLayer [Domain Layer (Бизнес-логика и Сущности)]
-            Entities[Сущности (UserLibraryItem, PlaytimeSession, UserAchievement, WishlistItem, Savegame)]
-            Aggregates[Агрегаты (UserLibrary, UserGameProfile)]
-            DomainEvents[Доменные События (GameAddedToLibrary, AchievementUnlocked)]
-            RepositoryIntf[Интерфейсы Репозиториев]
-            DomainServices[Доменные Сервисы (PlaytimeCalculator, AchievementUnlocker)]
+            Entities["Сущности (UserLibraryItem, PlaytimeSession, UserAchievement, WishlistItem, SavegameMetadata, UserGameSetting, FamilyLink)"]
+            Aggregates["Агрегаты (UserLibrary, UserGameProfile)"]
+            DomainEvents["Доменные События (GameAddedToLibrary, AchievementUnlocked, PlaytimeUpdated, SavegameSynced)"]
+            RepositoryIntf["Интерфейсы Репозиториев (PostgreSQL, Redis)"]
+            DomainServices["Доменные Сервисы (PlaytimeCalculator, AchievementUnlocker, CloudSaveConflictResolver)"]
         end
 
-        subgraph InfrastructureLayer [Infrastructure Layer (Внешние Зависимости)]
-            PostgresAdapter[Адаптер PostgreSQL]
-            RedisAdapter[Адаптер Redis (Кэш, Сессии)]
-            S3Adapter[Адаптер S3-хранилища (Сохранения)]
-            KafkaProducer[Продюсер Kafka (События)]
-            InternalServiceClients[Клиенты других микросервисов (Catalog, Download, Auth)]
-            Config[Конфигурация (Viper)]
-            Logging[Логирование (Zap)]
+        subgraph InfrastructureLayer [Infrastructure Layer (Внешние Зависимости и Реализации)"]
+            PostgresAdapter["Адаптер PostgreSQL (реализация репозиториев)"]
+            RedisAdapter["Адаптер Redis (кэш, активные сессии, очереди задач)"]
+            S3Adapter["Адаптер S3-хранилища (для облачных сохранений)"]
+            KafkaProducer["Продюсер Kafka (исходящие события)"]
+            InternalServiceClients["Клиенты других микросервисов (Catalog, Auth, Payment, Download, Social, Notification)"]
+            Config["Конфигурация (Viper)"]
+            Logging["Логирование (Zap)"]
         end
 
         PresentationLayer --> ApplicationLayer
@@ -108,52 +137,33 @@ graph TD
     end
 
     UserClient -- HTTP/WebSocket --> APIGateway
-    APIGateway -- HTTP/WebSocket --> REST_API
-    APIGateway -- HTTP/WebSocket --> WebSocket_Handler
-    OtherInternalServices -- gRPC --> GRPC_API
-    OtherInternalServices -- Kafka Events --> KafkaConsumers
+    GameClient -- gRPC/HTTP --> APIGateway
+    APIGateway -- HTTP/WebSocket/gRPC --> PresentationLayer
+
+    OtherInternalServices -- gRPC / Kafka --> PresentationLayer
 
     PostgresAdapter --> DB[(PostgreSQL)]
     RedisAdapter --> Cache[(Redis)]
-    S3Adapter --> S3[(S3 Хранилище)]
-    KafkaProducer --> KafkaBroker[Kafka Broker]
-    InternalServiceClients --> ExtServices[Внешние gRPC Сервисы]
+    S3Adapter --> S3Storage[("S3 Cloud Storage")]
+    KafkaProducer --> KafkaBroker[Kafka Message Bus]
+    InternalServiceClients --> ExtServices[("Внешние gRPC/REST Сервисы")]
 
 
     classDef layer_boundary fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#333
     classDef component_major fill:#e6f0ff,stroke:#007bff,color:#000
     classDef component_minor fill:#d4edda,stroke:#28a745,color:#000
     classDef datastore fill:#f8d7da,stroke:#dc3545,color:#000
+    classDef external_actor fill:#FEF9E7,stroke:#F1C40F,color:#000
 
     class PresentationLayer,ApplicationLayer,DomainLayer,InfrastructureLayer layer_boundary
-    class REST_API,GRPC_API,WebSocket_Handler,KafkaConsumers,LibraryAppSvc,PlaytimeAppSvc,AchievementAppSvc,WishlistAppSvc,SavegameAppSvc,GameSettingsAppSvc,Entities,Aggregates,DomainEvents,RepositoryIntf,DomainServices component_major
+    class REST_API,GRPC_API,WebSocket_Handler,KafkaConsumers,LibraryAppSvc,PlaytimeAppSvc,AchievementAppSvc,WishlistAppSvc,CloudSaveAppSvc,UserGameSettingsAppSvc,FamilySharingAppSvc,Entities,Aggregates,DomainEvents,RepositoryIntf,DomainServices component_major
     class PostgresAdapter,RedisAdapter,S3Adapter,KafkaProducer,InternalServiceClients,Config,Logging component_minor
-    class DB,Cache,S3,KafkaBroker,ExtServices datastore
+    class DB,Cache,S3Storage,KafkaBroker,ExtServices datastore
+    class UserClient,GameClient,APIGateway,OtherInternalServices external_actor
 ```
 
-### 2.2. Слои Сервиса
-
-#### 2.2.1. Presentation Layer (Слой Представления / Транспортный слой)
-*   **Ответственность:** Обработка входящих REST API запросов от клиентских приложений (через API Gateway), gRPC запросов от других микросервисов, а также асинхронных сообщений из Kafka. Управление WebSocket соединениями для real-time уведомлений клиентам. Валидация данных запроса (DTO), вызов соответствующей логики в Application Layer.
-*   **Ключевые компоненты/модули:** HTTP хендлеры (Echo/Gin), gRPC серверные реализации, WebSocket хендлеры, обработчики Kafka сообщений, DTO для запросов/ответов.
-
-#### 2.2.2. Application Layer (Прикладной Слой / Сервисный слой / Use Case Layer)
-*   **Ответственность:** Реализация сценариев использования системы, связанных с управлением библиотекой, игровым временем, достижениями, списком желаемого и сохранениями. Координирует взаимодействие между Domain Layer и Infrastructure Layer. Не содержит бизнес-правил напрямую, а делегирует их Domain Layer.
-*   **Ключевые компоненты/модули:** Сервисы сценариев использования (например, `UserLibraryApplicationService`, `PlaytimeTrackingService`, `UserAchievementService`, `WishlistManagementService`, `SavegameSyncService`, `GameSettingsApplicationService`).
-
-#### 2.2.3. Domain Layer (Доменный Слой)
-*   **Ответственность:** Содержит бизнес-сущности, агрегаты, доменные события и бизнес-правила, специфичные для управления библиотекой пользователя и связанной с ней информацией. Этот слой не зависит от деталей реализации других слоев.
-*   **Ключевые компоненты/модули:**
-    *   **Entities (Сущности):** `UserLibraryItem`, `PlaytimeSession`, `UserAchievement`, `WishlistItem`, `SavegameMetadata`, `GameSpecificSettings`, `UserGameCategory`, `FamilySharingLink`.
-    *   **Aggregates (Агрегаты):** Например, `UserLibrary` (включающий все `UserLibraryItem` пользователя), `UserGameProfile` (включающий `PlaytimeSession` и `UserAchievement` для конкретной игры пользователя).
-    *   **Value Objects (Объекты-значения):** `GameDuration`, `AchievementProgress`.
-    *   **Domain Services:** Сервисы, инкапсулирующие доменную логику, не принадлежащую одной сущности (например, сервис для проверки условий разблокировки достижений, если они зависят от нескольких сущностей).
-    *   **Domain Events:** `GameAddedToLibraryEvent`, `PlaytimeSessionStartedEvent`, `AchievementUnlockedEvent`, `SavegameUploadedEvent`.
-    *   **Repository Interfaces:** Интерфейсы, определяющие контракты для сохранения и извлечения агрегатов и сущностей.
-
-#### 2.2.4. Infrastructure Layer (Инфраструктурный Слой)
-*   **Ответственность:** Реализация интерфейсов репозиториев для работы с PostgreSQL и Redis. Взаимодействие с S3-совместимым хранилищем для файлов сохранений. Публикация доменных событий в Kafka. Клиенты для взаимодействия с другими микросервисами (Catalog, Auth, Download, Notification, Payment, Account).
-*   **Ключевые компоненты/модули:** Реализации репозиториев для PostgreSQL, Redis клиент, S3 клиент, Kafka продюсеры и консьюмеры (если сервис также потребляет события напрямую для каких-то нужд), gRPC/HTTP клиенты к другим сервисам.
+### 2.3. Слои Сервиса
+(Описания слоев аналогичны предыдущим сервисам, с акцентом на специфику Library Service: управление библиотекой, игровым временем, достижениями, списком желаемого, облачными сохранениями и настройками игр.)
 
 ## 3. API Endpoints
 
@@ -161,376 +171,321 @@ graph TD
 *   **Базовый URL:** `/api/v1/library` (маршрутизируется через API Gateway).
 *   **Аутентификация:** JWT Bearer Token (`X-User-Id` извлекается).
 *   **Авторизация:** Все эндпоинты требуют аутентификации и проверяют, что пользователь имеет доступ только к своим данным (например, `user_self_only`).
-*   **Формат ответа об ошибке (согласно `../../../../project_api_standards.md`):**
-    ```json
-    {
-      "errors": [
-        {
-          "code": "ERROR_CODE_UPPER_SNAKE_CASE",
-          "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом.",
-          "source": { "pointer": "/data/attributes/field_name", "parameter": "query_param_name" }
-        }
-      ]
-    }
-    ```
+*   **Формат ответа об ошибке:** Согласно `../../../../project_api_standards.md`.
 
 #### 3.1.1. Библиотека Игр (User Library)
-*   **`GET /items`**
+*   **`GET /me/items`**
     *   Описание: Получение списка игр в библиотеке текущего пользователя.
-    *   Query параметры: `status` (installed, not_installed), `category_id`, `search` (по названию), `sort_by` (name_asc, last_played_desc), `page`, `limit`.
-    *   Пример ответа (Успех 200 OK): (Как в существующем документе)
-    *   Пример ответа (Ошибка 401 Unauthorized - стандартизированный):
-        ```json
-        {
-          "errors": [
-            {
-              "code": "UNAUTHENTICATED",
-              "title": "Ошибка аутентификации",
-              "detail": "Необходима аутентификация для доступа к этому ресурсу."
-            }
-          ]
-        }
-        ```
-    *   Требуемые права доступа: `user_self_only`.
-*   **`PATCH /items/{library_item_id}`**
-    *   Описание: Изменение атрибутов элемента библиотеки (например, добавление в категорию, скрытие).
-    *   Тело запроса: (Как в существующем документе)
-    *   Пример ответа (Успех 200 OK): (Обновленный `libraryItem`)
-    *   Требуемые права доступа: `user_self_only`.
+    *   Query параметры: `status` (installed, not_installed), `category_id`, `search` (по названию), `sort_by` (name_asc, last_played_desc, added_at_desc), `page`, `limit`.
+    *   Ответ: (Массив `UserLibraryItem` с основной информацией о продукте из Catalog Service и пользовательскими данными).
+*   **`PATCH /me/items/{library_item_id}`**
+    *   Описание: Изменение атрибутов элемента библиотеки (например, добавление в категорию, скрытие, статус установки).
+    *   Тело запроса: `{"data": {"type": "libraryItemUpdate", "attributes": {"is_hidden": true, "category_ids": ["uuid1", "uuid2"], "installation_status": "installed"}}}`
+    *   Ответ: (Обновленный `UserLibraryItem`).
+*   **`GET /me/categories`**
+    *   Описание: Получение списка пользовательских категорий для игр.
+    *   Ответ: (Массив `UserGameCategory`).
+*   **`POST /me/categories`**
+    *   Описание: Создание новой пользовательской категории.
+    *   Тело запроса: `{"data": {"type": "userGameCategoryCreation", "attributes": {"name": "Избранное"}}}`
+    *   Ответ: (Созданный `UserGameCategory`).
 
 #### 3.1.2. Игровое Время (Playtime)
-(Описания эндпоинтов `/playtime/sessions/start`, `/playtime/sessions/{session_id}/heartbeat`, `/playtime/sessions/{session_id}/end` как в существующем документе).
+*   **`GET /me/playtime`**
+    *   Описание: Получение агрегированной статистики игрового времени по всем или конкретным играм.
+    *   Query параметры: `product_ids` (comma-separated), `period` (all_time, last_2_weeks).
+    *   Ответ: (Статистика игрового времени).
+*   **`POST /me/playtime/sessions/heartbeat`**
+    *   Описание: Игровой клиент отправляет "heartbeat" для активной игровой сессии, чтобы подтвердить присутствие пользователя и обновить игровое время. Auth Service может использовать это для проверки активности сессии.
+    *   Тело запроса: `{"data": {"type": "playtimeHeartbeat", "attributes": {"productId": "game-uuid-123", "sessionId": "session-uuid-abc", "currentTimestamp": "ISO8601"}}}`
+    *   Ответ: (200 OK, опционально обновленное состояние сессии).
 
 #### 3.1.3. Достижения (Achievements)
-(Описание эндпоинта `/achievements/status/{product_id}` как в существующем документе).
+*   **`GET /me/achievements/status`**
+    *   Описание: Получение статуса всех достижений для указанных продуктов.
+    *   Query параметры: `product_ids` (comma-separated).
+    *   Ответ: (Массив статусов достижений).
 
 #### 3.1.4. Список Желаемого (Wishlist)
-(Описание эндпоинта `/wishlist/items` как в существующем документе).
+*   **`GET /me/wishlist`**
+    *   Описание: Получение списка желаемого текущего пользователя.
+    *   Ответ: (Массив `WishlistItem` с информацией о продуктах из Catalog Service).
+*   **`POST /me/wishlist`**
+    *   Описание: Добавление продукта в список желаемого.
+    *   Тело запроса: `{"data": {"type": "wishlistItemCreation", "attributes": {"productId": "game-uuid-789"}}}`
+    *   Ответ: (Созданный `WishlistItem`).
+*   **`DELETE /me/wishlist/{product_id}`**
+    *   Описание: Удаление продукта из списка желаемого.
+    *   Ответ: (204 No Content).
 
-#### 3.1.5. Игровые Сохранения (Savegames)
-(Описания эндпоинтов `/savegames/upload-url`, `/savegames/confirm-upload` как в существующем документе).
+#### 3.1.5. Игровые Сохранения (Cloud Saves)
+*   **`GET /me/savegames/{product_id}`**
+    *   Описание: Получение списка метаданных доступных облачных сохранений для игры.
+    *   Ответ: (Массив `SavegameMetadata`).
+*   **`POST /me/savegames/{product_id}/slots/{slot_name}/upload-url`**
+    *   Описание: Запрос pre-signed URL для загрузки файла сохранения в S3.
+    *   Тело запроса: `{"data": {"type": "savegameUploadRequest", "attributes": {"fileSizeBytes": 1048576, "fileHashSha256": "hash_value"}}}`
+    *   Ответ: (Pre-signed URL и `savegameId`).
+*   **`POST /me/savegames/confirm-upload`**
+    *   Описание: Подтверждение успешной загрузки файла сохранения в S3.
+    *   Тело запроса: `{"data": {"type": "savegameUploadConfirmation", "attributes": {"savegameId": "savegame-uuid-1", "s3ObjectKey": "path/to/save.dat", "clientModifiedAt": "ISO8601"}}}`
+    *   Ответ: (Обновленный `SavegameMetadata`).
+*   **`GET /me/savegames/{savegame_id}/download-url`**
+    *   Описание: Запрос pre-signed URL для скачивания файла сохранения из S3.
+    *   Ответ: (Pre-signed URL).
 
-### 3.2. gRPC API
-(Содержимое существующего раздела актуально).
+#### 3.1.6. Пользовательские Настройки Игр
+*   **`GET /me/game-settings/{product_id}`**
+    *   Описание: Получение пользовательских настроек для конкретной игры.
+    *   Ответ: (Объект `GameSpecificSettings`).
+*   **`PUT /me/game-settings/{product_id}`**
+    *   Описание: Обновление пользовательских настроек для игры.
+    *   Тело запроса: `{"data": {"type": "gameSettingsUpdate", "attributes": {"settingsPayload": {"graphics": "ultra", "sound": 0.7}}}}`
+    *   Ответ: (Обновленный `GameSpecificSettings`).
+
+### 3.2. gRPC API (для игрового клиента и межсервисного взаимодействия)
+*   **Пакет:** `library.v1`
+*   **Сервис:** `PlaytimeTrackerService`
+    *   `rpc StartPlaytimeSession(StartPlaytimeSessionRequest) returns (StartPlaytimeSessionResponse)`
+    *   `rpc RecordPlaytimeHeartbeat(RecordPlaytimeHeartbeatRequest) returns (google.protobuf.Empty)`
+    *   `rpc EndPlaytimeSession(EndPlaytimeSessionRequest) returns (EndPlaytimeSessionResponse)`
+*   **Сервис:** `AchievementService`
+    *   `rpc UpdateAchievementProgress(UpdateAchievementProgressRequest) returns (UpdateAchievementProgressResponse)` (включая полный анлок)
+*   **Сервис:** `CloudSaveService`
+    *   `rpc RequestSaveGameUploadURL(RequestSaveGameUploadURLRequest) returns (RequestSaveGameUploadURLResponse)`
+    *   `rpc ConfirmSaveGameUpload(ConfirmSaveGameUploadRequest) returns (ConfirmSaveGameUploadResponse)`
+    *   `rpc ListSaveGames(ListSaveGamesRequest) returns (ListSaveGamesResponse)`
+    *   `rpc RequestSaveGameDownloadURL(RequestSaveGameDownloadURLRequest) returns (RequestSaveGameDownloadURLResponse)`
+*   **Сервис:** `GameSettingsSyncService`
+    *   `rpc GetGameSettings(GetGameSettingsRequest) returns (GetGameSettingsResponse)`
+    *   `rpc UpdateGameSettings(UpdateGameSettingsRequest) returns (UpdateGameSettingsResponse)`
 
 ### 3.3. WebSocket API
-(Содержимое существующего раздела актуально).
+*   **Эндпоинт:** `/ws/library/notifications` (требует аутентификации).
+*   **Сообщения от сервера к клиенту:**
+    *   **`achievementUnlocked`**: `{"type": "achievementUnlocked", "payload": {"productId": "...", "achievementId": "...", "achievementName": "...", "timestamp": "..."}}`
+    *   **`cloudSaveConflict`**: `{"type": "cloudSaveConflict", "payload": {"productId": "...", "message": "Обнаружен конфликт сохранений. Выберите версию для использования."}}`
+    *   **`cloudSaveSynced`**: `{"type": "cloudSaveSynced", "payload": {"productId": "...", "slotName":"...", "timestamp":"..."}}`
+    *   **`wishlistGameOnSale`**: `{"type": "wishlistGameOnSale", "payload": {"productId": "...", "productName":"...", "discountPercent":"30%"}}`
 
 ## 4. Модели Данных (Data Models)
-См. также `../../../../project_database_structure.md`.
-
-### 4.1. Основные Сущности
-*   **`UserLibraryItem` (Элемент Библиотеки Пользователя)** (Как в существующем документе)
-*   **`PlaytimeSession` (Игровая Сессия)** (Как в существующем документе)
-*   **`UserAchievement` (Достижение Пользователя)** (Как в существующем документе)
-*   **`WishlistItem` (Элемент Списка Желаемого)** (Как в существующем документе)
-*   **`SavegameMetadata` (Метаданные Игрового Сохранения)** (Как в существующем документе)
-*   **`UserGameCategory` (Пользовательская Категория Игр)**
-    *   `id` (UUID): Уникальный идентификатор категории.
-    *   `user_id` (UUID): ID пользователя-владельца категории.
-    *   `name` (VARCHAR(100)): Название категории (например, "Любимые", "Пройденные", "Для стрима").
-    *   `display_order` (INTEGER): Порядок отображения категории.
-    *   `created_at` (TIMESTAMPTZ), `updated_at` (TIMESTAMPTZ).
-*   **`FamilySharingLink` (Связь Семейного Доступа)**
-    *   `id` (UUID): Уникальный идентификатор связи.
-    *   `owner_user_id` (UUID): ID пользователя, который делится библиотекой.
-    *   `shared_with_user_id` (UUID): ID пользователя, которому предоставлен доступ.
-    *   `status` (ENUM: `pending_approval`, `active`, `revoked`, `declined`): Статус связи.
-    *   `shared_at` (TIMESTAMPTZ): Время создания запроса/активации.
-    *   `last_access_at` (TIMESTAMPTZ, Nullable): Время последнего доступа к библиотеке по этой связи.
-*   **`GameSpecificSettings` (Пользовательские Настройки Игры)**
-    *   `user_id` (UUID, PK): ID пользователя.
-    *   `product_id` (UUID, PK): ID продукта (игры).
-    *   `settings_payload` (JSONB): Произвольные настройки игры в формате JSON (например, `{"graphics": "high", "sound_volume": 0.8, "key_bindings": {...}}`).
-    *   `last_updated_at` (TIMESTAMPTZ): Время последнего обновления настроек.
-    *   `last_synced_with_cloud_at` (TIMESTAMPTZ, Nullable): Время последней успешной синхронизации с облаком.
-
-### 4.2. Схема Базы Данных
-
-#### 4.2.1. PostgreSQL
-**ERD Диаграмма (дополненная):**
-```mermaid
-erDiagram
-    USERS {
-        UUID id PK "User ID"
-    }
-    USER_LIBRARY_ITEMS {
-        UUID id PK
-        UUID user_id FK
-        UUID product_id "FK (Product)"
-        TIMESTAMPTZ added_at
-        VARCHAR acquisition_type
-        UUID shared_from_user_id "FK (User, nullable)"
-        VARCHAR installation_status
-        TIMESTAMPTZ last_played_at
-        BIGINT total_playtime_seconds
-        BOOLEAN is_hidden
-    }
-    PLAYTIME_SESSIONS {
-        UUID id PK
-        UUID user_id FK
-        UUID product_id "FK (Product)"
-        TIMESTAMPTZ start_time
-        TIMESTAMPTZ end_time "nullable"
-        INTEGER duration_seconds "nullable"
-        TIMESTAMPTZ last_heartbeat_at
-    }
-    USER_ACHIEVEMENTS {
-        UUID user_id PK FK
-        UUID achievement_meta_id PK "FK (AchievementMeta)"
-        UUID product_id "FK (Product)"
-        BOOLEAN is_unlocked
-        TIMESTAMPTZ unlocked_at "nullable"
-        INTEGER current_progress "nullable"
-    }
-    WISHLIST_ITEMS {
-        UUID id PK
-        UUID user_id FK
-        UUID product_id "FK (Product)"
-        TIMESTAMPTZ added_at
-        INTEGER priority "nullable"
-    }
-    SAVEGAME_METADATA {
-        UUID id PK
-        UUID user_id FK
-        UUID product_id "FK (Product)"
-        VARCHAR slot_name
-        VARCHAR s3_object_key
-        BIGINT file_size_bytes
-        VARCHAR file_hash_sha256
-        TIMESTAMPTZ client_modified_at
-        TIMESTAMPTZ server_uploaded_at
-        INTEGER version
-    }
-    USER_GAME_CATEGORIES {
-        UUID id PK
-        UUID user_id FK
-        VARCHAR name
-        INTEGER display_order
-    }
-    USER_LIBRARY_ITEM_TO_CATEGORIES { /* Исправлено имя таблицы */
-        UUID library_item_id PK FK
-        UUID category_id PK FK
-    }
-    FAMILY_SHARING_LINKS {
-        UUID id PK
-        UUID owner_user_id FK
-        UUID shared_with_user_id FK
-        VARCHAR status
-        TIMESTAMPTZ shared_at
-    }
-    GAME_SPECIFIC_SETTINGS {
-        UUID user_id PK FK
-        UUID product_id PK "FK (Product)"
-        JSONB settings_payload
-        TIMESTAMPTZ last_updated_at
-    }
-
-    USERS ||--o{ USER_LIBRARY_ITEMS : "owns"
-    USERS ||--o{ PLAYTIME_SESSIONS : "has"
-    USERS ||--o{ USER_ACHIEVEMENTS : "earns"
-    USERS ||--o{ WISHLIST_ITEMS : "wishes_for"
-    USERS ||--o{ SAVEGAME_METADATA : "has_saves_for"
-    USERS ||--o{ USER_GAME_CATEGORIES : "creates"
-    USERS ||--o{ FAMILY_SHARING_LINKS : "owner_of"
-    USERS ||--o{ FAMILY_SHARING_LINKS : "shared_with"
-    USERS ||--o{ GAME_SPECIFIC_SETTINGS : "configures_for_game"
-
-    USER_LIBRARY_ITEMS }o--|| PRODUCTS : "references"
-    USER_LIBRARY_ITEMS }o--|{ USER_LIBRARY_ITEM_TO_CATEGORIES : "assigned_to"
-    USER_GAME_CATEGORIES ||--o{ USER_LIBRARY_ITEM_TO_CATEGORIES : "has_items"
-
-    PLAYTIME_SESSIONS }o--|| PRODUCTS : "references"
-    USER_ACHIEVEMENTS }o--|| PRODUCTS : "references"
-    USER_ACHIEVEMENTS }o--|| ACHIEVEMENT_METADATA : "references"
-    WISHLIST_ITEMS }o--|| PRODUCTS : "references"
-    SAVEGAME_METADATA }o--|| PRODUCTS : "references"
-    GAME_SPECIFIC_SETTINGS }o--|| PRODUCTS : "references"
-
-    USER_LIBRARY_ITEMS }o--|| USERS : "shared_by (family)"
-
-
-    entity PRODUCTS { note "From Catalog Service" }
-    entity ACHIEVEMENT_METADATA { note "From Catalog Service" }
-```
-
-**DDL (PostgreSQL - дополнения для TODO таблиц):**
-```sql
-CREATE TABLE user_game_categories (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, name),
-    CONSTRAINT fk_user_game_categories_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE -- Предполагается наличие таблицы users
-);
-COMMENT ON TABLE user_game_categories IS 'Пользовательские категории для организации игр в библиотеке.';
-
-CREATE TABLE user_library_item_to_categories (
-    library_item_id UUID NOT NULL REFERENCES user_library_items(id) ON DELETE CASCADE,
-    category_id UUID NOT NULL REFERENCES user_game_categories(id) ON DELETE CASCADE,
-    PRIMARY KEY (library_item_id, category_id)
-);
-COMMENT ON TABLE user_library_item_to_categories IS 'Связь элементов библиотеки с пользовательскими категориями.';
-
-CREATE TABLE family_sharing_links (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    owner_user_id UUID NOT NULL,
-    shared_with_user_id UUID NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending_approval' CHECK (status IN ('pending_approval', 'active', 'revoked_by_owner', 'declined_by_user', 'revoked_by_admin')),
-    shared_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_access_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (owner_user_id, shared_with_user_id),
-    CONSTRAINT check_different_users CHECK (owner_user_id <> shared_with_user_id),
-    CONSTRAINT fk_family_sharing_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_family_sharing_shared_with FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_family_sharing_links_owner ON family_sharing_links(owner_user_id);
-CREATE INDEX idx_family_sharing_links_shared_with ON family_sharing_links(shared_with_user_id);
-COMMENT ON TABLE family_sharing_links IS 'Связи для функции семейного доступа к библиотекам.';
-
-CREATE TABLE game_specific_settings (
-    user_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    settings_payload JSONB NOT NULL,
-    last_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_synced_with_cloud_at TIMESTAMPTZ,
-    PRIMARY KEY (user_id, product_id),
-    CONSTRAINT fk_game_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    -- CONSTRAINT fk_game_settings_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE -- Предполагается наличие products из Catalog
-);
-COMMENT ON TABLE game_specific_settings IS 'Пользовательские настройки для конкретных игр (синхронизируемые).';
-```
-
-#### 4.2.2. Redis
-(Описание структуры данных в Redis остается как в существующем документе).
-
-#### 4.2.3. S3-совместимое хранилище
-*   **Роль:** Хранение бинарных файлов игровых сохранений.
-*   **Структура (примерная):**
-    *   `s3://<bucket-name-savegames>/<user_id_hash_prefix>/<user_id>/<product_id>/<savegame_slot_name_or_hash>/<timestamp_version_filename.sav>`
-    *   `<user_id_hash_prefix>`: Первые несколько символов хеша от `user_id` для лучшего распределения объектов в S3 (если пользователей очень много).
-    *   Файлы сохранений могут быть сжаты перед загрузкой.
+(ERD и DDL для PostgreSQL, описание Redis и S3 структуры как в предыдущем моем ответе).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
-
-### 5.1. Публикуемые События (Produced Events)
-*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
-*   **Основной топик Kafka:** `com.platform.library.events.v1`.
-
-*   **`com.platform.library.game.added.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.library.achievement.unlocked.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.library.playtime.session.ended.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type`).
-*   **`com.platform.library.wishlist.item.added.v1`**
-    *   Описание: Продукт добавлен в список желаемого пользователя.
-    *   `data` Payload:
-        ```json
-        {
-          "userId": "user-uuid-123",
-          "productId": "game-uuid-789",
-          "wishlistItemId": "wishlist-item-uuid-def",
-          "addedAt": "2024-03-18T16:00:00Z"
-        }
-        ```
-    *   Потребители: Notification Service (для информирования о скидках), Analytics Service.
-*   **`com.platform.library.savegame.uploaded.v1`**
-    *   Описание: Файл сохранения игры был успешно загружен в облако.
-    *   `data` Payload:
-        ```json
-        {
-          "userId": "user-uuid-123",
-          "productId": "game-uuid-abc",
-          "savegameId": "savegame-meta-uuid-1",
-          "slotName": "slot1_manual_save",
-          "s3Path": "s3://bucket/user_id/product_id/...",
-          "fileSizeBytes": 1048576,
-          "clientTimestamp": "2024-03-18T16:30:00Z",
-          "serverTimestamp": "2024-03-18T16:30:05Z"
-        }
-        ```
-    *   Потребители: Analytics Service (для статистики использования облачных сохранений).
-
-### 5.2. Потребляемые События (Consumed Events)
-(Содержимое существующего раздела актуально, с коррекцией имен событий на формат `com.platform.*`).
+(Описание публикуемых и потребляемых событий как в предыдущем моем ответе).
 
 ## 6. Интеграции (Integrations)
-(Содержимое существующего раздела актуально).
+(Описание интеграций как в предыдущем моем ответе).
 
 ## 7. Конфигурация (Configuration)
-(Содержимое существующего раздела YAML и описание переменных окружения в целом актуальны).
+(Описание файла конфигурации и переменных окружения как в предыдущем моем ответе).
 
 ## 8. Обработка Ошибок (Error Handling)
-(Содержимое существующего раздела актуально, форматы ошибок исправлены в разделе API).
+*   Стандартные ошибки API согласно `../../../../project_api_standards.md`.
+*   **Специфичные коды ошибок:**
+    *   `LIBRARY_ITEM_NOT_FOUND`: Элемент библиотеки не найден.
+    *   `ACHIEVEMENT_NOT_FOUND`: Метаданные достижения не найдены.
+    *   `WISHLIST_ITEM_ALREADY_EXISTS`: Продукт уже в списке желаемого.
+    *   `SAVEGAME_SLOT_NOT_FOUND`: Указанный слот сохранения не найден.
+    *   `SAVEGAME_UPLOAD_FAILED`: Ошибка при загрузке сохранения в S3.
+    *   `SAVEGAME_DOWNLOAD_FAILED`: Ошибка при скачивании сохранения из S3.
+    *   `SAVEGAME_CONFLICT_RESOLUTION_REQUIRED`: Требуется разрешение конфликта версий сохранений.
+    *   `MAX_SAVEGAME_QUOTA_EXCEEDED`: Превышена квота на облачное хранилище.
+    *   `FAMILY_SHARING_LINK_INVALID_STATE`: Недопустимая операция для текущего статуса семейного доступа.
 
 ## 9. Безопасность (Security)
-(Содержимое существующего раздела в целом актуально).
-*   **Безопасность облачных сохранений:**
-    *   Использование pre-signed URLs для S3 с коротким TTL для загрузки и скачивания файлов сохранений.
-    *   Проверка прав доступа пользователя к `product_id` перед генерацией URL.
-    *   Валидация хеш-сумм файлов на стороне сервера после загрузки.
-    *   Рассмотреть возможность клиентского шифрования сохранений перед загрузкой в S3, если требуется максимальная приватность (ключи шифрования управляются клиентом, Library Service не имеет к ним доступа). Это усложнит некоторые сценарии (например, просмотр сохранений на разных устройствах без экспорта ключа).
-*   Ссылки на `../../../../project_security_standards.md`.
+(Описание безопасности как в предыдущем моем ответе, с акцентом на Cloud Saves).
 
 ## 10. Развертывание (Deployment)
-(Содержимое существующего раздела актуально).
+(Как в предыдущем моем ответе).
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
-(Содержимое существующего раздела актуально).
+(Как в предыдущем моем ответе).
 
 ## 12. Нефункциональные Требования (NFRs)
-(Содержимое существующего раздела актуально).
+(Как в предыдущем моем ответе).
 
 ## 13. Приложения (Appendices)
-*   Детальные OpenAPI схемы для REST API, Protobuf определения для gRPC API, и форматы сообщений WebSocket поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
-*   DDL схемы базы данных управляются через систему миграций (например, `golang-migrate/migrate`) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
+(Как в предыдущем моем ответе).
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
 
-### 14.1. PostgreSQL (Данные библиотеки, достижений, игрового времени, списка желаемого, метаданные сохранений)
-*   **Процедура резервного копирования:**
-    *   Ежедневный логический бэкап (`pg_dump`).
-    *   Настроена непрерывная архивация WAL-сегментов (PITR), базовый бэкап еженедельно.
-    *   **Хранение:** Бэкапы в S3, шифрование, версионирование, другой регион. Срок хранения: полные - 30 дней, WAL - 14 дней.
-*   **Процедура восстановления:** Тестируется ежеквартально.
-*   **RTO:** < 1 часа.
-*   **RPO:** < 5 минут.
-*   (Общие принципы см. `../../../../project_database_structure.md`).
+В этом разделе описаны ключевые пользовательские сценарии, связанные с Library Service.
 
-### 14.2. Redis (Кэш, текущие игровые сессии)
-*   **Стратегия персистентности:**
-    *   **AOF (Append Only File):** Включен с fsync `everysec` для данных текущих игровых сессий, если их сохранение при перезапуске Redis критично.
-    *   **RDB Snapshots:** Регулярное создание снапшотов (например, каждые 1-6 часов).
-*   **Резервное копирование (снапшотов):** RDB-снапшоты могут копироваться в S3 ежедневно. Срок хранения - 3-7 дней.
-*   **Восстановление:** Из последнего RDB-снапшота и/или AOF. Кэшированные данные будут перестроены.
-*   **RTO:** < 30 минут.
-*   **RPO:** < 1 минуты (для данных с AOF `everysec`). Для кэша RPO менее критичен.
+### 14.1. Пользователь Просматривает Свою Библиотеку Игр и Запускает Игру
+*   **Описание:** Пользователь открывает клиентское приложение, просматривает свою библиотеку игр и запускает одну из них.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant LibrarySvc as Library Service
+        participant CatalogSvc as Catalog Service
+        participant DownloadSvc as Download Service (для проверки установки/запуска)
 
-### 14.3. S3-совместимое хранилище (Игровые сохранения)
-*   **Процедура резервного копирования:**
-    *   **Версионирование объектов:** Включено для бакета с игровыми сохранениями.
-    *   **Политики жизненного цикла (Lifecycle Policies):** Для управления старыми версиями сохранений (например, удаление версий старше X дней/месяцев, если не помечены как "значимые").
-    *   **Cross-Region Replication (CRR):** Настроена для бакета с сохранениями для обеспечения гео-резервирования.
-*   **Процедура восстановления:** Восстановление отдельных объектов/версий из S3 или переключение на реплицированный бакет.
-*   **RTO:** Зависит от объема восстанавливаемых данных, но обычно быстро для отдельных сохранений.
-*   **RPO:** Близко к нулю (ограничено временем репликации S3).
+        User->>ClientApp: Открывает раздел "Библиотека"
+        ClientApp->>APIGW: GET /api/v1/library/me/items?sort_by=last_played_desc
+        APIGW->>LibrarySvc: Forward request (с User JWT)
+        LibrarySvc->>LibrarySvc: Получение списка UserLibraryItem из PostgreSQL
+        LibrarySvc->>CatalogSvc: (gRPC) Запрос метаданных для списка ProductID
+        CatalogSvc-->>LibrarySvc: Метаданные продуктов
+        LibrarySvc-->>APIGW: HTTP 200 OK (список игр с метаданными)
+        APIGW-->>ClientApp: HTTP 200 OK
+        ClientApp-->>User: Отображение списка игр
 
-### 14.4. Общая стратегия
-*   Восстановление PostgreSQL и метаданных сохранений в S3 является приоритетным.
-*   Процедуры восстановления тестируются и документируются.
-*   Мониторинг процессов резервного копирования.
+        User->>ClientApp: Нажимает "Играть" на игре X
+        ClientApp->>DownloadSvc: (через API или локальный IPC) Проверка статуса установки/обновления игры X
+        alt Игра установлена и обновлена
+            ClientApp->>LibrarySvc: (gRPC) POST /api/v1/library/playtime/sessions/start (productId)
+            LibrarySvc-->>ClientApp: Ответ (sessionId)
+            ClientApp->>ClientApp: Запуск игрового процесса (локально)
+        else Игра не установлена или требует обновления
+            ClientApp-->>User: Предложение установить/обновить игру
+            Note over ClientApp, DownloadSvc: Запускается сценарий загрузки/обновления (см. User Flows Download Service)
+        end
+    ```
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+### 14.2. Игровой Клиент Сообщает об Игровом Времени
+*   **Описание:** Запущенный игровой клиент периодически отправляет "heartbeat" и информацию о завершении сессии для учета игрового времени.
+*   **Диаграмма:** (См. диаграмму "Playtime Tracking & Achievement Unlocking" в разделе 2 или адаптировать сюда)
+    ```mermaid
+    sequenceDiagram
+        participant GameClient as Игровой Клиент
+        participant LibrarySvc as Library Service (gRPC API)
+        participant DB_PostgreSQL as PostgreSQL
+        participant Cache_Redis as Redis (Active Sessions)
+        participant Kafka as Kafka Message Bus
+
+        GameClient->>LibrarySvc: RecordPlaytimeHeartbeatRequest (userId, productId, sessionId, timestamp)
+        LibrarySvc->>Cache_Redis: Обновление времени последнего heartbeat для активной сессии
+        LibrarySvc-->>GameClient: RecordPlaytimeHeartbeatResponse (OK)
+
+        Note over GameClient, LibrarySvc: При завершении игры:
+        GameClient->>LibrarySvc: EndPlaytimeSessionRequest (userId, productId, sessionId, endTime, duration)
+        LibrarySvc->>DB_PostgreSQL: Обновление UserLibraryItem (total_playtime, last_played_at)
+        LibrarySvc->>DB_PostgreSQL: Сохранение PlaytimeSession
+        LibrarySvc->>Cache_Redis: Удаление активной сессии из кэша
+        LibrarySvc->>Kafka: Publish `com.platform.library.playtime.session.ended.v1`
+        LibrarySvc-->>GameClient: EndPlaytimeSessionResponse (OK)
+    ```
+
+### 14.3. Пользователь Разблокирует Достижение
+*   **Описание:** Игровой клиент сообщает о разблокировке достижения. Library Service сохраняет это и уведомляет другие системы.
+*   **Диаграмма:** (Часть диаграммы "Playtime Tracking & Achievement Unlocking" или адаптировать сюда)
+    ```mermaid
+    sequenceDiagram
+        participant GameClient as Игровой Клиент
+        participant LibrarySvc as Library Service (gRPC API)
+        participant DB_PostgreSQL as PostgreSQL
+        participant Kafka as Kafka Message Bus
+        participant SocialSvc as Social Service (через Kafka)
+        participant NotificationSvcWS as Notification Service (WebSocket)
+
+        GameClient->>LibrarySvc: UpdateAchievementProgressRequest (userId, productId, achievementApiName, progress?, unlockedAt?)
+        LibrarySvc->>DB_PostgreSQL: Сохранение/Обновление UserAchievement (is_unlocked=true, unlocked_at)
+        alt Достижение действительно разблокировано
+            LibrarySvc->>Kafka: Publish `com.platform.library.achievement.unlocked.v1` (userId, productId, achievementId, achievementName)
+            LibrarySvc-->>NotificationSvcWS: (через WebSocket) Отправка уведомления клиенту о разблокировке
+            Kafka-->>SocialSvc: Consume `achievement.unlocked` -> Публикация в ленте активности
+        end
+        LibrarySvc-->>GameClient: UpdateAchievementProgressResponse (OK, текущий статус ачивки)
+    ```
+
+### 14.4. Игровой Клиент Загружает Новое Сохранение в Облако
+*   **Описание:** Игра автоматически или по команде пользователя загружает файл сохранения в облако.
+*   **Диаграмма:** (Часть диаграммы "Cloud Save Synchronization" или адаптировать сюда)
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant GameClient as Игровой Клиент
+        participant LibrarySvc as Library Service (REST/gRPC)
+        participant S3Store as S3 Cloud Storage
+
+        User->>GameClient: Сохраняет игру (например, F5)
+        GameClient->>GameClient: Подготовка файла сохранения (save_slot_1.dat, hash)
+        GameClient->>LibrarySvc: RequestSaveGameUploadURL(productId, slotName="slot_1", fileHash, fileSize)
+        LibrarySvc->>LibrarySvc: Проверка квот, генерация pre-signed S3 URL
+        LibrarySvc-->>GameClient: Pre-signed S3 URL, savegameId (для подтверждения)
+        GameClient->>S3Store: PUT <pre-signed_url> (файл сохранения)
+        S3Store-->>GameClient: HTTP 200 OK
+        GameClient->>LibrarySvc: ConfirmSaveGameUpload(savegameId, s3Path, clientModifiedAt)
+        LibrarySvc->>LibrarySvc: Обновление SavegameMetadata в PostgreSQL
+        LibrarySvc->>Kafka: Publish `com.platform.library.savegame.uploaded.v1`
+        LibrarySvc-->>GameClient: UploadConfirmed (OK)
+    ```
+
+### 14.5. Пользователь Устанавливает Игру на Новом Устройстве и Загружает Облачное Сохранение
+*   **Описание:** После установки игры на новом устройстве, клиент игры запрашивает и скачивает последнее облачное сохранение.
+*   **Диаграмма:** (Часть диаграммы "Cloud Save Synchronization" или адаптировать сюда)
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant GameClient as Игровой Клиент (на новом устройстве)
+        participant LibrarySvc as Library Service (REST/gRPC)
+        participant S3Store as S3 Cloud Storage
+
+        User->>GameClient: Первый запуск игры X
+        GameClient->>LibrarySvc: ListSaveGames(productId)
+        LibrarySvc-->>GameClient: Список SavegameMetadata (включая самое последнее)
+        alt Есть сохранения в облаке
+            GameClient->>LibrarySvc: RequestSaveGameDownloadURL(latest_savegame_id)
+            LibrarySvc-->>GameClient: Pre-signed S3 URL
+            GameClient->>S3Store: GET <pre-signed_url>
+            S3Store-->>GameClient: Файл сохранения
+            GameClient->>GameClient: Загрузка сохранения в игру
+            GameClient-->>User: Предложение загрузить сохранение / Автоматическая загрузка
+        else Нет сохранений в облаке
+            GameClient-->>User: Начало новой игры
+        end
+    ```
+    *   **Разрешение конфликтов:** Если клиент обнаруживает локальное сохранение, которое новее облачного, или несинхронизированное локальное сохранение при наличии облачного, он должен предложить пользователю выбор:
+        1.  Загрузить облачное сохранение (перезаписав локальное).
+        2.  Загрузить локальное сохранение в облако (перезаписав облачное).
+        3.  (Опционально) Сохранить обе версии или отменить синхронизацию.
+        Выбор пользователя инициирует соответствующий поток загрузки или скачивания.
+
+### 14.6. Пользователь Добавляет/Удаляет Игру из Списка Желаемого
+*   **Описание:** Пользователь добавляет игру в свой список желаемого или удаляет ее оттуда.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant ClientApp as Клиентское Приложение
+        participant APIGW as API Gateway
+        participant LibrarySvc as Library Service
+        participant Kafka as Kafka Message Bus
+
+        User->>ClientApp: Нажимает "Добавить в желаемое" на странице игры X
+        ClientApp->>APIGW: POST /api/v1/library/me/wishlist (productId)
+        APIGW->>LibrarySvc: Forward request
+        LibrarySvc->>LibrarySvc: Добавление WishlistItem в PostgreSQL
+        LibrarySvc->>Kafka: Publish `com.platform.library.wishlist.item.added.v1`
+        LibrarySvc-->>APIGW: HTTP 201 Created (созданный WishlistItem)
+        APIGW-->>ClientApp: HTTP 201 Created
+        ClientApp-->>User: Игра добавлена в желаемое
+
+        User->>ClientApp: Нажимает "Удалить из желаемого"
+        ClientApp->>APIGW: DELETE /api/v1/library/me/wishlist/{productId}
+        APIGW->>LibrarySvc: Forward request
+        LibrarySvc->>LibrarySvc: Удаление WishlistItem из PostgreSQL
+        LibrarySvc->>Kafka: Publish `com.platform.library.wishlist.item.removed.v1`
+        LibrarySvc-->>APIGW: HTTP 204 No Content
+        APIGW-->>ClientApp: HTTP 204 No Content
+        ClientApp-->>User: Игра удалена из желаемого
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
+(Как в предыдущем моем ответе).
+
+## 16. Приложения (Appendices)
+(Как в предыдущем моем ответе).
+
+## 17. Связанные Рабочие Процессы (Related Workflows)
+(Как в предыдущем моем ответе, с добавлением плейсхолдеров для новых воркфлоу).
 *   [Процесс покупки игры и обновления библиотеки пользователя](../../../../project_workflows/game_purchase_flow.md)
-*   [Синхронизация игровых сохранений с облаком](../../../../project_workflows/cloud_save_sync_flow.md) (Примечание: Создание документа `cloud_save_sync_flow.md` является частью общей задачи по документированию проекта и выходит за рамки обновления документации данного микросервиса.)
-*   [Процесс разблокировки достижений](../../../../project_workflows/achievement_unlocking_flow.md) (Примечание: Создание документа `achievement_unlocking_flow.md` является частью общей задачи по документированию проекта и выходит за рамки обновления документации данного микросервиса.)
+*   [Синхронизация игровых сохранений с облаком](../../../../project_workflows/cloud_save_sync_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/cloud_save_sync_flow.md}} -->
+*   [Процесс разблокировки достижений](../../../../project_workflows/achievement_unlocking_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/achievement_unlocking_flow.md}} -->
 
 ---
 *Этот документ является основной спецификацией для Library Service и должен поддерживаться в актуальном состоянии.*

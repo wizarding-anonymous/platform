@@ -1,31 +1,61 @@
 # Спецификация Микросервиса: Developer Service (Сервис для Разработчиков)
 
-**Версия:** 1.1 (адаптировано из предыдущей версии)
-**Дата последнего обновления:** 2024-03-15
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-11
 
 ## 1. Обзор Сервиса (Overview)
 
 ### 1.1. Назначение и Роль
-*   **Назначение документа:** Данный документ представляет собой полную спецификацию микросервиса Developer Service, предназначенного для разработчиков и издателей игр на платформе "Российский Аналог Steam".
-*   **Роль в общей архитектуре платформы:** Developer Service предоставляет интерфейс (Портал Разработчика) и API для управления аккаунтами разработчиков, загрузки и обновления игр и их контента, управления метаданными и маркетинговыми материалами, доступа к аналитике продаж и использования продуктов, а также взаимодействия с финансовыми аспектами платформы (управление выплатами).
-*   **Основные бизнес-задачи:** Обеспечение разработчиков инструментами для самостоятельной публикации и поддержки их продуктов (игр, DLC, ПО) на платформе, управление жизненным циклом этих продуктов, предоставление релевантной аналитики и финансовых отчетов.
+*   **Назначение:** Developer Service предоставляет интерфейс (Портал Разработчика) и API для разработчиков и издателей игр на платформе "Российский Аналог Steam".
+*   **Роль в общей архитектуре платформы:** Developer Service является ключевым компонентом для управления жизненным циклом продуктов (игры, DLC, ПО) со стороны их создателей. Он обеспечивает инструменты для загрузки контента, управления метаданными, ценообразованием, доступом к аналитике продаж и использования продуктов, а также взаимодействия с финансовыми аспектами платформы (управление выплатами). Сервис тесно интегрирован с Auth Service, Catalog Service, Admin Service (для модерации), Payment Service и Analytics Service.
+*   **Основные бизнес-задачи:**
+    *   Привлечение и поддержка разработчиков и издателей.
+    *   Обеспечение разработчиков инструментами для самостоятельной публикации и поддержки их продуктов.
+    *   Управление процессом подачи, модерации и публикации продуктов.
+    *   Предоставление разработчикам релевантной аналитики и финансовых отчетов.
+    *   Управление командами разработчиков и их доступом к порталу.
 *   Разработка сервиса должна вестись в соответствии с `../../../../CODING_STANDARDS.md`.
 
 ### 1.2. Ключевые Функциональности
-*   Регистрация и управление аккаунтом разработчика/издателя (профиль компании, юридическая информация, управление командой и ролями доступа к порталу).
-*   Управление проектами (играми/продуктами): создание карточки продукта, загрузка и управление билдами и версиями, управление метаданными (локализованные названия, описания, теги, жанры, системные требования, возрастные рейтинги), управление медиа-контентом (скриншоты, трейлеры, арты).
-*   Управление ценообразованием: установка базовой цены, региональных цен, создание и управление скидками и промо-периодами для своих продуктов (в координации с Catalog Service).
-*   Процесс публикации: подача продукта на модерацию, отслеживание статуса модерации, публикация одобренных продуктов, управление видимостью продуктов в каталоге.
-*   Панель аналитики: доступ к дашбордам с метриками (продажи, доход, количество установок, DAU/MAU по своим продуктам), возможность генерации стандартных отчетов.
-*   Финансовый раздел: просмотр баланса, истории транзакций (продажи, возвраты, комиссии), управление реквизитами для выплат, формирование запросов на выплаты.
-*   Управление SDK и API ключами: доступ к SDK платформы, документации, управление API ключами для автоматизации процессов CI/CD и взаимодействия с API платформы.
-*   Система уведомлений: получение уведомлений о важных событиях (статус модерации, обновления платформы, финансовые операции, сообщения от поддержки).
+*   **Управление Аккаунтом Разработчика/Издателя:**
+    *   Регистрация и верификация аккаунтов разработчиков/издателей.
+    *   Управление профилем компании/разработчика (название, юридическая информация, контактные данные).
+    *   Управление командой: добавление/удаление участников, назначение ролей и разрешений внутри команды (например, `owner`, `admin`, `technical_contact`, `marketing_contact`, `finance_contact`).
+    *   Управление юридическими соглашениями и документами.
+*   **Управление Продуктами (Игры, DLC, ПО):**
+    *   Создание и управление карточками продуктов (игры, DLC, ПО, комплекты).
+    *   Загрузка и управление билдами продуктов через интеграцию с S3-совместимым хранилищем. Поддержка различных платформ (Windows, Linux, macOS, Android, iOS - {{TODO: Уточнить список платформ}}).
+    *   Версионирование билдов и управление их статусами (например, `alpha`, `beta`, `release_candidate`, `live`).
+    *   Управление метаданными продуктов: локализованные названия, описания, системные требования, возрастные рейтинги, информация о разработчиках и издателях.
+    *   Настройка страницы продукта в магазине: кастомизация описания, загрузка медиа-контента (скриншоты, трейлеры, арты), управление промо-материалами.
+    *   Управление метаданными достижений для игр.
+*   **Управление Ценообразованием и Публикацией:**
+    *   Установка базовой цены продукта.
+    *   Предложение и управление региональными ценами (в координации с Catalog Service).
+    *   Создание и управление скидками, участие в промо-акциях платформы.
+    *   Подача продукта/обновления на модерацию.
+    *   Отслеживание статуса модерации (через интеграцию с Admin Service).
+    *   Публикация одобренных продуктов и обновлений, управление их видимостью в каталоге.
+*   **Аналитика и Отчетность:**
+    *   Доступ к дашбордам с аналитикой по продажам, доходам, количеству установок, DAU/MAU и другим метрикам для опубликованных продуктов (данные предоставляются Analytics Service).
+    *   Возможность генерации стандартных отчетов по продажам и активности пользователей.
+*   **Финансовый Менеджмент:**
+    *   Просмотр финансового баланса разработчика.
+    *   История транзакций (продажи, возвраты, комиссии платформы).
+    *   Управление банковскими реквизитами и методами для получения выплат.
+    *   Формирование и отслеживание запросов на выплату средств (в координации с Payment Service).
+*   **Управление SDK и API Ключами:**
+    *   Доступ к SDK платформы и документации по интеграции.
+    *   Создание и управление API ключами для автоматизации процессов CI/CD (например, загрузка билдов) и взаимодействия с API платформы от имени разработчика.
+*   **Система Уведомлений:**
+    *   Получение уведомлений о важных событиях: изменение статуса модерации продукта, необходимость обновления информации, финансовые операции, сообщения от службы поддержки платформы.
 
 ### 1.3. Основные Технологии
 *   **Язык программирования:** Go (версия 1.21+, согласно `../../../../project_technology_stack.md`).
-*   **Веб-фреймворк (REST API):** Echo (`github.com/labstack/echo/v4`) или Gin (`github.com/gin-gonic/gin`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **База данных:** PostgreSQL (версия 15+) для хранения структурированных данных: аккаунты разработчиков, метаданные игр (черновики, специфичные для разработчика данные), информация о финансах. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` или `pgx` (`github.com/jackc/pgx/v5`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Кэширование:** Redis (версия 7.0+) для кэширования часто запрашиваемых данных, сессий портала. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Веб-фреймворк (REST API):** Echo (`github.com/labstack/echo/v4`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **gRPC:** `google.golang.org/grpc` для внутреннего взаимодействия с другими сервисами (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **База данных:** PostgreSQL (версия 15+) для хранения структурированных данных: аккаунты разработчиков, метаданные игр (черновики, специфичные для разработчика данные), информация о финансах и выплатах, API ключи. Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
+*   **Кэширование:** Redis (версия 7.0+) для кэширования часто запрашиваемых данных, сессий Портала Разработчика, временных данных форм. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Очереди сообщений/События:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go` или `github.com/segmentio/kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Хранилище файлов (билды, медиа):** S3-совместимое объектное хранилище (например, MinIO, Yandex Object Storage) (согласно `../../../../project_technology_stack.md`).
 *   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
@@ -35,67 +65,73 @@
 *   Ссылки на: `../../../../project_technology_stack.md`, `../../../../PACKAGE_STANDARDIZATION.md`, `../../../../project_glossary.md`.
 
 ### 1.4. Термины и Определения (Glossary)
-*   **Разработчик (Developer Account):** Учетная запись компании или индивидуального разработчика/издателя.
-*   **Продукт (Product/Game):** Игра, DLC или другой цифровой товар, управляемый разработчиком.
-*   **Билд (Build):** Конкретная сборка исполняемых файлов продукта.
-*   **Версия (Version):** Версия продукта, связанная с конкретным билдом и метаданными.
-*   **Портал Разработчика (Developer Portal):** Веб-интерфейс, предоставляемый Developer Service для разработчиков.
+*   **Разработчик (Developer Account):** Учетная запись компании или индивидуального разработчика/издателя, зарегистрированного на платформе.
+*   **Издатель (Publisher):** Компания или лицо, ответственное за публикацию и маркетинг продукта. Может быть тем же, что и разработчик, или отдельной сущностью.
+*   **Продукт (Product/Game):** Игра, DLC, программное обеспечение или другой цифровой товар, управляемый разработчиком через Developer Service.
+*   **Билд (Build):** Конкретная сборка исполняемых файлов и связанных ассетов продукта для определенной платформы.
+*   **Версия (Version):** Публикуемая или тестовая версия продукта, связанная с конкретным билдом и набором метаданных.
+*   **Портал Разработчика (Developer Portal):** Веб-интерфейс, предоставляемый Developer Service для разработчиков и издателей.
+*   **Метаданные Продукта:** Вся информация о продукте, видимая пользователям в магазине и в их библиотеке (названия, описания, скриншоты, системные требования и т.д.).
+*   **Выплата (Payout):** Перечисление заработанных разработчиком средств от продаж его продуктов на платформе.
 *   Для других общих терминов см. `../../../../project_glossary.md`.
 
 ## 2. Внутренняя Архитектура (Internal Architecture)
 
 ### 2.1. Общее Описание
-*   Developer Service будет реализован как модульный монолит или набор тесно связанных микросервисов, придерживаясь принципов Чистой Архитектуры (Clean Architecture) для разделения ответственностей.
-*   Ключевые модули включают: Управление Аккаунтами Разработчиков, Управление Продуктами (Игры/DLC), Управление Загрузками (билды, медиа), Модуль Аналитики (отображение данных), Финансовый Модуль (выплаты), Управление API Ключами.
+*   Developer Service будет реализован как модульный сервис, придерживаясь принципов Чистой Архитектуры (Clean Architecture) для разделения ответственностей и обеспечения тестируемости.
+*   Сервис предоставляет REST API для Портала Разработчика (фронтенд) и для внешних систем разработчиков (например, CI/CD для загрузки билдов).
+*   Ключевые модули включают: Управление Аккаунтами Разработчиков, Управление Продуктами, Управление Загрузками (билды, медиа), Модуль Аналитики (отображение данных от Analytics Service), Финансовый Модуль (выплаты), Управление API Ключами.
 
-**Диаграмма Архитектуры (Clean Architecture):**
+### 2.2. Диаграмма Архитектуры (Clean Architecture)
 ```mermaid
 graph TD
-    subgraph Developer Portal & External API Clients
+    subgraph UserInteraction ["Портал Разработчика / CI/CD Системы"]
         DevPortal[Портал Разработчика (Веб-интерфейс)]
         DevAPIClient[Клиенты API Разработчика (CI/CD, утилиты)]
     end
 
-    subgraph Developer Service
+    subgraph DeveloperService ["Developer Service (Чистая Архитектура)"]
         direction TB
 
         subgraph PresentationLayer [Presentation Layer (Адаптеры Транспорта)]
             REST_API[REST API (Echo/Gin)]
-            GRPC_API[gRPC API (для внутренних нужд, если потребуется)]
+            GRPC_Internal_API[gRPC API (для внутренних вызовов от других сервисов, если потребуется)]
         end
 
         subgraph ApplicationLayer [Application Layer (Сценарии Использования)]
             DevAccountSvc[Управление Аккаунтом Разработчика]
-            GameManagementSvc[Управление Продуктами (Игры)]
-            FileUploadSvc[Управление Загрузками]
-            AnalyticsViewSvc[Просмотр Аналитики]
-            FinanceSvc[Финансовые Операции (Выплаты)]
-            ApiKeyMgmtSvc[Управление API Ключами]
+            ProductManagementSvc[Управление Продуктами (Игры, DLC)]
+            BuildUploadSvc[Управление Загрузками Билдов]
+            AnalyticsAccessSvc[Доступ к Аналитике Продуктов]
+            PayoutManagementSvc[Управление Выплатами]
+            ApiKeyManagementSvc[Управление API Ключами]
+            ModerationCoordinationSvc[Координация с Модерацией]
         end
 
         subgraph DomainLayer [Domain Layer (Бизнес-логика и Сущности)]
-            Entities[Сущности (Developer, Game, GameVersion, Payout)]
-            Aggregates[Агрегаты (DeveloperProfile, GameProduct)]
-            DomainEvents[Доменные События (GameSubmitted, PayoutRequested)]
+            Entities[Сущности (DeveloperAccount, DeveloperTeamMember, ProductSubmission, BuildArtifact, PayoutRequest, DevApiKey)]
+            Aggregates[Агрегаты (DeveloperProfile, Product)]
+            DomainEvents[Доменные События (ProductSubmittedForReviewEvent, PayoutRequestedEvent)]
             RepositoryIntf[Интерфейсы Репозиториев]
         end
 
-        subgraph InfrastructureLayer [Infrastructure Layer (Внешние Зависимости)]
-            PostgresAdapter[Адаптер PostgreSQL]
-            S3Adapter[Адаптер S3-хранилища]
-            RedisAdapter[Адаптер Redis (Кэш)]
-            KafkaProducer[Продюсер Kafka (События)]
-            ServiceClients[Клиенты других микросервисов (Auth, Catalog, Payment)]
+        subgraph InfrastructureLayer [Infrastructure Layer (Внешние Зависимости и Реализации)]
+            PostgresAdapter[Адаптер PostgreSQL (Реализация Репозиториев)]
+            S3Adapter[Адаптер S3-хранилища (Загрузка/Скачивание Файлов)]
+            RedisAdapter[Адаптер Redis (Кэш Сессий, Черновиков)]
+            KafkaProducer[Продюсер Kafka (Публикация Событий)]
+            KafkaConsumer[Консьюмер Kafka (Потребление Событий от Admin/Analytics)]
+            AuthSvcClient[Клиент Auth Service (gRPC)]
+            CatalogSvcClient[Клиент Catalog Service (gRPC/REST)]
+            PaymentSvcClient[Клиент Payment Service (gRPC/REST)]
+            AnalyticsSvcClient[Клиент Analytics Service (gRPC/REST)]
+            NotificationSvcClient[Клиент Notification Service (gRPC/Kafka)]
             Config[Конфигурация (Viper)]
             Logging[Логирование (Zap)]
         end
 
-        REST_API --> DevAccountSvc
-        REST_API --> GameManagementSvc
-        REST_API --> FileUploadSvc
-        REST_API --> AnalyticsViewSvc
-        REST_API --> FinanceSvc
-        REST_API --> ApiKeyMgmtSvc
+        REST_API --> ApplicationLayer
+        GRPC_Internal_API --> ApplicationLayer
 
         ApplicationLayer --> DomainLayer
         ApplicationLayer --> InfrastructureLayer
@@ -107,332 +143,324 @@ graph TD
     DevAPIClient --> REST_API
 
     PostgresAdapter --> DB[(PostgreSQL)]
-    S3Adapter --> S3[(S3 Хранилище)]
+    S3Adapter --> S3[(S3 Хранилище Билдов и Медиа)]
     RedisAdapter --> Cache[(Redis)]
-    KafkaProducer --> Kafka[Kafka Broker]
-    ServiceClients --> OtherServices[Другие Микросервисы]
+    KafkaProducer --> KafkaBroker[Kafka Message Bus]
+    KafkaConsumer --> KafkaBroker
+
+    AuthSvcClient --> AuthService[Auth Service]
+    CatalogSvcClient --> CatalogService[Catalog Service]
+    PaymentSvcClient --> PaymentService[Payment Service]
+    AnalyticsSvcClient --> AnalyticsService[Analytics Service]
+    NotificationSvcClient --> NotificationService[Notification Service]
+
 
     classDef layer_boundary fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#333
     classDef component_major fill:#e6f0ff,stroke:#007bff,color:#000
     classDef component_minor fill:#d4edda,stroke:#28a745,color:#000
     classDef datastore fill:#f8d7da,stroke:#dc3545,color:#000
+    classDef external_service fill:#FEF9E7,stroke:#F1C40F,color:#000
 
     class PresentationLayer,ApplicationLayer,DomainLayer,InfrastructureLayer layer_boundary
-    class REST_API,GRPC_API,DevAccountSvc,GameManagementSvc,FileUploadSvc,AnalyticsViewSvc,FinanceSvc,ApiKeyMgmtSvc,Entities,Aggregates,DomainEvents,RepositoryIntf component_major
-    class PostgresAdapter,S3Adapter,RedisAdapter,KafkaProducer,ServiceClients,Config,Logging component_minor
-    class DB,S3,Cache,Kafka,OtherServices datastore
+    class REST_API,GRPC_Internal_API,DevAccountSvc,ProductManagementSvc,BuildUploadSvc,AnalyticsAccessSvc,PayoutManagementSvc,ApiKeyManagementSvc,ModerationCoordinationSvc,Entities,Aggregates,DomainEvents,RepositoryIntf component_major
+    class PostgresAdapter,S3Adapter,RedisAdapter,KafkaProducer,KafkaConsumer,AuthSvcClient,CatalogSvcClient,PaymentSvcClient,AnalyticsSvcClient,NotificationSvcClient,Config,Logging component_minor
+    class DB,S3,Cache,KafkaBroker datastore
+    class AuthService,CatalogService,PaymentService,AnalyticsService,NotificationService external_service
 ```
 
-### 2.2. Слои Сервиса
+### 2.3. Слои Сервиса
 
-#### 2.2.1. Presentation Layer (Слой Представления)
-*   **Ответственность:** Обработка входящих HTTP REST запросов от Портала Разработчика и публичного API для разработчиков. Валидация данных запроса (DTO), аутентификация (через Auth Service), авторизация (на основе роли в команде разработчика), вызов соответствующей бизнес-логики в Application Layer.
-*   **Ключевые компоненты/модули:** HTTP хендлеры (контроллеры) на базе Echo/Gin, DTO для запросов и ответов API, middleware для аутентификации и авторизации.
+#### 2.3.1. Presentation Layer (Слой Представления)
+*   **Ответственность:** Обработка входящих HTTP REST запросов от Портала Разработчика и публичного API для разработчиков. Валидация данных запроса (DTO), аутентификация (через Auth Service, передача JWT), авторизация (на основе `developer_id` и роли пользователя в команде разработчика), вызов соответствующей бизнес-логики в Application Layer.
+*   **Ключевые компоненты/модули:** HTTP хендлеры (контроллеры) на базе Echo, DTO для запросов и ответов API, middleware для аутентификации и авторизации.
 
-#### 2.2.2. Application Layer (Прикладной Слой)
-*   **Ответственность:** Реализация сценариев использования (use cases), связанных с управлением аккаунтами разработчиков, их продуктами, финансами и т.д. Координирует взаимодействие между Domain Layer и Infrastructure Layer.
-*   **Ключевые компоненты/модули:** Сервисы сценариев использования (например, `DeveloperAccountService`, `GameProductService`, `PayoutService`), обработчики команд и запросов (если используется CQRS).
+#### 2.3.2. Application Layer (Прикладной Слой)
+*   **Ответственность:** Реализация сценариев использования (use cases), связанных с управлением аккаунтами разработчиков, их продуктами, финансами, загрузкой контента и т.д. Координирует взаимодействие между Domain Layer и Infrastructure Layer.
+*   **Ключевые компоненты/модули:** Сервисы сценариев использования (например, `DeveloperAccountService`, `ProductSubmissionService`, `BuildManagementService`, `PayoutOrchestrationService`, `DeveloperAnalyticsService`), обработчики команд и запросов (если используется CQRS).
 
-#### 2.2.3. Domain Layer (Доменный Слой)
-*   **Ответственность:** Содержит бизнес-сущности, агрегаты, доменные события и бизнес-правила, специфичные для Developer Service.
-*   **Ключевые компоненты/модули:** Сущности (`Developer`, `DeveloperTeamMember`, `Game`, `GameVersion`, `GameMetadata`, `GamePricing`, `DeveloperPayout`, `DeveloperAPIKey`), объекты-значения, доменные сервисы, интерфейсы репозиториев.
+#### 2.3.3. Domain Layer (Доменный Слой)
+*   **Ответственность:** Содержит бизнес-сущности, агрегаты, доменные события и бизнес-правила, специфичные для Developer Service. Например, правила валидации данных продукта, логика смены статусов продукта, правила формирования запросов на выплаты.
+*   **Ключевые компоненты/модули:** Сущности (`DeveloperAccount`, `DeveloperTeamMember`, `ProductSubmission` (черновик продукта), `BuildArtifact`, `PayoutRequest`, `DeveloperAPIKey`), объекты-значения (например, `LocalizedText`, `FinancialDetails`), доменные сервисы, интерфейсы репозиториев.
 
-#### 2.2.4. Infrastructure Layer (Инфраструктурный Слой)
-*   **Ответственность:** Реализация интерфейсов репозиториев для работы с PostgreSQL. Взаимодействие с S3-совместимым хранилищем для загрузки и управления файлами. Отправка событий в Kafka. Взаимодействие с другими микросервисами (Auth, Catalog, Payment, Admin, Analytics, Notification) через их gRPC/REST API.
-*   **Ключевые компоненты/модули:** Реализации репозиториев для PostgreSQL, S3 клиент, Kafka продюсер, Redis клиент, gRPC/HTTP клиенты для других сервисов.
+#### 2.3.4. Infrastructure Layer (Инфраструктурный Слой)
+*   **Ответственность:** Реализация интерфейсов репозиториев для работы с PostgreSQL и Redis. Взаимодействие с S3-совместимым хранилищем для загрузки и управления файлами. Отправка и получение событий через Kafka. Взаимодействие с другими микросервисами (Auth, Catalog, Payment, Admin, Analytics, Notification) через их gRPC/REST API.
+*   **Ключевые компоненты/модули:** Реализации репозиториев для PostgreSQL, S3 клиент, Kafka продюсер и консьюмер, Redis клиент, gRPC/HTTP клиенты для других сервисов.
 
 ## 3. API Endpoints
 
 ### 3.1. REST API
 *   **Префикс:** `/api/v1/developer` (маршрутизируется через API Gateway).
-*   **Аутентификация:** JWT Bearer Token, полученный от Auth Service. Проверяется на API Gateway или в middleware Developer Service.
-*   **Авторизация:** На основе `developer_id` (извлекается из JWT или связи `user_id` с `developer_id`) и роли пользователя в команде разработчика (например, `owner`, `admin`, `editor`, `viewer`).
-*   **Формат ответа об ошибке (согласно `../../../../project_api_standards.md`):**
-    ```json
-    {
-      "errors": [
-        {
-          "code": "ERROR_CODE_UPPER_SNAKE_CASE",
-          "title": "Краткое описание ошибки на русском",
-          "detail": "Полное описание ошибки с контекстом.",
-          "source": { "pointer": "/data/attributes/field_name", "parameter": "query_param_name" }
-        }
-      ]
-    }
-    ```
+*   **Аутентификация:** JWT Bearer Token, полученный от Auth Service для пользователя-разработчика. Проверяется на API Gateway или в middleware Developer Service. `developer_id` и `user_id` (члена команды) извлекаются из токена или контекста безопасности.
+*   **Авторизация:** На основе `developer_id` и роли пользователя в команде разработчика (например, `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`). Разрешения проверяются для каждой операции.
+*   **Формат ответа об ошибке:** Согласно `../../../../project_api_standards.md`.
 
 #### 3.1.1. Аккаунты разработчиков (Developer Accounts)
 *   **`POST /accounts`**
-    *   Описание: Регистрация нового аккаунта разработчика/издателя.
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "developerAccountCreation",
-            "attributes": {
-              "company_name": "Моя Игровая Студия",
-              "legal_entity_type": "ООО",
-              "tax_id": "1234567890",
-              "contact_email": "dev@example.com",
-              "country_code": "RU"
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 201 Created):
-        ```json
-        {
-          "data": {
-            "type": "developerAccount",
-            "id": "dev-uuid-abc",
-            "attributes": { /* ... поля созданного аккаунта ... */ }
-          }
-        }
-        ```
-    *    Пример ответа (Ошибка 400 Validation Error - стандартизированный):
-        ```json
-        {
-          "errors": [
-            {
-              "code": "VALIDATION_ERROR",
-              "title": "Ошибка валидации",
-              "detail": "Поле 'tax_id' должно быть валидным ИНН.",
-              "source": { "pointer": "/data/attributes/tax_id" }
-            }
-          ]
-        }
-        ```
-    *   Требуемые права доступа: Аутентифицированный пользователь (для привязки к его User ID).
+    *   Описание: Регистрация нового аккаунта разработчика/издателя. Связывает текущего аутентифицированного пользователя платформы как владельца.
+    *   Тело запроса: (Как в существующем документе)
+    *   Ответ: (Как в существующем документе)
+    *   Требуемые права доступа: Аутентифицированный пользователь платформы.
 *   **`GET /accounts/me`**
     *   Описание: Получение информации о текущем аккаунте разработчика, к которому привязан пользователь.
-    *   Пример ответа (Успех 200 OK): (Аналогично ответу POST /accounts)
+    *   Требуемые права доступа: Участник команды разработчика.
+*   **`PUT /accounts/me`**
+    *   Описание: Обновление профиля и юридической информации аккаунта разработчика.
+    *   Требуемые права доступа: Роль `owner` или `admin` в команде разработчика.
+*   **`GET /accounts/me/team`**
+    *   Описание: Получение списка членов команды разработчика.
+    *   Требуемые права доступа: Участник команды разработчика.
+*   **`POST /accounts/me/team/members`**
+    *   Описание: Приглашение нового участника в команду разработчика (по email).
+    *   Требуемые права доступа: Роль `owner` или `admin` в команде разработчика.
+*   **`PUT /accounts/me/team/members/{member_user_id}`**
+    *   Описание: Изменение роли участника команды.
+    *   Требуемые права доступа: Роль `owner` или `admin` в команде разработчика.
+*   **`DELETE /accounts/me/team/members/{member_user_id}`**
+    *   Описание: Удаление участника из команды.
+    *   Требуемые права доступа: Роль `owner` или `admin` в команде разработчика.
+
+#### 3.1.2. Управление Продуктами (Игры/DLC/ПО)
+*   **`POST /products`**
+    *   Описание: Создание нового продукта (игра, DLC, ПО) в Developer Service (создание черновика).
+    *   Тело запроса:
+        ```json
+        {
+          "data": {
+            "type": "productDraftCreation",
+            "attributes": {
+              "title": {"ru-RU": "Моя Новая Игра", "en-US": "My New Game"},
+              "product_type": "game" // game, dlc, software
+            }
+          }
+        }
+        ```
+    *   Ответ: (Возвращает созданный черновик продукта с его ID)
+    *   Требуемые права доступа: Роль `owner`, `admin`, `editor` в команде.
+*   **`GET /products`**
+    *   Описание: Получение списка продуктов, управляемых разработчиком.
+    *   Query параметры: `status`, `product_type`, `page`, `limit`.
+    *   Требуемые права доступа: Участник команды разработчика.
+*   **`GET /products/{product_id}`**
+    *   Описание: Получение детальной информации о продукте разработчика (черновик или опубликованная версия).
+    *   Требуемые права доступа: Участник команды разработчика.
+*   **`PUT /products/{product_id}`**
+    *   Описание: Обновление метаданных черновика продукта.
+    *   Тело запроса: (Полная структура метаданных продукта, включая локализованные поля, системные требования, медиа-ссылки, предлагаемые цены, теги, жанры и т.д.).
+    *   Требуемые права доступа: Роль `owner`, `admin`, `editor` в команде.
+
+#### 3.1.3. Версии Продуктов и Загрузка Билдов
+*   **`POST /products/{product_id}/versions`**
+    *   Описание: Создание новой версии для продукта.
+    *   Тело запроса: (Как в существующем документе)
+    *   Требуемые права доступа: Роль `owner`, `admin`, `build_manager`.
+*   **`POST /products/{product_id}/versions/{version_id}/builds/upload-url`**
+    *   Описание: Получение pre-signed URL для загрузки файла билда в S3.
+    *   Тело запроса: (Как в существующем документе)
+    *   Требуемые права доступа: Роль `owner`, `admin`, `build_manager`.
+*   **`POST /products/{product_id}/versions/{version_id}/builds/upload-complete`**
+    *   Описание: Уведомление сервиса об успешной загрузке билда в S3.
+    *   Тело запроса: (Как в существующем документе)
+    *   Требуемые права доступа: Роль `owner`, `admin`, `build_manager`.
+
+#### 3.1.4. Публикация и Модерация
+*   **`POST /products/{product_id}/submit-for-review`**
+    *   Описание: Отправка продукта (и его текущей черновой версии метаданных/билдов) на модерацию.
+    *   Ответ: `{ "data": { "status": "pending_moderation" } }`
+    *   Требуемые права доступа: Роль `owner`, `admin`, `release_manager`.
+*   **`GET /products/{product_id}/moderation-status`**
+    *   Описание: Получение текущего статуса модерации для продукта.
     *   Требуемые права доступа: Участник команды разработчика.
 
-#### 3.1.2. Управление Продуктами (Игры/Games)
-*   **`POST /games`**
-    *   Описание: Создание нового продукта (игры, DLC, ПО) в каталоге разработчика (начальная регистрация).
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "productCreation",
-            "attributes": {
-              "title": "Моя Новая Супер Игра",
-              "product_type": "game"
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 201 Created):
-        ```json
-        {
-          "data": {
-            "type": "game",
-            "id": "game-uuid-xyz",
-            "attributes": {
-              "title": "Моя Новая Супер Игра",
-              "product_type": "game",
-              "status": "draft",
-              "developer_id": "dev-uuid-abc",
-              "created_at": "2024-03-15T12:00:00Z"
-            }
-          }
-        }
-        ```
-    *   Требуемые права доступа: `developer_admin` или `game_manager` в команде.
-*   **`GET /games/{game_id}`**
-    *   Описание: Получение детальной информации о продукте разработчика.
-    *   Пример ответа (Успех 200 OK): (Полная информация о Game, включая GameMetadata, GamePricing и т.д.)
-    *   Требуемые права доступа: Участник команды разработчика (с правами на просмотр игры).
-
-#### 3.1.3. Версии Игр и Загрузка Билдов
-*   **`POST /games/{game_id}/versions`**
-    *   Описание: Создание новой версии для игры (перед загрузкой билдов).
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "gameVersionCreation",
-            "attributes": {
-              "version_name": "1.0.1",
-              "changelog": { "ru-RU": "Исправлены ошибки, улучшена производительность." }
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 201 Created): (Возвращает ID созданной версии)
-    *   Требуемые права доступа: `developer_admin` или `build_manager`.
-*   **`POST /games/{game_id}/versions/{version_id}/builds/upload-url`**
-    *   Описание: Получение pre-signed URL для загрузки файла билда в S3.
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "buildUploadRequest",
-            "attributes": {
-              "file_name": "mygame_v1.0.1_windows_x64.zip",
-              "file_size_bytes": 1073741824,
-              "content_type": "application/zip",
-              "platform": "windows_x64"
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 200 OK):
-        ```json
-        {
-          "data": {
-            "type": "presignedUploadUrl",
-            "attributes": {
-              "upload_url": "https://s3.example.com/bucket/path?AWSAccessKeyId=...",
-              "method": "PUT",
-              "expires_in_seconds": 3600,
-              "internal_build_id": "build-uuid-temp"
-            }
-          }
-        }
-        ```
-    *   Требуемые права доступа: `developer_admin` или `build_manager`.
-*   **`POST /games/{game_id}/versions/{version_id}/builds/upload-complete`**
-    *   Описание: Уведомление сервиса об успешной загрузке билда в S3.
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "buildUploadCompletion",
-            "attributes": {
-              "internal_build_id": "build-uuid-temp",
-              "s3_path": "path/to/mygame_v1.0.1_windows_x64.zip",
-              "file_hash_sha256": "abcdef123..."
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 200 OK): (Обновленный статус версии или билда)
-    *   Требуемые права доступа: `developer_admin` или `build_manager`.
-
-#### 3.1.4. Публикация
-*   **`POST /games/{game_id}/versions/{version_id}/submit-for-review`**
-    *   Описание: Отправка конкретной версии игры на модерацию.
-    *   Пример ответа (Успех 200 OK): `{ "data": { "status": "in_review" } }`
-    *   Требуемые права доступа: `developer_admin` или `release_manager`.
-
-#### 3.1.5. Финансы
+#### 3.1.5. Финансы и Выплаты
+*   **`GET /finance/balance`**
+    *   Описание: Получение текущего финансового баланса разработчика.
+    *   Требуемые права доступа: Роль `owner`, `admin`, `finance_manager`.
+*   **`GET /finance/transactions`**
+    *   Описание: Получение истории финансовых транзакций (продажи, возвраты, комиссии).
+    *   Query параметры: `start_date`, `end_date`, `type`, `page`, `limit`.
+    *   Требуемые права доступа: Роль `owner`, `admin`, `finance_manager`.
 *   **`POST /finance/payouts/requests`**
     *   Описание: Создание запроса на выплату средств.
-    *   Тело запроса:
-        ```json
-        {
-          "data": {
-            "type": "payoutRequest",
-            "attributes": {
-              "amount_minor_units": 5000000,
-              "currency_code": "RUB",
-              "payment_method_id": "bank-account-uuid-123"
-            }
-          }
-        }
-        ```
-    *   Пример ответа (Успех 201 Created): (Информация о созданном запросе на выплату)
-    *   Требуемые права доступа: `developer_admin` или `finance_manager`.
+    *   Тело запроса: (Как в существующем документе)
+    *   Требуемые права доступа: Роль `owner`, `admin`, `finance_manager`.
+*   **`GET /finance/payouts/requests`**
+    *   Описание: Получение истории запросов на выплаты.
+    *   Требуемые права доступа: Роль `owner`, `admin`, `finance_manager`.
+
+#### 3.1.6. Аналитика
+*   **`GET /analytics/products/{product_id}/summary`**
+    *   Описание: Получение сводной аналитики по продукту (продажи, DAU, MAU). Проксирует запрос к Analytics Service.
+    *   Query параметры: `period` (например, `last_7_days`, `last_30_days`, `custom_range`).
+    *   Требуемые права доступа: Участник команды разработчика.
+*   **`GET /analytics/reports`**
+    *   Описание: Запрос на генерацию или получение списка доступных отчетов от Analytics Service.
+    *   Требуемые права доступа: Участник команды разработчика.
+
+#### 3.1.7. API Ключи Разработчика
+*   **`POST /api-keys`**
+    *   Описание: Создание нового API ключа для разработчика.
+    *   Тело запроса: `{"data": {"type": "apiKeyCreation", "attributes": {"name": "CI/CD Key", "permissions": ["upload_build:game_id_123"], "expires_at": "YYYY-MM-DDTHH:mm:ssZ"}}}`
+    *   Ответ: (Возвращает созданный API ключ **один раз**)
+    *   Требуемые права доступа: Роль `owner`, `admin`.
+*   **`GET /api-keys`**
+    *   Описание: Получение списка API ключей (без самих значений ключей, только метаданные).
+    *   Требуемые права доступа: Роль `owner`, `admin`.
+*   **`DELETE /api-keys/{api_key_id}`**
+    *   Описание: Отзыв (удаление) API ключа.
+    *   Требуемые права доступа: Роль `owner`, `admin`.
 
 ### 3.2. gRPC API
-*   Developer Service в основном **потребляет** gRPC API других сервисов (например, Auth Service для валидации токенов разработчиков, Catalog Service для получения информации о статусе их продуктов, Payment Service для финансовых данных).
-*   На данный момент Developer Service **не предоставляет** публично доступных gRPC методов для других сервисов. Если в будущем потребуется специфичное межсервисное взаимодействие, где Developer Service будет выступать сервером, оно будет спроектировано и задокументировано отдельно.
+*   На данный момент Developer Service в основном **потребляет** gRPC API других сервисов.
+*   Могут быть определены внутренние gRPC эндпоинты для специфичных задач, например, для взаимодействия с CLI-утилитой для разработчиков, если таковая будет. Если такие эндпоинты появятся, они будут задокументированы здесь.
+    *   `{{TODO: Определить gRPC API, если потребуется для CLI или других внутренних нужд.}}`
 
 ### 3.3. WebSocket API
-*   Не планируется для Developer Service на данном этапе.
+*   Не планируется для Developer Service на данном этапе. Может быть рассмотрено в будущем для real-time уведомлений на Портале Разработчика.
 
 ## 4. Модели Данных (Data Models)
 См. также `../../../../project_database_structure.md`.
 
 ### 4.1. Основные Сущности
-*   **`Developer` (Разработчик/Издатель)** (Как в существующем документе)
-*   **`DeveloperTeamMember` (Член Команды Разработчика)** (Как в существующем документе)
-*   **`Game` (Продукт/Игра)**
-    *   (Как в существующем документе, с добавлением)
-    *   `draft_metadata` (JSONB): Временное хранилище метаданных продукта, редактируемых разработчиком перед отправкой в Catalog Service. Структура соответствует модели метаданных Catalog Service.
-    *   `draft_pricing` (JSONB): Временное хранилище предложений по ценам, редактируемых разработчиком.
-*   **`GameVersion` (Версия Продукта)** (Как в существующем документе)
-*   **`GameMetadataLocalized`**: Эта сущность управляется и хранится преимущественно в **Catalog Service**. Developer Service взаимодействует с API Catalog Service для предложения изменений или просмотра этих данных. В Developer Service поле `Game.draft_metadata` используется для подготовки этих данных.
-    *   Поля: `game_id`, `language_code`, `title`, `description_short`, `description_full`, `system_requirements`, `media_references`, `tags`, `genres`.
-*   **`GamePricing`**: Эта сущность управляется и хранится преимущественно в **Catalog Service**. Developer Service предоставляет интерфейс для разработчиков, чтобы предлагать базовые цены и участвовать в промо-акциях, которые затем применяются и управляются через Catalog Service. В Developer Service поле `Game.draft_pricing` используется для подготовки этих данных.
-    *   Поля: `product_id`, `region_code`, `currency_code`, `base_amount`, `discount_rules`.
-
-*   **`DeveloperPayout` (Выплата Разработчику)**
-    *   `id` (UUID): Уникальный идентификатор запроса на выплату.
-    *   `developer_id` (UUID, FK to Developer): ID разработчика. Обязательность: Required.
-    *   `amount_requested_minor` (BIGINT): Сумма запроса в минимальных единицах валюты. Обязательность: Required.
-    *   `currency_code` (VARCHAR(3)): Код валюты. Обязательность: Required.
-    *   `status` (VARCHAR(50)): Статус (`pending_request`, `processing`, `completed`, `failed`, `cancelled`). Обязательность: Required.
-    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса (для истории и аудита). Обязательность: Required.
-    *   `requested_at` (TIMESTAMPTZ), `processed_at` (TIMESTAMPTZ).
-    *   `transaction_id_payment_service` (UUID): ID транзакции в Payment Service. Обязательность: Optional.
-    *   `comment_developer` (TEXT): Комментарий от разработчика.
-    *   `comment_admin` (TEXT): Комментарий от администратора/финансового отдела.
-
-*   **`DeveloperAPIKey` (API Ключ Разработчика)**
-    *   `id` (UUID): Уникальный идентификатор ключа.
-    *   `developer_id` (UUID, FK to Developer): ID разработчика, которому принадлежит ключ. Обязательность: Required.
-    *   `name` (VARCHAR(100)): Имя ключа, задаваемое разработчиком для идентификации. Пример: `ci_cd_pipeline_key`. Валидация: not null. Обязательность: Required.
-    *   `prefix` (VARCHAR(8)): Первые несколько символов ключа (для отображения и быстрой идентификации). Пример: `dvk_`. Валидация: not null, unique. Обязательность: Required.
-    *   `key_hash` (VARCHAR(255)): Хеш API ключа (сам ключ не хранится). Валидация: not null, unique. Обязательность: Required.
-    *   `permissions` (JSONB): Список разрешений, связанных с этим API ключом (например, `upload_build`, `manage_metadata`). Обязательность: Required, default `[]`.
-    *   `last_used_at` (TIMESTAMPTZ): Время последнего использования ключа. Обязательность: Optional.
-    *   `expires_at` (TIMESTAMPTZ): Время истечения срока действия ключа. Обязательность: Optional (может быть бессрочным).
-    *   `created_at` (TIMESTAMPTZ): Время создания. Обязательность: Required.
-    *   `is_active` (BOOLEAN): Активен ли ключ. Обязательность: Required, default `true`.
+*   **`DeveloperAccount` (Аккаунт Разработчика/Издателя)**
+    *   `id` (UUID, PK)
+    *   `owner_user_id` (UUID, FK на User в Auth Service): Пользователь-владелец аккаунта.
+    *   `company_name` (VARCHAR), `legal_entity_type` (VARCHAR), `tax_id` (VARCHAR), `country_code` (CHAR(2)).
+    *   `contact_email` (VARCHAR), `contact_phone` (VARCHAR, nullable).
+    *   `status` (VARCHAR: `pending_verification`, `active`, `suspended`, `rejected`).
+    *   `verification_documents` (JSONB, ссылки на S3).
+    *   `created_at`, `updated_at`.
+*   **`DeveloperTeamMember` (Член Команды Разработчика)**
+    *   `developer_account_id` (UUID, PK, FK на DeveloperAccount).
+    *   `user_id` (UUID, PK, FK на User в Auth Service).
+    *   `role_in_team` (VARCHAR: `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`, `marketing_manager`).
+    *   `permissions_override` (JSONB, nullable): Индивидуальные переопределения прав.
+    *   `invited_by_user_id` (UUID, FK на User), `joined_at`.
+*   **`ProductSubmission` (Представление Продукта/Черновик)**: Используется для хранения данных о продукте, пока он находится в разработке или на модерации в Developer Service, перед отправкой в Catalog Service.
+    *   `id` (UUID, PK)
+    *   `developer_account_id` (UUID, FK).
+    *   `catalog_product_id` (UUID, nullable): ID продукта в Catalog Service (после успешной первой синхронизации).
+    *   `product_type` (VARCHAR: `game`, `dlc`, `software`, `bundle`).
+    *   `status` (VARCHAR: `draft`, `in_review`, `changes_requested`, `approved_by_developer_service`, `rejected_by_developer_service`).
+    *   `current_version_id` (UUID, FK на `ProductVersion`, nullable).
+    *   `draft_metadata` (JSONB): Полная структура метаданных, включая локализованные поля (названия, описания), системные требования, платформы, языки, теги, жанры, категории, медиа-ссылки (на загруженные в S3 файлы).
+    *   `draft_pricing` (JSONB): Предлагаемые цены (базовая, региональные), информация о скидках.
+    *   `moderation_notes_to_admin` (TEXT, nullable).
+    *   `moderation_feedback_from_admin` (TEXT, nullable).
+    *   `created_at`, `updated_at`, `submitted_at`.
+*   **`ProductVersion` (Версия Продукта)**
+    *   `id` (UUID, PK)
+    *   `product_submission_id` (UUID, FK на ProductSubmission).
+    *   `version_name` (VARCHAR, например, "1.0.0", "Beta 2.1").
+    *   `status` (VARCHAR: `draft`, `uploading_builds`, `ready_for_submission`, `submitted_for_review`, `live`, `deprecated`).
+    *   `changelog` (JSONB, локализованный).
+    *   `created_at`, `updated_at`.
+*   **`BuildArtifact` (Артефакт Билда)**
+    *   `id` (UUID, PK)
+    *   `product_version_id` (UUID, FK на ProductVersion).
+    *   `platform` (VARCHAR: `windows_x64`, `linux_x86_64`, `macos_arm64`, `android_arm64v8a`, `ios_arm64`).
+    *   `s3_path` (VARCHAR): Путь к файлу билда в S3.
+    *   `file_name` (VARCHAR), `file_size_bytes` (BIGINT), `file_hash_sha256` (VARCHAR).
+    *   `status` (VARCHAR: `uploading`, `uploaded`, `processing`, `ready`, `failed_processing`).
+    *   `upload_expires_at` (TIMESTAMPTZ, для pre-signed URL).
+    *   `created_at`, `updated_at`.
+*   **`DeveloperPayoutRequest` (Запрос на Выплату)** (переименовано из `DeveloperPayout` для ясности)
+    *   `id` (UUID, PK).
+    *   `developer_account_id` (UUID, FK).
+    *   `amount_requested_minor_units` (BIGINT), `currency_code` (VARCHAR(3)).
+    *   `status` (VARCHAR: `pending_request`, `pending_approval`, `processing`, `completed`, `failed`, `cancelled`).
+    *   `payment_method_id` (UUID, FK на `DeveloperPaymentMethod` - отдельная таблица для хранения реквизитов).
+    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса.
+    *   `requested_at`, `approved_at`, `processed_at`.
+    *   `transaction_id_payment_service` (UUID, nullable).
+    *   `comment_developer` (TEXT, nullable), `comment_admin` (TEXT, nullable).
+*   **`DeveloperPaymentMethod` (Платежный Метод Разработчика)**
+    *   `id` (UUID, PK).
+    *   `developer_account_id` (UUID, FK).
+    *   `method_type` (VARCHAR: `bank_transfer_ru`, `swift_transfer`, `crypto_wallet_placeholder`).
+    *   `details_encrypted` (TEXT): Зашифрованные банковские реквизиты или адрес кошелька.
+    *   `is_default` (BOOLEAN), `is_verified` (BOOLEAN).
+    *   `created_at`, `updated_at`.
+*   **`DeveloperAPIKey` (API Ключ Разработчика)** (Как описано ранее)
 
 ### 4.2. Схема Базы Данных
 
 #### 4.2.1. PostgreSQL
-**ERD Диаграмма (обновленная):**
+**ERD Диаграмма:**
 ```mermaid
 erDiagram
-    DEVELOPERS {
+    DEVELOPER_ACCOUNTS {
         UUID id PK
-        UUID owner_user_id FK "User(Auth)"
+        UUID owner_user_id FK "USERS(id) from AuthSvc"
         VARCHAR company_name
         VARCHAR legal_entity_type
         VARCHAR tax_id
-        VARCHAR contact_email
+        VARCHAR contact_email UK
         VARCHAR status
+        JSONB verification_documents
         TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
     DEVELOPER_TEAM_MEMBERS {
-        UUID developer_id PK FK
-        UUID user_id PK FK "User(Auth)"
+        UUID developer_account_id PK FK
+        UUID user_id PK FK "USERS(id) from AuthSvc"
         VARCHAR role_in_team
+        JSONB permissions_override
+        UUID invited_by_user_id FK "USERS(id) from AuthSvc"
         TIMESTAMPTZ joined_at
     }
-    GAMES {
+    PRODUCT_SUBMISSIONS {
         UUID id PK
-        UUID developer_id FK
-        VARCHAR title
+        UUID developer_account_id FK
+        UUID catalog_product_id "nullable, FK to CatalogSvc.PRODUCTS(id)"
         VARCHAR product_type
         VARCHAR status
+        UUID current_version_id "nullable, FK to PRODUCT_VERSIONS(id)"
         JSONB draft_metadata
         JSONB draft_pricing
+        TEXT moderation_notes_to_admin
+        TEXT moderation_feedback_from_admin
         TIMESTAMPTZ created_at
-        TIMESTAMPTZ published_at
+        TIMESTAMPTZ updated_at
+        TIMESTAMPTZ submitted_at
     }
-    GAME_VERSIONS {
+    PRODUCT_VERSIONS {
         UUID id PK
-        UUID game_id FK
+        UUID product_submission_id FK
         VARCHAR version_name
         VARCHAR status
         JSONB changelog
-        VARCHAR build_s3_path
-        VARCHAR build_platform
-        TIMESTAMPTZ uploaded_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
-    DEVELOPER_PAYOUTS {
+    BUILD_ARTIFACTS {
         UUID id PK
-        UUID developer_id FK
-        BIGINT amount_requested_minor
+        UUID product_version_id FK
+        VARCHAR platform
+        VARCHAR s3_path
+        VARCHAR file_name
+        BIGINT file_size_bytes
+        VARCHAR file_hash_sha256
+        VARCHAR status
+        TIMESTAMPTZ upload_expires_at
+        TIMESTAMPTZ created_at
+    }
+    DEVELOPER_PAYMENT_METHODS {
+        UUID id PK
+        UUID developer_account_id FK
+        VARCHAR method_type
+        TEXT details_encrypted
+        BOOLEAN is_default
+        BOOLEAN is_verified
+        TIMESTAMPTZ created_at
+    }
+    DEVELOPER_PAYOUT_REQUESTS {
+        UUID id PK
+        UUID developer_account_id FK
+        BIGINT amount_requested_minor_units
         VARCHAR currency_code
         VARCHAR status
-        JSONB payment_method_snapshot
+        UUID payment_method_id FK
+        JSONB payment_method_details_snapshot
         TEXT comment_developer
         TEXT comment_admin
         UUID transaction_id_payment_service "nullable"
@@ -441,7 +469,7 @@ erDiagram
     }
     DEVELOPER_API_KEYS {
         UUID id PK
-        UUID developer_id FK
+        UUID developer_account_id FK
         VARCHAR name
         VARCHAR prefix UK
         VARCHAR key_hash UK
@@ -452,63 +480,151 @@ erDiagram
         TIMESTAMPTZ created_at
     }
 
-    DEVELOPERS ||--o{ DEVELOPER_TEAM_MEMBERS : "has"
-    DEVELOPERS ||--o{ GAMES : "develops"
-    DEVELOPERS ||--o{ DEVELOPER_PAYOUTS : "requests"
-    DEVELOPERS ||--o{ DEVELOPER_API_KEYS : "owns"
-    GAMES ||--o{ GAME_VERSIONS : "has"
-
-    GAMES ..|> CATALOG_SERVICE_PRODUCTS : "Proposes/Views Metadata & Pricing via API"
-    CATALOG_SERVICE_PRODUCTS {
-        note "Managed by Catalog Service"
-    }
+    DEVELOPER_ACCOUNTS ||--o{ DEVELOPER_TEAM_MEMBERS : "has team"
+    DEVELOPER_ACCOUNTS ||--o{ PRODUCT_SUBMISSIONS : "submits"
+    DEVELOPER_ACCOUNTS ||--o{ DEVELOPER_PAYMENT_METHODS : "has payment methods"
+    DEVELOPER_ACCOUNTS ||--o{ DEVELOPER_PAYOUT_REQUESTS : "requests payouts"
+    DEVELOPER_ACCOUNTS ||--o{ DEVELOPER_API_KEYS : "owns API keys"
+    PRODUCT_SUBMISSIONS ||--o{ PRODUCT_VERSIONS : "has versions"
+    PRODUCT_VERSIONS ||--o{ BUILD_ARTIFACTS : "has builds"
+    DEVELOPER_PAYMENT_METHODS ||--o{ DEVELOPER_PAYOUT_REQUESTS : "used for"
 ```
 
-**DDL (PostgreSQL - дополнения для `developer_payouts`, `developer_api_keys` и уточнение `games`):**
+**DDL (PostgreSQL - примеры для новых/ключевых таблиц):**
 ```sql
--- Добавление полей draft_metadata и draft_pricing в таблицу games, если она уже существует
--- ALTER TABLE games ADD COLUMN draft_metadata JSONB;
--- ALTER TABLE games ADD COLUMN draft_pricing JSONB;
--- COMMENT ON COLUMN games.draft_metadata IS 'Черновик метаданных продукта, редактируемый разработчиком (структура соответствует Catalog Service)';
--- COMMENT ON COLUMN games.draft_pricing IS 'Черновик предложений по ценам от разработчика (структура соответствует Catalog Service)';
-
-CREATE TABLE developer_payouts (
+-- Аккаунты Разработчиков
+CREATE TABLE developer_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    developer_id UUID NOT NULL REFERENCES developers(id) ON DELETE CASCADE,
-    amount_requested_minor BIGINT NOT NULL CHECK (amount_requested_minor > 0),
+    owner_user_id UUID NOT NULL, -- Внешний ключ на Users из Auth Service
+    company_name VARCHAR(255) NOT NULL,
+    legal_entity_type VARCHAR(100),
+    tax_id VARCHAR(50),
+    country_code CHAR(2) NOT NULL,
+    contact_email VARCHAR(255) NOT NULL UNIQUE,
+    contact_phone VARCHAR(50),
+    status VARCHAR(50) NOT NULL DEFAULT 'pending_verification', -- pending_verification, active, suspended, rejected
+    verification_documents JSONB, -- Ссылки на документы в S3
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON COLUMN developer_accounts.owner_user_id IS 'ID пользователя-владельца из Auth Service';
+
+-- Члены Команды Разработчика
+CREATE TABLE developer_team_members (
+    developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL, -- Внешний ключ на Users из Auth Service
+    role_in_team VARCHAR(50) NOT NULL, -- owner, admin, editor, viewer, finance_manager, build_manager
+    permissions_override JSONB,
+    invited_by_user_id UUID, -- Внешний ключ на Users из Auth Service
+    joined_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (developer_account_id, user_id)
+);
+COMMENT ON COLUMN developer_team_members.user_id IS 'ID пользователя из Auth Service';
+
+-- Представления Продуктов (Черновики)
+CREATE TABLE product_submissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
+    catalog_product_id UUID, -- ID продукта в Catalog Service после первой синхронизации
+    product_type VARCHAR(50) NOT NULL DEFAULT 'game', -- game, dlc, software, bundle
+    status VARCHAR(50) NOT NULL DEFAULT 'draft', -- draft, in_review, changes_requested, approved_by_developer_service
+    current_version_id UUID, -- FK на product_versions(id) - устанавливается позже
+    draft_metadata JSONB,
+    draft_pricing JSONB,
+    moderation_notes_to_admin TEXT,
+    moderation_feedback_from_admin TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    submitted_at TIMESTAMPTZ
+);
+CREATE INDEX idx_product_submissions_developer_id ON product_submissions(developer_account_id);
+CREATE INDEX idx_product_submissions_status ON product_submissions(status);
+
+-- Версии Продуктов
+CREATE TABLE product_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_submission_id UUID NOT NULL REFERENCES product_submissions(id) ON DELETE CASCADE,
+    version_name VARCHAR(100) NOT NULL, -- e.g., "1.0.0", "Beta 2.1"
+    status VARCHAR(50) NOT NULL DEFAULT 'draft', -- draft, uploading_builds, ready_for_submission, submitted_for_review, live, deprecated
+    changelog JSONB, -- Локализованный список изменений
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE product_submissions ADD CONSTRAINT fk_current_version FOREIGN KEY (current_version_id) REFERENCES product_versions(id) ON DELETE SET NULL;
+
+
+-- Артефакты Билдов
+CREATE TABLE build_artifacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_version_id UUID NOT NULL REFERENCES product_versions(id) ON DELETE CASCADE,
+    platform VARCHAR(100) NOT NULL, -- windows_x64, linux_x86_64, macos_arm64, etc.
+    s3_path VARCHAR(1024) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_size_bytes BIGINT NOT NULL,
+    file_hash_sha256 VARCHAR(64),
+    status VARCHAR(50) NOT NULL DEFAULT 'uploading', -- uploading, uploaded, processing, ready, failed_processing
+    upload_expires_at TIMESTAMPTZ, -- Для pre-signed URL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_build_artifacts_version_platform ON build_artifacts(product_version_id, platform);
+
+-- Платежные Методы Разработчиков
+CREATE TABLE developer_payment_methods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
+    method_type VARCHAR(50) NOT NULL, -- bank_transfer_ru, swift_transfer, etc.
+    details_encrypted TEXT NOT NULL, -- Зашифрованные реквизиты
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Запросы на Выплаты
+CREATE TABLE developer_payout_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
+    amount_requested_minor_units BIGINT NOT NULL CHECK (amount_requested_minor_units > 0),
     currency_code VARCHAR(3) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending_request' CHECK (status IN ('pending_request', 'processing', 'completed', 'failed', 'cancelled')),
-    payment_method_details_snapshot JSONB NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending_request', -- pending_request, pending_approval, processing, completed, failed, cancelled
+    payment_method_id UUID NOT NULL REFERENCES developer_payment_methods(id),
+    payment_method_details_snapshot JSONB NOT NULL, -- Снимок реквизитов на момент запроса
     comment_developer TEXT,
     comment_admin TEXT,
-    transaction_id_payment_service UUID,
+    transaction_id_payment_service UUID, -- ID транзакции в Payment Service
     requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    approved_at TIMESTAMPTZ,
     processed_at TIMESTAMPTZ
 );
-CREATE INDEX idx_developer_payouts_developer_id ON developer_payouts(developer_id);
-CREATE INDEX idx_developer_payouts_status ON developer_payouts(status);
+CREATE INDEX idx_developer_payout_requests_developer_id ON developer_payout_requests(developer_account_id);
+CREATE INDEX idx_developer_payout_requests_status ON developer_payout_requests(status);
 
+-- API Ключи Разработчиков
 CREATE TABLE developer_api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    developer_id UUID NOT NULL REFERENCES developers(id) ON DELETE CASCADE,
+    developer_account_id UUID NOT NULL REFERENCES developer_accounts(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     prefix VARCHAR(8) NOT NULL UNIQUE,
     key_hash VARCHAR(255) NOT NULL UNIQUE,
-    permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    permissions JSONB NOT NULL DEFAULT '[]'::jsonb, -- Список разрешений ключа
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     expires_at TIMESTAMPTZ,
     last_used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_developer_api_keys_developer_id ON developer_api_keys(developer_id);
+CREATE INDEX idx_developer_api_keys_developer_id ON developer_api_keys(developer_account_id);
 ```
 
-#### 4.2.2. S3-совместимое хранилище
-*   **Роль:** Хранение бинарных файлов.
-*   **Структура:**
-    *   Билды игр: `s3://<bucket-name-game-builds>/<developer_id>/<game_id>/<version_id>/<platform>/<filename.zip>`
-    *   Медиа-файлы: `s3://<bucket-name-game-media>/<developer_id>/<game_id>/media/<media_type>/<timestamp_filename.ext>`
-    *   Документы для верификации разработчика: `s3://<bucket-name-developer-documents>/<developer_id>/verification/<document_type>/<filename.pdf>` (с строгими правами доступа).
+#### 4.2.2. Redis
+*   **Сессии Портала Разработчика:** `session:developer:<session_id>` - хранение данных сессии пользователя Портала Разработчика. TTL устанавливается.
+*   **Черновики Форм (опционально):** `form_draft:developer:<user_id>:product_submission:<product_id>` - для сохранения промежуточного состояния больших форм (например, при создании/редактировании продукта). TTL короткий.
+*   **Счетчики Rate Limiting:** Для API эндпоинтов Developer Service (если не управляется централизованно API Gateway).
+
+#### 4.2.3. S3-совместимое хранилище
+*   **Билды игр:** `s3://<bucket-name-game-builds>/<developer_account_id>/<product_submission_id>/<product_version_id>/<platform>/<filename.zip>`
+*   **Медиа-файлы продуктов:** `s3://<bucket-name-product-media>/<developer_account_id>/<product_submission_id>/media/<media_type>/<timestamp_filename.ext>` (например, `screenshots`, `trailers`, `cover_art`)
+*   **Документы для верификации разработчика:** `s3://<bucket-name-developer-documents>/<developer_account_id>/verification/<document_type>/<filename.pdf>` (с строгими правами доступа, возможно шифрование на стороне сервера S3).
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
 
@@ -521,103 +637,364 @@ CREATE INDEX idx_developer_api_keys_developer_id ON developer_api_keys(developer
     *   `data` Payload:
         ```json
         {
-          "developerId": "dev-uuid-abc",
-          "ownerUserId": "user-uuid-owner",
+          "developerAccountId": "dev-uuid-abc",
+          "ownerUserId": "user-uuid-owner", // ID пользователя из Auth Service
           "companyName": "Моя Игровая Студия",
           "contactEmail": "dev@example.com",
           "status": "pending_verification",
-          "creationTimestamp": "2024-03-18T10:00:00Z"
+          "creationTimestamp": "2024-07-11T10:00:00Z"
         }
         ```
     *   Потребители: Admin Service (для начала процесса верификации), Notification Service.
-*   **`com.platform.developer.game.submitted.v1`**
-    *   Описание: Разработчик отправил игру/версию на модерацию.
+*   **`com.platform.developer.product.submitted.v1`**
+    *   Описание: Разработчик отправил продукт (игру, DLC и т.д.) или его новую версию на модерацию.
     *   `data` Payload:
         ```json
         {
-          "developerId": "dev-uuid-abc",
-          "gameId": "game-uuid-xyz",
-          "versionId": "version-uuid-123",
-          "versionName": "1.0.1",
-          "submittedAt": "2024-03-15T14:30:00Z",
+          "developerAccountId": "dev-uuid-abc",
+          "productSubmissionId": "prodsub-uuid-xyz", // ID черновика/представления в Developer Service
+          "catalogProductId": null, // Будет заполнен после создания в Catalog Service
+          "productType": "game",
+          "versionName": "1.0.0", // Если это подача конкретной версии
+          "titles": {"ru-RU": "Моя Игра", "en-US": "My Game"}, // Ключевые метаданные
+          "submissionTimestamp": "2024-07-11T14:30:00Z",
           "submittedByUserId": "user-uuid-dev-member"
         }
         ```
-    *   Потребители: Admin Service (для начала процесса модерации).
-*   **`com.platform.developer.game.published.v1`**
-     *   Описание: Разработчик опубликовал одобренную игру/версию (или она была опубликована автоматически после одобрения).
+    *   Потребители: Admin Service (для начала процесса модерации), Catalog Service (для создания/обновления записи о продукте).
+*   **`com.platform.developer.product.published.v1`**
+     *   Описание: Разработчик опубликовал одобренный продукт/версию (или он был опубликован автоматически после одобрения).
     *   `data` Payload:
         ```json
         {
-          "developerId": "dev-uuid-abc",
-          "gameId": "game-uuid-xyz",
-          "versionId": "version-uuid-123",
-          "publishedAt": "2024-03-16T10:00:00Z",
+          "developerAccountId": "dev-uuid-abc",
+          "productSubmissionId": "prodsub-uuid-xyz",
+          "catalogProductId": "cat-prod-uuid-123",
+          "versionName": "1.0.0",
+          "publishedAt": "2024-07-11T16:00:00Z",
           "publishedByUserId": "user-uuid-dev-member"
         }
         ```
-    *   Потребители: Catalog Service, Download Service, Notification Service.
-*   **`com.platform.developer.game.metadata.updated.v1`**
-    *   Описание: Разработчик обновил метаданные для своего продукта (черновик сохранен в Developer Service, событие информирует о возможном последующем запросе на модерацию/публикацию в Catalog Service).
+    *   Потребители: Catalog Service (для обновления статуса), Download Service (для подготовки билдов к скачиванию), Notification Service, Analytics Service.
+*   **`com.platform.developer.build.uploaded.v1`**
+    *   Описание: Разработчик успешно загрузил новый билд для версии продукта.
     *   `data` Payload:
         ```json
         {
-          "developerId": "dev-uuid-abc",
-          "gameId": "game-uuid-xyz",
-          "updatedFields": ["descriptions", "system_requirements", "tags"],
-          "updateTimestamp": "2024-03-18T11:00:00Z",
-          "submittedByUserId": "user-uuid-dev-member"
+            "developerAccountId": "dev-uuid-abc",
+            "productSubmissionId": "prodsub-uuid-xyz",
+            "productVersionId": "ver-uuid-456",
+            "buildArtifactId": "build-uuid-789",
+            "platform": "windows_x64",
+            "fileName": "mygame_v1.0.0.zip",
+            "s3Path": "path/to/build.zip",
+            "uploadTimestamp": "2024-07-11T15:00:00Z"
         }
         ```
-    *   Потребители: Catalog Service (для обновления своего представления, если это прямой пуш, или для информации), Admin Service (если требуется модерация изменений).
+    *   Потребители: Download Service (для обработки и подготовки билда), Admin Service (информация для модерации).
 *   **`com.platform.developer.payout.requested.v1`**
     *   Описание: Разработчик запросил выплату средств.
     *   `data` Payload:
         ```json
         {
           "payoutRequestId": "payout-uuid-789",
-          "developerId": "dev-uuid-abc",
+          "developerAccountId": "dev-uuid-abc",
           "amountMinorUnits": 5000000,
           "currencyCode": "RUB",
-          "requestedAt": "2024-03-17T09:00:00Z",
-          "paymentMethodId": "bank-account-uuid-123"
+          "requestedAt": "2024-07-11T09:00:00Z",
+          "paymentMethodId": "dev-pm-uuid-123"
         }
         ```
-    *   Потребители: Payment Service.
+    *   Потребители: Payment Service (для обработки выплаты), Admin Service (для финансового контроля).
+*   **`com.platform.developer.api_key.created.v1`**
+    *   Описание: Разработчик создал новый API ключ.
+    *   `data` Payload: `{"developerAccountId": "dev-uuid-abc", "apiKeyId": "devkey-uuid-123", "name": "CI/CD Key", "prefix": "dpk_", "permissions": ["upload_build"], "creationTimestamp": "ISO8601"}`
+    *   Потребители: Auth Service (для регистрации ключа, если требуется централизованное управление), Admin Service (для аудита).
 
 ### 5.2. Потребляемые События (Consumed Events)
-(Содержимое существующего раздела актуально, с коррекцией имен событий на формат `com.platform.*`).
+*   **`com.platform.admin.product.moderation.status.changed.v1`** (от Admin Service)
+    *   Описание: Статус модерации продукта изменен администратором.
+    *   Ожидаемый `data` Payload: `{"productId": "prodsub-uuid-xyz", "newStatus": "approved", "moderatorComment": "Все отлично!", "decisionTimestamp": "ISO8601"}`
+    *   Логика обработки: Обновить статус `ProductSubmission`. Уведомить разработчика через Notification Service. Если статус `approved`, разрешить публикацию.
+*   **`com.platform.analytics.developer_report.ready.v1`** (от Analytics Service)
+    *   Описание: Ежемесячный или запрошенный отчет по аналитике для разработчика готов.
+    *   Ожидаемый `data` Payload: `{"developerAccountId": "dev-uuid-abc", "reportId": "report-uuid-analytics", "reportType": "monthly_sales", "s3PathToReport": "path/to/report.pdf", "generationTimestamp": "ISO8601"}`
+    *   Логика обработки: Сохранить ссылку на отчет, уведомить разработчика.
+*   **`com.platform.payment.payout.status.changed.v1`** (от Payment Service)
+    *   Описание: Статус запроса на выплату разработчику изменен.
+    *   Ожидаемый `data` Payload: `{"payoutRequestId": "payout-uuid-789" /* ID из Developer Service */, "newStatus": "completed", "transactionId": "payment-txn-uuid", "processedAt": "ISO8601", "details": "Выплата успешно проведена."}`
+    *   Логика обработки: Обновить статус `DeveloperPayoutRequest`. Уведомить разработчика.
+*   **`com.platform.catalog.product.live_status.changed.v1`** (от Catalog Service)
+    *   Описание: Продукт, поданный разработчиком, был опубликован в основном каталоге или снят с публикации.
+    *   Ожидаемый `data` Payload: `{"catalogProductId": "cat-prod-uuid-123", "developerSuppliedId": "prodsub-uuid-xyz", "newLiveStatus": "published", "changeTimestamp": "ISO8601"}`
+    *   Логика обработки: Обновить соответствующий статус в Developer Service, чтобы разработчик видел актуальное состояние своего продукта в магазине.
 
 ## 6. Интеграции (Integrations)
-(Содержимое существующего раздела актуально).
+См. `../../../../project_integrations.md` для общей карты и деталей.
+*   **Auth Service:** Для аутентификации пользователей Портала Разработчика и управления Developer API ключами. Developer Service вызывает gRPC методы Auth Service.
+*   **Catalog Service:** Developer Service передает метаданные продуктов, цены, информацию о билдах в Catalog Service для публикации. Может запрашивать у Catalog Service текущий статус продуктов. Взаимодействие через Kafka и/или gRPC/REST.
+*   **Admin Service:** Получает от Developer Service продукты на модерацию (через Kafka). Developer Service потребляет события об изменении статуса модерации от Admin Service.
+*   **Payment Service:** Developer Service отправляет запросы на выплаты в Payment Service (через Kafka или API). Получает обновления статуса выплат.
+*   **Analytics Service:** Developer Service запрашивает агрегированные данные и отчеты по продуктам разработчика у Analytics Service через его API для отображения в Портале Разработчика.
+*   **Download Service:** Developer Service уведомляет Download Service о новых доступных билдах (через Kafka или API), передавая информацию о местоположении в S3.
+*   **Notification Service:** Используется для отправки различных уведомлений разработчикам (статус модерации, финансовые операции, важные объявления платформы).
+*   **S3-совместимое хранилище:** Для хранения билдов игр, медиа-контента, документов верификации.
 
 ## 7. Конфигурация (Configuration)
-(Содержимое существующего раздела YAML и описание переменных окружения в целом актуальны).
+Общие стандарты конфигурационных файлов (формат YAML, структура, управление переменными окружения и секретами) определены в `../../../../project_api_standards.md` (раздел 7) и `../../../../DOCUMENTATION_GUIDELINES.md` (раздел 6).
+
+### 7.1. Переменные Окружения (Примеры)
+*   `DEVELOPER_HTTP_PORT`: Порт для REST API Developer Service (например, `8082`)
+*   `POSTGRES_DSN_DEVELOPER`: Строка подключения к PostgreSQL.
+*   `REDIS_ADDR_DEVELOPER`: Адрес Redis.
+*   `KAFKA_BROKERS_DEVELOPER`: Список брокеров Kafka.
+*   `S3_ENDPOINT_BUILDS`, `S3_ACCESS_KEY_BUILDS`, `S3_SECRET_KEY_BUILDS`, `S3_BUCKET_GAME_BUILDS`.
+*   `S3_BUCKET_PRODUCT_MEDIA`, `S3_BUCKET_DEVELOPER_DOCS`.
+*   `AUTH_SERVICE_GRPC_ADDR`, `CATALOG_SERVICE_API_ADDR`, `PAYMENT_SERVICE_API_ADDR`, `ANALYTICS_SERVICE_API_ADDR`.
+*   `LOG_LEVEL_DEVELOPER`: Уровень логирования.
+*   `JWT_PUBLIC_KEY_PATH`: Путь к публичному ключу для валидации JWT.
+
+### 7.2. Файлы Конфигурации (`configs/developer_service_config.yaml`)
+```yaml
+http_server:
+  port: ${DEVELOPER_HTTP_PORT:"8082"}
+  timeout_seconds: 30
+postgres:
+  dsn: ${POSTGRES_DSN_DEVELOPER}
+  pool_max_conns: 10
+redis:
+  address: ${REDIS_ADDR_DEVELOPER}
+  password: ${REDIS_PASSWORD_DEVELOPER:""}
+  db: ${REDIS_DB_DEVELOPER:1}
+kafka:
+  brokers: ${KAFKA_BROKERS_DEVELOPER}
+  producer_topics:
+    developer_events: ${KAFKA_TOPIC_DEVELOPER_EVENTS:"com.platform.developer.events.v1"}
+  consumer_topics:
+    admin_moderation_events: "com.platform.admin.product.moderation.status.changed.v1"
+    analytics_reports_events: "com.platform.analytics.developer_report.ready.v1"
+    payment_payout_events: "com.platform.payment.payout.status.changed.v1"
+  consumer_group: "developer-service-group"
+s3_storage:
+  builds:
+    endpoint: ${S3_ENDPOINT_BUILDS}
+    access_key: ${S3_ACCESS_KEY_BUILDS}
+    secret_key: ${S3_SECRET_KEY_BUILDS}
+    bucket: ${S3_BUCKET_GAME_BUILDS}
+    region: "ru-central1"
+  media:
+    bucket: ${S3_BUCKET_PRODUCT_MEDIA}
+  documents:
+    bucket: ${S3_BUCKET_DEVELOPER_DOCS}
+integrations:
+  auth_service_grpc_addr: ${AUTH_SERVICE_GRPC_ADDR}
+  # ... другие адреса
+logging:
+  level: ${LOG_LEVEL_DEVELOPER:"info"}
+security:
+  jwt_public_key_path: ${JWT_PUBLIC_KEY_PATH}
+  max_build_size_gb: 50
+  max_media_file_size_mb: 100
+```
 
 ## 8. Обработка Ошибок (Error Handling)
-(Содержимое существующего раздела актуально, форматы ошибок исправлены в разделе API).
+*   Используются стандартные HTTP коды состояния для REST API и форматы ошибок согласно `../../../../project_api_standards.md`.
+*   Внутренние ошибки сервиса логируются с высоким уровнем детализации, включая `trace_id`.
+*   Пользователям Портала Разработчика отображаются понятные сообщения об ошибках.
+### 8.1. Распространенные Коды Ошибок (специфичные для Developer Service)
+*   **`DEVELOPER_ACCOUNT_NOT_FOUND`**: Аккаунт разработчика не найден.
+*   **`PRODUCT_SUBMISSION_NOT_FOUND`**: Черновик/заявка на продукт не найдена.
+*   **`BUILD_UPLOAD_FAILED`**: Ошибка при загрузке билда.
+*   **`PAYOUT_REQUEST_INVALID_AMOUNT`**: Некорректная сумма для запроса выплаты.
+*   **`MAX_PRODUCTS_LIMIT_REACHED`**: Достигнут лимит на количество продуктов для разработчика.
+*   **`UNSUPPORTED_BUILD_PLATFORM`**: Указанная платформа для билда не поддерживается.
+*   **`LEGAL_AGREEMENT_NOT_ACCEPTED`**: Требуется принятие актуального юридического соглашения.
 
 ## 9. Безопасность (Security)
-(Содержимое существующего раздела в целом актуально).
-*   **ФЗ-152 "О персональных данных":** Developer Service обрабатывает ПДн разработчиков (ФИО контактных лиц, email, телефон, юридические и банковские реквизиты ИП/самозанятых). Необходимо обеспечить шифрование этих данных при хранении и передаче, строгое управление доступом, получение согласий на обработку ПДн.
-*   Ссылки на `../../../../project_security_standards.md` и `../../../../project_roles_and_permissions.md` актуальны.
+См. `../../../../project_security_standards.md` для общих стандартов.
+*   **Аутентификация:** Пользователи Портала Разработчика аутентифицируются через Auth Service (JWT). API ключи используются для автоматизированных систем.
+*   **Авторизация:** RBAC внутри команды разработчика. Developer Service проверяет права доступа для всех операций.
+*   **Защита данных:**
+    *   **ФЗ-152 "О персональных данных":** Developer Service обрабатывает ПДн разработчиков (ФИО контактных лиц, email, телефон, юридические и банковские реквизиты ИП/самозанятых). Необходимо обеспечить шифрование этих данных при хранении (например, `details_encrypted` в `DeveloperPaymentMethod`) и передаче, строгое управление доступом, получение согласий на обработку ПДн.
+    *   Загружаемые билды и медиа-файлы должны сканироваться на вирусы и вредоносное ПО.
+    *   Безопасное хранение API ключей (только хеши).
+*   **Защита от атак:** Стандартные меры (валидация ввода, CSRF-токены для веб-форм, защита от XSS). Rate limiting на API.
 
 ## 10. Развертывание (Deployment)
-(Содержимое существующего раздела актуально).
+(Содержимое существующего раздела актуально, ссылки на `../../../../project_deployment_standards.md` актуальны).
 
 ## 11. Мониторинг и Логирование (Logging and Monitoring)
-(Содержимое существующего раздела актуально).
+(Содержимое существующего раздела актуально, ссылки на `../../../../project_observability_standards.md` актуальны).
 
 ## 12. Нефункциональные Требования (NFRs)
-(Содержимое существующего раздела актуально).
+*   **Производительность Портала Разработчика:** P95 < 500мс для большинства операций. Загрузка дашбордов с аналитикой P95 < 2с.
+*   **Процесс загрузки билдов:** Должен поддерживать файлы до 50-100 ГБ ({{TODO: Уточнить максимальный размер билда}}). Скорость загрузки зависит от S3 и сети клиента.
+*   **Надежность:** Доступность сервиса > 99.9%.
+*   **Масштабируемость:** Поддержка до 10,000+ активных разработчиков/издателей и 100,000+ продуктов.
 
 ## 13. Приложения (Appendices)
 *   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API (если будут использоваться) поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
 *   DDL схемы базы данных управляются через систему миграций (например, `golang-migrate/migrate`) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
 
-## 14. Резервное Копирование и Восстановление (Backup and Recovery)
+## 14. Пользовательские Сценарии (User Flows)
 
-### 14.1. PostgreSQL (Данные аккаунтов разработчиков, черновики продуктов, запросы на выплаты и т.д.)
+В этом разделе описаны ключевые пользовательские сценарии, связанные с Developer Service.
+
+### 14.1. Регистрация Нового Разработчика/Издателя и Настройка Профиля
+*   **Описание:** Новый пользователь платформы решает стать разработчиком/издателем, регистрирует аккаунт разработчика, заполняет юридическую информацию и настраивает профиль команды.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor User
+        participant DevPortal as Developer Portal
+        participant AuthSvc as Auth Service
+        participant DevSvc as Developer Service
+        participant Kafka as Kafka Message Bus
+        participant AdminSvc as Admin Service
+        participant NotificationSvc as Notification Service
+
+        User->>DevPortal: Нажимает "Стать разработчиком"
+        DevPortal->>AuthSvc: (Если не аутентифицирован) Процесс входа/регистрации пользователя платформы
+        AuthSvc-->>DevPortal: JWT пользователя платформы
+        DevPortal->>DevSvc: POST /api/v1/developer/accounts (данные компании/ИП)
+        DevSvc->>DevSvc: Валидация данных, создание DeveloperAccount (status: 'pending_verification'), привязка UserID как owner
+        DevSvc->>KafkaBus: Publish `com.platform.developer.account.created.v1`
+        DevSvc-->>DevPortal: HTTP 201 Created (developer_account_id)
+        DevPortal-->>User: Сообщение об успешной подаче заявки и необходимости верификации
+
+        KafkaBus-->>AdminSvc: Consume `developer.account.created.v1` -> Задача на верификацию
+        KafkaBus-->>NotificationSvc: Consume `developer.account.created.v1` -> Email разработчику о статусе
+    ```
+
+### 14.2. Разработчик Подает Новую Игру на Рассмотрение
+*   **Описание:** Разработчик создает черновик игры, заполняет все метаданные, загружает билды и медиа, устанавливает цены, а затем отправляет игру на модерацию.
+*   **Диаграмма:** (См. диаграмму "New Game Submission and Approval Process" в разделе 2 или 5, если она там размещена, или адаптировать сюда).
+    ```mermaid
+    sequenceDiagram
+        actor Developer
+        participant DevPortal as Developer Portal
+        participant DevSvc as Developer Service
+        participant S3Store as S3 Storage
+        participant Kafka as Kafka Message Bus
+        participant CatalogSvc as Catalog Service
+        participant AdminSvc as Admin Service
+
+        Developer->>DevPortal: Создает новую игру (POST /products) -> получает product_submission_id
+        Developer->>DevPortal: Редактирует метаданные (PUT /products/{id}, draft_metadata)
+        Developer->>DevPortal: Загружает билд (POST /products/{id}/versions/.../upload-url -> PUT to S3 -> POST .../upload-complete)
+        Developer->>DevPortal: Устанавливает цены (PUT /products/{id}, draft_pricing)
+        Developer->>DevPortal: Нажимает "Отправить на модерацию" (POST /products/{id}/submit-for-review)
+        DevSvc->>DevSvc: Меняет статус ProductSubmission на 'in_review'
+        DevSvc->>Kafka: Publish `com.platform.developer.game.submitted.v1` (product_submission_id)
+
+        CatalogSvc->>Kafka: Consume `game.submitted.v1`
+        CatalogSvc->>CatalogSvc: Создает/обновляет запись в своем каталоге со статусом 'in_review'
+        CatalogSvc->>Kafka: Publish `com.platform.catalog.product.moderation.required.v1`
+
+        AdminSvc->>Kafka: Consume `product.moderation.required.v1`
+        AdminSvc->>AdminSvc: Создание задачи на модерацию
+        Note over AdminSvc: Модератор проверяет игру.
+        AdminSvc->>Kafka: Publish `com.platform.admin.product.moderation.decision.v1` (decision: 'approved'/'rejected')
+
+        DevSvc->>Kafka: Consume `product.moderation.decision.v1`
+        DevSvc->>DevSvc: Обновляет статус ProductSubmission
+        DevSvc->>DevPortal: (Через WebSocket или SSE) Уведомление разработчика о решении
+    ```
+
+### 14.3. Разработчик Загружает Новую Версию/Билд для Опубликованной Игры
+*   **Описание:** Для уже опубликованной игры разработчик создает новую версию, загружает для нее билды и отправляет на модерацию (если требуется для обновлений).
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Developer
+        participant DevPortal as Developer Portal
+        participant DevSvc as Developer Service
+        participant S3Store as S3 Storage
+        participant Kafka as Kafka Message Bus
+
+        Developer->>DevPortal: Выбирает опубликованную игру, нажимает "Создать новую версию"
+        DevPortal->>DevSvc: POST /products/{product_id}/versions (version_name, changelog)
+        DevSvc-->>DevPortal: Ответ (version_id)
+        Developer->>DevPortal: Для новой версии загружает билды (аналогично п.14.2)
+        Developer->>DevPortal: Нажимает "Отправить версию на модерацию/публикацию"
+        DevSvc->>DevSvc: Обновляет статус ProductVersion
+        DevSvc->>Kafka: Publish `com.platform.developer.game_version.submitted.v1` (или аналогичное событие)
+        Note over DevSvc, Kafka: Дальнейший процесс модерации и публикации аналогичен п.14.2.
+    ```
+
+### 14.4. Разработчик Просматривает Аналитику Продаж и Использования
+*   **Описание:** Разработчик заходит в Портал Разработчика, чтобы посмотреть статистику по своим продуктам.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Developer
+        participant DevPortal as Developer Portal
+        participant DevSvc as Developer Service
+        participant AnalyticsSvc as Analytics Service
+
+        Developer->>DevPortal: Переходит в раздел "Аналитика" для игры X
+        DevPortal->>DevSvc: GET /api/v1/developer/analytics/products/{game_id}/summary?period=last_30_days
+        DevSvc->>DevSvc: Проверка прав доступа разработчика к игре X
+        DevSvc->>AnalyticsSvc: (gRPC/REST) Запрос агрегированных данных (developer_id, game_id, period)
+        AnalyticsSvc-->>DevSvc: Данные аналитики (продажи, DAU, MAU и т.д.)
+        DevSvc-->>DevPortal: HTTP 200 OK (данные аналитики)
+        DevPortal-->>Developer: Отображение дашбордов и графиков
+    ```
+
+### 14.5. Разработчик Инициирует Запрос на Выплату Средств
+*   **Описание:** Разработчик, накопив достаточную сумму на балансе, формирует запрос на выплату на свои банковские реквизиты.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor Developer
+        participant DevPortal as Developer Portal
+        participant DevSvc as Developer Service
+        participant Kafka as Kafka Message Bus
+        participant PaymentSvc as Payment Service
+
+        Developer->>DevPortal: Переходит в раздел "Финансы" -> "Выплаты"
+        DevPortal->>DevSvc: GET /finance/balance (получение доступного баланса)
+        DevSvc-->>DevPortal: Баланс
+        Developer->>DevPortal: Заполняет форму запроса на выплату (сумма, платежный метод)
+        DevPortal->>DevSvc: POST /api/v1/developer/finance/payouts/requests (сумма, payment_method_id)
+        DevSvc->>DevSvc: Валидация запроса (баланс, лимиты, статус аккаунта разработчика)
+        DevSvc->>DevSvc: Создание DeveloperPayoutRequest (status: 'pending_approval' или 'pending_request')
+        DevSvc->>Kafka: Publish `com.platform.developer.payout.requested.v1`
+        DevSvc-->>DevPortal: HTTP 201 Created (статус запроса)
+        DevPortal-->>Developer: Уведомление о создании запроса на выплату
+
+        PaymentSvc->>Kafka: Consume `payout.requested.v1`
+        Note over PaymentSvc: Дальнейшая обработка выплаты Payment Service и Admin Service.
+    ```
+
+### 14.6. Разработчик Управляет Членами Команды и Разрешениями
+*   **Описание:** Владелец или администратор аккаунта разработчика добавляет нового участника в команду и назначает ему роли/разрешения.
+*   **Диаграмма:**
+    ```mermaid
+    sequenceDiagram
+        actor DevAdmin as Администратор Команды Разработчика
+        participant DevPortal as Developer Portal
+        participant DevSvc as Developer Service
+        participant UserDB_Auth as Auth Service (User DB - для поиска пользователя)
+        participant NotificationSvc as Notification Service
+
+        DevAdmin->>DevPortal: Переходит в "Управление командой" -> "Добавить участника"
+        DevPortal->>DevSvc: POST /api/v1/developer/accounts/me/team/members (email_приглашаемого, роль_в_команде)
+        DevSvc->>UserDB_Auth: (Через AuthSvc gRPC) Поиск пользователя по email
+        alt Пользователь найден на платформе
+            DevSvc->>DevSvc: Создание записи DeveloperTeamMember (статус 'pending_invitation' или сразу 'active')
+            DevSvc->>NotificationSvc: (Через Kafka/API) Отправка приглашения пользователю на email
+            DevSvc-->>DevPortal: HTTP 201 Created / HTTP 200 OK
+            DevPortal-->>DevAdmin: Участник приглашен / добавлен
+        else Пользователь не найден
+            DevSvc-->>DevPortal: HTTP 404 Not Found (USER_NOT_FOUND_ON_PLATFORM)
+            DevPortal-->>DevAdmin: Ошибка: пользователь не найден на платформе
+        end
+    ```
+
+## 15. Резервное Копирование и Восстановление (Backup and Recovery)
+
+### 15.1. PostgreSQL (Данные аккаунтов разработчиков, черновики продуктов, запросы на выплаты и т.д.)
 *   **Процедура резервного копирования:**
     *   **Логические бэкапы:** Ежедневный `pg_dump` для базы данных Developer Service.
     *   **Физические бэкапы (PITR):** Настроена непрерывная архивация WAL-сегментов. Базовый бэкап создается еженедельно.
@@ -627,7 +1004,7 @@ CREATE INDEX idx_developer_api_keys_developer_id ON developer_api_keys(developer
 *   **RPO (Recovery Point Objective):** < 15 минут.
 *   (Общие принципы см. `../../../../project_database_structure.md`).
 
-### 14.2. S3-совместимое хранилище (Билды игр, медиа-активы, документы верификации)
+### 15.2. S3-совместимое хранилище (Билды игр, медиа-активы, документы верификации)
 *   **Процедура резервного копирования:**
     *   **Версионирование объектов:** Включено для всех бакетов.
     *   **Политики жизненного цикла (Lifecycle Policies):** Настроены для управления старыми версиями и, возможно, для перемещения неактивных билдов в более холодные классы хранения (если применимо).
@@ -638,20 +1015,24 @@ CREATE INDEX idx_developer_api_keys_developer_id ON developer_api_keys(developer
 *   **RTO:** Зависит от объема данных и скорости S3, но обычно быстро для отдельных файлов. Полное восстановление всех данных может занять часы.
 *   **RPO:** Близко к нулю при использовании версионирования и CRR (ограничено временем репликации S3).
 
-### 14.3. Redis (Кэш, сессии Портала Разработчика)
+### 15.3. Redis (Кэш, сессии Портала Разработчика)
 *   **Стратегия:** Данные в Redis в основном являются кэшем или временными сессионными данными.
 *   **Персистентность (опционально):** Может быть включена RDB-снапшотирование и/или AOF для ускорения восстановления после перезапуска Redis.
 *   **Резервное копирование:** Не является критичным для большинства данных, так как они могут быть перестроены из PostgreSQL или пересозданы пользователем.
 *   **RTO/RPO:** Неприменимо в контексте долгосрочного хранения данных. Восстановление функциональности кэша происходит по мере его заполнения.
 
-### 14.4. Общая стратегия
+### 15.4. Общая стратегия
 *   Приоритет отдается восстановлению данных из PostgreSQL и S3.
 *   Процедуры восстановления тестируются и документируются.
 *   Мониторинг процессов резервного копирования.
 
-## 15. Связанные Рабочие Процессы (Related Workflows)
+## 16. Приложения (Appendices)
+*   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API (если будут использоваться) поддерживаются в соответствующих репозиториях исходного кода сервиса и/или в централизованном репозитории `platform-protos`.
+*   DDL схемы базы данных управляются через систему миграций (например, `golang-migrate/migrate`) и хранятся в репозитории исходного кода сервиса. Актуальные версии доступны во внутренней документации команды разработки и в GitOps репозитории.
+
+## 17. Связанные Рабочие Процессы (Related Workflows)
 *   [Подача разработчиком новой игры на модерацию](../../../../project_workflows/game_submission_flow.md)
-*   [Процесс выплат разработчикам] <!-- Workflow будет создан и описан в project_workflows/developer_payout_flow.md -->
+*   [Процесс выплат разработчикам] <!-- {{TODO: Workflow будет создан и описан в project_workflows/developer_payout_flow.md}} -->
 
 ---
 *Этот документ является основной спецификацией для Developer Service и должен поддерживаться в актуальном состоянии.*
