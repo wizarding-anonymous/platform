@@ -1,20 +1,34 @@
-# [Service Name: payment-service]
+# Payment Service (Сервис Платежей)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for payment-service].
+Payment Service отвечает за обработку всех финансовых транзакций на платформе "Российский Аналог Steam", включая покупки, возвраты, фискализацию, управление балансами и выплаты разработчикам.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for payment-service]
+*   Интеграция с российскими платежными системами (СБП, МИР, ЮMoney) для обработки входящих платежей.
+*   Управление жизненным циклом транзакций, включая покупки, возвраты и выплаты.
+*   Обеспечение фискализации операций в соответствии с 54-ФЗ через Операторов Фискальных Данных (ОФД).
+*   Управление балансами разработчиков, расчет комиссий и организация выплат.
+*   Поддержка промокодов и подарочных сертификатов.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for payment-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Java/Kotlin (с использованием Spring Boot)
+*   **API:** RESTful API, gRPC (для внутренних коммуникаций)
+*   **Базы данных:** PostgreSQL (основное хранилище транзакционных данных)
+*   **Кэширование/Сессии:** Redis
+*   **Очереди сообщений:** Apache Kafka (для асинхронной обработки событий)
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for payment-service]
+*   **Внешние платежные шлюзы и ОФД:** Для проведения платежей и фискализации.
+*   **Account Service:** Получение данных о пользователях.
+*   **Catalog Service:** Получение информации о ценах и продуктах.
+*   **Library Service:** Уведомление о покупках для предоставления доступа к контенту.
+*   **Developer Service:** Взаимодействие по вопросам балансов и выплат разработчикам.
+*   **Notification Service:** Отправка уведомлений о финансовых операциях.
+*   **API Gateway:** Маршрутизация клиентских запросов.
+*   **Auth Service:** Валидация аутентификации.

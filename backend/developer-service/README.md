@@ -1,20 +1,32 @@
-# [Service Name: developer-service]
+# Developer Service (Сервис Портала Разработчиков)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for developer-service].
+Developer Service предоставляет интерфейс (Портал Разработчика) и API для разработчиков и издателей игр, позволяя им управлять своими аккаунтами, загружать и обновлять продукты (игры, DLC), настраивать метаданные и цены, а также отслеживать аналитику и финансовые показатели на платформе "Российский Аналог Steam".
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for developer-service]
+*   Управление аккаунтами разработчиков, включая команды и роли доступа.
+*   Полный цикл управления продуктами: создание, загрузка билдов, управление версиями, метаданными, медиа-контентом и ценообразованием.
+*   Подача продуктов на модерацию и отслеживание их статуса публикации.
+*   Доступ к аналитике по продажам и использованию продуктов, а также управление финансовыми операциями и выплатами.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for developer-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST (Echo/Gin)
+*   **Базы данных:** PostgreSQL (основное хранилище), Redis (кэширование)
+*   **Хранилище файлов:** S3-совместимое объектное хранилище (для билдов и медиа)
+*   **Сообщения/События:** Apache Kafka
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for developer-service]
+*   **Auth Service:** Аутентификация разработчиков и управление API ключами.
+*   **Catalog Service:** Передача метаданных и информации о продуктах для публикации в общем каталоге.
+*   **Payment Service:** Обработка запросов на выплаты и получение финансовой информации.
+*   **Admin Service:** Взаимодействие в рамках процесса модерации контента.
+*   **Analytics Service:** Предоставление данных для панели аналитики разработчиков.
+*   **Download Service:** Передача информации о билдах для организации скачивания пользователями.
+*   **Notification Service:** Отправка уведомлений разработчикам.

@@ -1,20 +1,33 @@
-# [Service Name: library-service]
+# Library Service (Сервис Библиотеки Пользователя)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for library-service].
+Library Service управляет личными библиотеками игр и приложений пользователей, включая отслеживание игрового времени, управление достижениями, списком желаемого и синхронизацию игровых сохранений в облаке на платформе "Российский Аналог Steam".
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for library-service]
+*   Управление доступом к приобретенным играм, их отображение и организация в библиотеке пользователя.
+*   Отслеживание игрового времени и прогресса по достижениям для каждой игры.
+*   Синхронизация игровых сохранений с облачным хранилищем (S3) и между устройствами пользователя.
+*   Управление списком желаемого и пользовательскими настройками игр.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for library-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST (Echo/Gin), gRPC, WebSocket
+*   **Базы данных:** PostgreSQL (основное хранилище), Redis (кэширование, оперативные данные)
+*   **Облачное хранилище:** S3-совместимое (для игровых сохранений)
+*   **Сообщения/События:** Apache Kafka
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for library-service]
+*   **Account Service:** Получение информации о пользователе.
+*   **Catalog Service:** Получение метаданных игр и достижений.
+*   **Payment Service:** Получение событий о покупках для добавления игр в библиотеку.
+*   **Download Service:** Обновление статуса установки игр и инициирование загрузок.
+*   **Social Service:** Публикация событий об игровых активностях (например, разблокировка достижений).
+*   **Auth Service:** Аутентификация пользователей.
+*   **API Gateway:** Маршрутизация клиентских запросов.
+*   **S3-совместимое хранилище:** Хранение файлов игровых сохранений.

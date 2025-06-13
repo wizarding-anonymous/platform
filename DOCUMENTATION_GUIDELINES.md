@@ -74,18 +74,18 @@ By following these guidelines, we aim to maintain a high-quality, reliable, and 
 Effective configuration management is essential for deploying and running microservices reliably across different environments. This section outlines the standard approach to managing configuration within the project.
 
 ### 6.1. Naming Conventions and Formats
-*   **Preferred Format:** JSON (`.json`) is the preferred format for configuration files due to its widespread support and readability. Environment variables can also be used, especially for sensitive data or settings that vary frequently between deployment environments.
-*   **Default File Name:** Each microservice should include a default configuration file named `config.default.json` or `config.example.json` in its root directory. This file should contain all possible configuration keys with non-sensitive default values suitable for local development or as a template.
+*   **Preferred Format:** YAML (`.yaml` or `.yml`) is the preferred format for configuration files due to its widespread support and readability. Environment variables can also be used, especially for sensitive data or settings that vary frequently between deployment environments.
+*   **Default File Name:** Each microservice should include a default configuration file named `config.default.yaml` or `config.example.yaml` in its root directory. This file should contain all possible configuration keys with non-sensitive default values suitable for local development or as a template.
 *   **Environment-Specific Files:** For different environments (development, testing, staging, production), configurations can be managed by:
     *   Using environment variables to override defaults.
-    *   Employing environment-specific configuration files (e.g., `config.dev.json`, `config.prod.json`) that are loaded based on an environment indicator (like `NODE_ENV` or a custom environment variable). **These environment-specific files (especially those with secrets) should NOT be committed to version control.** Add them to the service's `.gitignore` file.
-*   **Hierarchy:** Applications should load the `config.default.json` first, then override values with an environment-specific file if it exists, and finally override with any relevant environment variables.
+    *   Employing environment-specific configuration files (e.g., `config.dev.yaml`, `config.prod.yaml`) that are loaded based on an environment indicator (like `NODE_ENV` or a custom environment variable). **These environment-specific files (especially those with secrets) should NOT be committed to version control.** Add them to the service's `.gitignore` file.
+*   **Hierarchy:** Applications should load the `config.default.yaml` first, then override values with an environment-specific file if it exists, and finally override with any relevant environment variables.
 
 ### 6.2. Handling Secrets
 *   **Never commit secrets** (API keys, database passwords, etc.) directly into configuration files in the repository.
 *   Use environment variables for secrets, injected at deployment time (e.g., via CI/CD pipeline, Kubernetes Secrets, Docker Swarm Secrets).
 *   Alternatively, use a dedicated secrets management tool (e.g., HashiCorp Vault). If such a tool is adopted, its usage should be documented here.
-*   The `config.default.json` or `config.example.json` should use placeholder values for secrets (e.g., `"apiKey": "YOUR_API_KEY_HERE"`).
+*   The `config.default.yaml` or `config.example.yaml` should use placeholder values for secrets (e.g., `apiKey: YOUR_API_KEY_HERE`).
 
 ### 6.3. Configuration Schema and Validation
 *   While not strictly enforced by a central tool yet, it is highly recommended that each microservice:
@@ -93,7 +93,7 @@ Effective configuration management is essential for deploying and running micros
     *   Implements validation logic at startup to ensure all required configurations are present and correctly formatted. The service should fail to start if critical configurations are missing or invalid.
 
 ### 6.4. Example Configuration Structure (Illustrative)
-A `config.default.json` for a typical microservice might look like this:
+A `config.default.json` for a typical microservice might look like this. **Note: This example uses JSON for illustration. YAML is the preferred format as per `project_api_standards.md`, which also contains YAML examples.**
 
 ```json
 {
@@ -118,8 +118,8 @@ A `config.default.json` for a typical microservice might look like this:
 ```
 
 ### 6.5. Microservice Configuration Templates
-*   Each microservice, when created, should include a `config.default.json` (or `config.example.json`) in its root directory, reflecting the necessary configuration keys for that service.
-*   A `.gitignore` file within each microservice should list environment-specific config files like `config.dev.json`, `config.prod.json`, `*.local.json`, `.env` to prevent accidental commits of sensitive or environment-specific data.
+*   Each microservice, when created, should include a `config.default.yaml` (or `config.example.yaml`) in its root directory, reflecting the necessary configuration keys for that service.
+*   A `.gitignore` file within each microservice should list environment-specific config files like `config.dev.yaml`, `config.prod.yaml`, `*.local.yaml`, `.env` to prevent accidental commits of sensitive or environment-specific data.
 
 ## 7. Documenting and Executing Tests
 

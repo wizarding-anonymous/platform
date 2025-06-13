@@ -1,20 +1,32 @@
-# [Service Name: download-service]
+# Download Service (Сервис Загрузок)
 
-## Overview
+## Обзор (Overview)
 
-This document provides a brief overview of the service.
-This service is a microservice within the Russian Steam analog platform. Its primary purpose is to [TODO: Add a brief one-sentence description of the service's main purpose for download-service].
+Download Service отвечает за эффективную и надежную доставку игрового контента (игр, обновлений, DLC) и клиентского приложения платформы "Российский Аналог Steam" на устройства пользователей.
 
-**For detailed specification, please see: [./docs/README.md](./docs/README.md)**
+**Подробная спецификация находится здесь: [./docs/README.md](./docs/README.md)**
 
-## Core Functionality (Summary)
+## Ключевые Функциональности (Core Functionality - Summary)
 
-*   [TODO: List 2-3 core functionalities for download-service]
+*   Управление процессами загрузки и обновления игр и клиентского приложения, включая приостановку, возобновление и управление очередью.
+*   Обеспечение целостности загружаемых файлов путем проверки хеш-сумм и поддержка дельта-обновлений.
+*   Взаимодействие с сетями доставки контента (CDN) для оптимизации скорости и надежности загрузки.
+*   Предоставление real-time информации о прогрессе загрузок клиентскому приложению.
 
-## Technologies (Summary)
+## Основные Технологии (Technologies - Summary)
 
-*   [TODO: List key technologies for download-service, e.g., Go, PostgreSQL, Kafka]
+*   **Язык программирования:** Go
+*   **API:** REST, gRPC, WebSocket
+*   **Базы данных:** PostgreSQL (метаданные загрузок), Redis (кэширование, очереди, статусы)
+*   **Хранилище файлов (временное):** S3-совместимое (если необходимо для staging перед CDN)
+*   **Сообщения/События:** Apache Kafka
+*   **Сети Доставки Контента (CDN):** Интеграция с различными CDN-провайдерами.
 
-## Integrations (Summary)
+## Ключевые Интеграции (Key Integrations - Summary)
 
-*   [TODO: Briefly mention key integrations for download-service]
+*   **API Gateway:** Проксирование REST API и WebSocket соединений.
+*   **Catalog Service:** Получение метаданных игр, информации о версиях и файловых манифестов.
+*   **Library Service:** Проверка прав пользователя на загрузку и обновление статуса установки.
+*   **Auth Service:** Аутентификация пользователей.
+*   **Account Service:** Получение пользовательских настроек, связанных с загрузками.
+*   **CDN Провайдеры:** Непосредственная загрузка файлов клиентами.
