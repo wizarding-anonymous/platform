@@ -1,0 +1,49 @@
+# config.yaml.example - Copy to config.yaml and customize
+
+server:
+  http_port: "8080" # Env: SERVER_HTTP_PORT
+  grpc_port: "50051" # Env: SERVER_GRPC_PORT
+  graceful_shutdown_timeout_sec: 10 # Env: SERVER_GRACEFUL_SHUTDOWN_TIMEOUT_SEC
+
+log:
+  level: "info" # debug, info, warn, error, fatal. Env: LOG_LEVEL
+  format: "json" # text, json. Env: LOG_FORMAT
+
+postgres:
+  host: "localhost"                 # Env: POSTGRES_HOST
+  port: "5432"                      # Env: POSTGRES_PORT
+  user: "auth_user"                 # Env: POSTGRES_USER
+  password: "your_auth_password"    # Env: AUTH_POSTGRES_PASSWORD (recommended for actual password)
+  db_name: "auth_db"                # Env: POSTGRES_DB_NAME
+  ssl_mode: "disable"               # Env: POSTGRES_SSL_MODE (use 'require' or 'verify-full' for production)
+  pool_max_conns: 10                # Env: POSTGRES_POOL_MAX_CONNS
+
+redis:
+  host: "localhost"                 # Env: REDIS_HOST
+  port: "6379"                      # Env: REDIS_PORT
+  password: ""                      # Env: AUTH_REDIS_PASSWORD (if Redis requires a password)
+  db: 0                             # Env: REDIS_DB
+
+jwt:
+  # These secrets are for HS256 if used. For RS256, key paths are primary.
+  access_token_secret: "dummy_hs256_access_secret_if_needed"
+  refresh_token_secret: "dummy_hs256_refresh_secret_if_needed"
+  access_token_expiry_min: 15       # Env: JWT_ACCESS_TOKEN_EXPIRY_MIN
+  refresh_token_expiry_days: 7      # Env: JWT_REFRESH_TOKEN_EXPIRY_DAYS
+  issuer: "russian-steam.auth-service" # Env: JWT_ISSUER
+  audience: "russian-steam.api"        # Env: JWT_AUDIENCE
+  # For RS256 (primary method for this service):
+  # private_key_path: "configs/keys/jwtRS256.key" # These are now under rsa_keys
+  # public_key_path: "configs/keys/jwtRS256.key.pub"
+
+rsa_keys:
+  private_path: "./configs/keys/jwtRS256.key" # Relative to running binary. Env: RSA_KEYS_PRIVATE_PATH
+  public_path: "./configs/keys/jwtRS256.key.pub"  # Env: RSA_KEYS_PUBLIC_PATH
+
+kafka:
+  brokers: "localhost:9092" # Comma-separated list. Env: KAFKA_BROKERS
+  topic_prefix: "com.platform.auth." # Env: KAFKA_TOPIC_PREFIX
+
+services:
+  # Topic for Notification Service to pick up email verification requests
+  notification_service_topic: "com.platform.notification.requests.v1" # Env: SERVICES_NOTIFICATION_SERVICE_TOPIC

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/russian-steam/auth-service/proto/auth/v1;authv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Service for authentication and authorization related operations
+service AuthService {
+  // Validates an access token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  bool is_valid = 1;
+  string user_id = 2; // empty if not valid
+  string username = 3; // empty if not valid
+  string email = 4; // empty if not valid
+  repeated string roles = 5; // empty if not valid
+  google.protobuf.Timestamp expires_at = 6; // empty if not valid
+  string error_message = 7; // if not valid, provides a reason
+}
