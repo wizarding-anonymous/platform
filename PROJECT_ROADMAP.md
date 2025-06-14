@@ -12,11 +12,11 @@ The MVP focuses on delivering the core functionality of the platform, enabling u
 ### 1. Components/Microservices Implemented in MVP:
 
 *   **Auth Service (New - Core):**
-    *   Handles user registration (email/password, initial status `pending_verification`).
-    *   Manages user authentication (login/logout via email/password).
-    *   Issues and validates JWT (Access Token RS256, Refresh Token). Manages Refresh Token lifecycle (storage, revocation via JTI blacklist in Redis).
-    *   Handles basic email verification process (generates code, verifies code).
-    *   Utilizes Go, PostgreSQL (users, refresh tokens, verification codes), Redis (JTI blacklist, session info if any). Key integration with API Gateway (token validation) and Account Service (user creation event).
+    *   Handles user registration (email/password, initial status `pending_verification`). (DONE - MVP)
+    *   Manages user authentication (login/logout via email/password). (DONE - MVP)
+    *   Issues and validates JWT (Access Token RS256, Refresh Token). Manages Refresh Token lifecycle (storage, revocation via JTI blacklist in Redis). (DONE - MVP)
+    *   Handles basic email verification process (generates code, verifies code). (DONE - MVP)
+    *   Utilizes Go, PostgreSQL (users, refresh tokens, verification codes), Redis (JTI blacklist, session info if any). Key integration with API Gateway (token validation) and Account Service (user creation event). (DONE - MVP)
 *   **Account Service (New - Core):**
     *   Manages basic user account information (UserID from Auth Service, platform-specific AccountID, status like `active`, `inactive`).
     *   Stores minimal user profile data (e.g., nickname - must be unique, avatar URL - basic).
@@ -59,8 +59,8 @@ The MVP focuses on delivering the core functionality of the platform, enabling u
 
 ### 2. User-Facing Functions Supported in MVP:
 
-*   User registration using email and password; subsequent email verification.
-*   User login with email/password and logout.
+*   User registration using email and password; subsequent email verification. (DONE - MVP)
+*   User login with email/password and logout. (DONE - MVP)
 *   Viewing a list of available games in the catalog (basic listing, no advanced filtering).
 *   Viewing detailed information for a specific game (description, price in RUB, main image/video).
 *   Ability to initiate a purchase for a single game (no shopping cart).
@@ -78,9 +78,9 @@ The MVP focuses on delivering the core functionality of the platform, enabling u
 *   **OFD Integration:** Integration with one Russian OFD provider for fiscal receipt generation.
 *   **CDN/S3 Storage:** Setup and integration for game build hosting and delivery.
 *   **Initial Deployment & CI/CD:** Setup of CI/CD pipelines for MVP services and basic infrastructure. **Проект будет размещен на мощностях российского хостинг-провайдера Beget.** Облачные сервисы (S3-совместимые хранилища, базы данных, Kubernetes), если используются, будут от российских провайдеров (например, Yandex Cloud, VK Cloud, SberCloud), совместимых с инфраструктурой Beget или как часть гибридного решения.
-*   **Security:** Foundational security measures: HTTPS for all endpoints, input validation, protection against common web vulnerabilities (OWASP Top 10 basics like XSS, SQLi prevention), secure JWT handling.
+*   **Security:** Foundational security measures: HTTPS for all endpoints, input validation, protection against common web vulnerabilities (OWASP Top 10 basics like XSS, SQLi prevention), secure JWT handling. (secure JWT handling DONE - MVP)
 *   **Logging & Monitoring:** Basic centralized logging (e.g., ELK/Loki) and monitoring (e.g., Prometheus/Grafana) for all MVP services, focusing on uptime and error rates.
-*   **Testing:** Unit tests for business logic, basic integration tests for service interactions (e.g., Payment -> Library event flow).
+*   **Testing:** Unit tests for business logic (DONE - MVP), basic integration tests for service interactions (e.g., Payment -> Library event flow).
 
 ---
 
