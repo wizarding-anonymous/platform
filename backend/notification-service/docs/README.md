@@ -408,6 +408,24 @@ sequenceDiagram
     *   `body_template_html` (TEXT, Nullable): HTML-шаблон тела. **Обязательность: Нет.**
     *   `body_template_text` (TEXT): Текстовый шаблон тела. **Обязательность: Да.**
     *   `default_payload_variables` (JSONB): Переменные по умолчанию. **Обязательность: Нет.**
+    *   `attachments_config` (JSONB): Конфигурация для генерации вложений (например, PDF-счета, ICS-файлы). **Обязательность: Нет.**
+      Пример:
+      ```json
+          {
+            "example_attachment_type": {
+              "enabled": true,
+              "template": "example_template_name",
+              "generator": "example_generator_tool",
+              "options": {
+                "option1": "value1",
+                "option2": "value2"
+              }
+            },
+            "another_attachment_type": {
+              "enabled": false
+            }
+          }
+      ```
     *   `is_active` (BOOLEAN, Default: true). **Обязательность: Да.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
