@@ -1,0 +1,51 @@
+# config.yaml
+server:
+  http_port: "8080"
+  grpc_port: "50051"
+  graceful_shutdown_timeout_sec: 10
+
+log:
+  level: "info" # debug, info, warn, error, fatal
+  format: "json" # text, json
+
+postgres:
+  host: "localhost"
+  port: "5432"
+  user: "auth_user"
+  password: "auth_password" # Use env var for actual password
+  db_name: "auth_db"
+  ssl_mode: "disable" # require, verify-full, etc. for production
+  pool_max_conns: 10
+
+redis:
+  host: "localhost"
+  port: "6379"
+  password: "" # Use env var if Redis has a password
+  db: 0
+
+jwt:
+  access_token_secret: "your-access-token-secret" # For HS256, for RS256 this will be path to private key
+  refresh_token_secret: "your-refresh-token-secret" # For HS256, for RS256 this will be path to private key
+  access_token_expiry_min: 15 # minutes
+  refresh_token_expiry_days: 7 # days
+  issuer: "russian-steam.auth-service"
+  audience: "russian-steam.api"
+  # For RS256:
+  # private_key_path: "configs/keys/private.pem"
+  # public_key_path: "configs/keys/public.pem"
+
+
+kafka:
+  brokers: "localhost:9092" # Comma-separated list
+  topic_prefix: "com.platform.auth."
+
+# Placeholder for RSA keys (will be generated or provided separately)
+# It's good practice to not commit actual keys to the repository.
+# These paths are relative to the running binary.
+# Consider using environment variables to specify paths or loading from a secure vault.
+rsa_keys:
+  private_path: "./configs/keys/jwtRS256.key"
+  public_path: "./configs/keys/jwtRS256.key.pub"
+
+services:
+  notification_service_topic: "com.platform.notification.requests.v1" # Example topic for sending verification emails

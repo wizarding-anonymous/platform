@@ -1,0 +1,19 @@
+# Compiled binary
+auth-service
+*.exe
+
+# IDE and editor files
+.idea/
+*.vscode/
+*.DS_Store
+
+# Local config overrides (if any)
+config.local.yaml
+
+# Environment files
+.env
+
+# Keys - IMPORTANT: Keys should NOT be committed.
+# This is a safeguard. Ensure keys are managed securely.
+configs/keys/*.pem
+configs/keys/*.key
