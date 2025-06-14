@@ -454,43 +454,134 @@ erDiagram
 -- Таблица тегов
 CREATE TABLE tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name JSONB NOT NULL DEFAULT '{}'::jsonb,
+    name JSONB NOT NULL DEFAULT '{}'::jsonb, -- {"ru": "Экшен", "en": "Action"}
     slug VARCHAR(100) NOT NULL UNIQUE,
-    description JSONB,
+    description JSONB DEFAULT '{}'::jsonb, -- {"ru": "Описание", "en": "Description"}
+    icon_url VARCHAR(500),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    usage_count INTEGER NOT NULL DEFAULT 0, -- Счетчик использования для популярности
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_tags_name_gin ON tags USING GIN (name);
 CREATE INDEX idx_tags_slug ON tags(slug);
+CREATE INDEX idx_tags_is_active ON tags(is_active);
+CREATE INDEX idx_tags_usage_count ON tags(usage_count DESC);
+COMMENT ON TABLE tags IS 'Теги для продуктов (например: "кооператив", "PvP", "открытый мир")';
+COMMENT ON COLUMN tags.name IS 'Локализованное название тега';
+COMMENT ON COLUMN tags.usage_count IS 'Количество продуктов с этим тегом';
 
 -- Связь продуктов и тегов (многие-ко-многим)
 CREATE TABLE product_tags (
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    relevance_score DECIMAL(3,2) DEFAULT 1.0 CHECK (relevance_score BETWEEN 0 AND 1), -- Релевантность тега для продукта
+    added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    added_by UUID, -- ID пользователя или системы, добавившего тег
     PRIMARY KEY (product_id, tag_id)
 );
+CREATE INDEX idx_product_tags_product_id ON product_tags(product_id);
+CREATE INDEX idx_product_tags_tag_id ON product_tags(tag_id);
+CREATE INDEX idx_product_tags_relevance ON product_tags(relevance_score DESC);
+COMMENT ON TABLE product_tags IS 'Связь продуктов с тегами';
+COMMENT ON COLUMN product_tags.relevance_score IS 'Релевантность тега (1.0 = максимальная)';
 
 -- Таблица категорий
 CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name JSONB NOT NULL DEFAULT '{}'::jsonb,
+    parent_id UUID REFERENCES categories(id) ON DELETE CASCADE,
+    name JSONB NOT NULL DEFAULT '{}'::jsonb, -- {"ru": "Игры", "en": "Games"}
     slug VARCHAR(100) NOT NULL UNIQUE,
-    description JSONB,
-    parent_category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    display_order INTEGER DEFAULT 0,
+    description JSONB DEFAULT '{}'::jsonb,
+    icon_url VARCHAR(500),
+    banner_url VARCHAR(500),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_featured BOOLEAN NOT NULL DEFAULT false, -- Отображать на главной
+    metadata JSONB DEFAULT '{}'::jsonb, -- Дополнительные настройки категории
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_categories_name_gin ON categories USING GIN (name);
+CREATE INDEX idx_categories_parent_id ON categories(parent_id);
 CREATE INDEX idx_categories_slug ON categories(slug);
-CREATE INDEX idx_categories_parent_id ON categories(parent_category_id);
+CREATE INDEX idx_categories_name_gin ON categories USING GIN (name);
+CREATE INDEX idx_categories_sort_order ON categories(sort_order);
+CREATE INDEX idx_categories_is_active ON categories(is_active);
+CREATE INDEX idx_categories_is_featured ON categories(is_featured);
+COMMENT ON TABLE categories IS 'Иерархическая структура категорий продуктов';
+COMMENT ON COLUMN categories.parent_id IS 'Ссылка на родительскую категорию для построения дерева';
+COMMENT ON COLUMN categories.is_featured IS 'Флаг для отображения категории на главной странице';
 
 -- Связь продуктов и категорий (многие-ко-многим)
 CREATE TABLE product_categories (
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    is_primary BOOLEAN NOT NULL DEFAULT false, -- Основная категория продукта
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (product_id, category_id)
 );
+CREATE INDEX idx_product_categories_product_id ON product_categories(product_id);
+CREATE INDEX idx_product_categories_category_id ON product_categories(category_id);
+CREATE INDEX idx_product_categories_is_primary ON product_categories(is_primary);
+-- Уникальный индекс для обеспечения только одной основной категории на продукт
+CREATE UNIQUE INDEX idx_product_categories_primary ON product_categories(product_id) WHERE is_primary = true;
+COMMENT ON TABLE product_categories IS 'Связь продуктов с категориями';
+COMMENT ON COLUMN product_categories.is_primary IS 'Флаг основной категории продукта';
+
+-- Предзаполнение базовых категорий
+INSERT INTO categories (name, slug, sort_order) VALUES
+    ('{}"ru": "Игры", "en": "Games"}'::jsonb, 'games', 1),
+    ('{}"ru": "Программное обеспечение", "en": "Software"}'::jsonb, 'software', 2),
+    ('{}"ru": "DLC и дополнения", "en": "DLC & Add-ons"}'::jsonb, 'dlc', 3),
+    ('{}"ru": "Саундтреки", "en": "Soundtracks"}'::jsonb, 'soundtracks', 4);
+
+-- Подкатегории для игр
+INSERT INTO categories (parent_id, name, slug, sort_order)
+SELECT id, name::jsonb, slug, sort_order FROM (
+    SELECT id FROM categories WHERE slug = 'games'
+) parent
+CROSS JOIN (VALUES
+    ('{}"ru": "Экшен", "en": "Action"}', 'action', 1),
+    ('{}"ru": "Приключения", "en": "Adventure"}', 'adventure', 2),
+    ('{}"ru": "Ролевые", "en": "RPG"}', 'rpg', 3),
+    ('{}"ru": "Стратегии", "en": "Strategy"}', 'strategy', 4),
+    ('{}"ru": "Симуляторы", "en": "Simulation"}', 'simulation', 5),
+    ('{}"ru": "Спортивные", "en": "Sports"}', 'sports', 6),
+    ('{}"ru": "Гонки", "en": "Racing"}', 'racing', 7),
+    ('{}"ru": "Инди", "en": "Indie"}', 'indie', 8)
+) AS subcategories(name, slug, sort_order);
+
+-- Триггер для обновления updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_tags_updated_at BEFORE UPDATE ON tags
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Триггер для обновления счетчика использования тегов
+CREATE OR REPLACE FUNCTION update_tag_usage_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE tags SET usage_count = usage_count + 1 WHERE id = NEW.tag_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE tags SET usage_count = usage_count - 1 WHERE id = OLD.tag_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_tag_count_on_product_tags
+    AFTER INSERT OR DELETE ON product_tags
+    FOR EACH ROW EXECUTE FUNCTION update_tag_usage_count();
 
 -- Таблица метаданных достижений
 CREATE TABLE achievement_metadata (
