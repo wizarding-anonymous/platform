@@ -24,21 +24,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Debug GITHUB_WORKSPACE
+        run: echo "GITHUB_WORKSPACE is: ${{ github.workspace }}"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21' # As per project_technology_stack.md
 
       - name: Verify Go Modules
-        working-directory: ./backend/auth-service
+        working-directory: ../backend/auth-service
         run: go mod tidy && git diff --exit-code # Ensures go.mod/go.sum are up-to-date
 
       - name: Run tests
-        working-directory: ./backend/auth-service
+        working-directory: ../backend/auth-service
         run: go test ./... # Run all tests within auth-service
 
       - name: Build Auth Service
-        working-directory: ./backend/auth-service
+        working-directory: ../backend/auth-service
         run: go build -v -o auth-service-binary ./cmd/auth-service/main.go
 
       # Optional: Upload artifact (binary) if needed for later deployment steps
