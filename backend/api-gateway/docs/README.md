@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: API Gateway
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -25,7 +25,7 @@
 *   **Кэширование ответов (опционально):** Возможность кэширования ответов от бэкенд-сервисов для снижения нагрузки и улучшения времени отклика.
 
 ### 1.3. Основные Технологии
-*   **Gateway Software:** {{ выбранный API Gateway: Kong или Tyk }} (согласно `../../../../project_technology_stack.md`). Kong Gateway рассматривается как основной кандидат.
+*   **Gateway Software:** Kong Gateway (основной кандидат) (согласно `../../../../project_technology_stack.md`). Kong Gateway рассматривается как основной кандидат.
 *   **Оркестрация и Управление Конфигурацией:**
     *   Kubernetes (версия 1.25+).
     *   Модель конфигурации: Kubernetes Gateway API CRDs (предпочтительно) или специфичные CRD для выбранного Gateway (например, KongIngress, TykAPIDefinition).
@@ -57,7 +57,7 @@ sequenceDiagram
     participant Client as Клиентское Приложение
     participant Internet as Интернет
     participant IngressK8s as Kubernetes Ingress Controller
-    participant APIGW as API Gateway ({{ выбранный API Gateway: Kong или Tyk }})
+    participant APIGW as API Gateway (Kong Gateway (основной кандидат))
     participant AuthSvc as Auth Service
     participant BackendSvc as Бэкенд Микросервис (например, Account Service)
 

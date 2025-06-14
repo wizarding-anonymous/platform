@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Analytics Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -22,7 +22,7 @@
 
 ### 1.3. Основные Технологии
 *   **API Layer (Слой API и управления):**
-    *   Язык программирования: Go (версия 1.21+) (согласно `../../../../project_technology_stack.md`, предпочтительно для API). Альтернативно Java (Spring Boot) если есть сильная экспертиза.
+    *   Язык программирования: Go (версия 1.21+) (согласно `../../../../project_technology_stack.md`, основной для API Layer). Java (Spring Boot) может рассматриваться для отдельных компонентов API или управления, если это будет признано целесообразным командой.
     *   REST Framework: Echo (`github.com/labstack/echo/v4`) для Go, Spring Boot для Java. (согласно `../../../../PACKAGE_STANDARDIZATION.md`)
     *   GraphQL (потенциально): Apollo Server (Node.js) или Hasura (Go/GraphQL engine) если потребуется.
     *   WebSocket (потенциально): Для real-time дашбордов.
@@ -95,7 +95,7 @@ graph TD
             DWH["Core DWH (ClickHouse: исторические агрегаты, детальные витрины данных)"]
             BatchProcessing -- Агрегированные витрины --> DWH
 
-            MLDataStore["ML Feature Store & Model Artifacts (S3/ClickHouse/PostgreSQL/ Feast/Hopsworks - {{TODO: выбрать/уточнить}} )"]
+            MLDataStore["ML Feature Store & Model Artifacts (S3/ClickHouse/PostgreSQL - [Конкретная реализация ML Feature Store, например, Feast/Hopsworks или кастомное решение, подлежит уточнению])"]
             BatchProcessing -- Признаки для ML --> MLDataStore
             StreamProcessing -- Real-time признаки для ML --> MLDataStore
         end
@@ -223,6 +223,19 @@ graph TD
 
 #### 3.1.1. Ресурс: Метрики (Metrics)
 *   Эндпоинты `GET /metrics/definitions`, `GET /metrics/definitions/{metric_name}`, `GET /metrics/values/{metric_name}` (как в существующем документе, с уточнением прав доступа).
+    *   Пример ответа (Ошибка 404 Not Found для `GET /metrics/values/{metric_name}`):
+        ```json
+        // Example for GET /metrics/values/{metric_name} - Error 404
+        {
+          "errors": [
+            {
+              "code": "METRIC_NOT_FOUND",
+              "title": "Метрика не найдена",
+              "detail": "Метрика с именем 'non_existent_metric' не найдена или для нее нет данных."
+            }
+          ]
+        }
+        ```
 
 #### 3.1.2. Ресурс: Отчеты (Reports)
 *   Эндпоинты `GET /reports/definitions`, `POST /reports/instances`, `GET /reports/instances/{instance_id}`, `GET /reports/instances/{instance_id}/download` (как в существующем документе, с уточнением прав доступа).
@@ -473,8 +486,8 @@ CREATE TABLE data_pipeline_runs (
 COMMENT ON TABLE data_pipeline_runs IS 'Информация о запусках пайплайнов обработки данных.';
 CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs(pipeline_name, status, start_time DESC);
 
--- {{TODO: Добавить таблицы для хранения конфигураций A/B тестов, если это управляется Analytics Service}}
--- {{TODO: Рассмотреть необходимость таблиц для хранения определений алертов, если они не управляются внешними системами типа Alertmanager}}
+-- [Спецификации таблиц для конфигураций A/B тестов будут добавлены здесь, если эта функциональность будет реализована в Analytics Service.]
+-- [Спецификации таблиц для определений алертов будут добавлены здесь, если потребуется их хранение в Analytics Service, а не только в Alertmanager.]
 ```
 #### 4.2.2. ClickHouse (DWH) - DDL Примеры
 *   **Таблица фактов: Игровые сессии (пример)**
@@ -1015,8 +1028,8 @@ CREATE INDEX idx_data_pipeline_runs_name_status_start_time ON data_pipeline_runs
 *   Общие принципы резервного копирования для различных СУБД описаны в `../../../../project_database_structure.md`.
 
 ## 16. Связанные Рабочие Процессы (Related Workflows)
-*   [Генерация аналитического отчета по запросу администратора] <!-- {{TODO: Workflow будет создан и описан в project_workflows/admin_report_generation_flow.md}} -->
-*   [Процесс тренировки и развертывания ML модели для рекомендаций] <!-- {{TODO: Workflow будет создан и описан в project_workflows/ml_model_training_deployment_flow.md}} -->
+*   [Генерация аналитического отчета по запросу администратора] Подробное описание этого рабочего процесса будет добавлено в [admin_report_generation_flow.md](../../../../project_workflows/admin_report_generation_flow.md) (документ в разработке).
+*   [Процесс тренировки и развертывания ML модели для рекомендаций] Подробное описание этого рабочего процесса будет добавлено в [ml_model_training_deployment_flow.md](../../../../project_workflows/ml_model_training_deployment_flow.md) (документ в разработке).
 
 ---
 *Этот документ является отправной точкой и должен регулярно обновляться по мере развития сервиса.*

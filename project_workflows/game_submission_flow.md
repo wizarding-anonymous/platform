@@ -1,3 +1,5 @@
+**Дата последнего обновления:** 2024-07-16
+
 # Developer Submits a New Game for Moderation Workflow
 
 This diagram illustrates the sequence of interactions when a game developer submits a new game for moderation.

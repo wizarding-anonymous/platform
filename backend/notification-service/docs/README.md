@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Notification Service (Сервис Уведомлений)
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -37,7 +37,7 @@
     *   API для создания и управления маркетинговыми кампаниями.
     *   Интеграция с Analytics Service для получения сегментов целевой аудитории.
     *   Планирование времени отправки кампаний.
-    *   (Опционально, {{TODO: Уточнить глубину реализации}}) Базовые механизмы для A/B тестирования заголовков/содержимого уведомлений.
+    *   (Опционально, [A/B Testing: глубина реализации будет уточнена]) Базовые механизмы для A/B тестирования заголовков/содержимого уведомлений.
 *   **Отправка Уведомлений:**
     *   Прием запросов на отправку уведомлений преимущественно через Kafka (для асинхронной обработки).
     *   REST API для прямой отправки одиночных или небольших пакетных уведомлений (например, для административных нужд или тестовых отправок).
@@ -131,10 +131,10 @@ graph TD
             ClickHouseAdapter["Адаптер ClickHouse (Статистика)"]
             RedisAdapter["Адаптер Redis (Кэш, Счетчики)"]
             KafkaProducer["Продюсер Kafka (Статусы уведомлений)"]
-            EmailGatewayClient["Клиент Email Шлюза ({{EMAIL_PROVIDER}})"]
+            EmailGatewayClient["Клиент Email Шлюза ([Выбранный Email Провайдер])"]
             PushGatewayClientFCM["Клиент FCM (Push)"]
             PushGatewayClientAPNS["Клиент APNS (Push)"]
-            SMSGatewayClient["Клиент SMS Шлюза ({{SMS_PROVIDER}})"]
+            SMSGatewayClient["Клиент SMS Шлюза ([Выбранный SMS Провайдер])"]
             WebSocketGatewayClient["Клиент WebSocket Gateway (для In-App)"]
             AccountSvcClient["Клиент Account Service (gRPC/REST)"]
         end
@@ -227,21 +227,61 @@ sequenceDiagram
 (Описания слоев аналогичны предыдущим сервисам, с акцентом на специфику Notification Service: управление шаблонами, предпочтениями, диспетчеризация по каналам, взаимодействие с внешними провайдерами уведомлений.)
 
 ## 3. API Endpoints
-(Раздел API как в существующем документе, с уточнениями payload для /send/direct и добавлением примеров для управления кампаниями)
+Общие принципы и форматы см. `../../../../project_api_standards.md`.
 
-### 3.1.1. Управление Шаблонами Уведомлений
-(Как в существующем документе)
+### 3.1. REST API
+*   **Базовый URL (через API Gateway):** `/api/v1/notifications`
+*   **Аутентификация:** JWT Bearer Token (проверяется API Gateway, UserID и роли передаются в заголовках). Для некоторых эндпоинтов управления может требоваться роль `admin` или `marketing_manager`.
+*   **Формат ответа об ошибке:** Стандартный, согласно `project_api_standards.md`.
 
-### 3.1.2. Управление Пользовательскими Предпочтениями
-(Как в существующем документе)
+#### 3.1.1. Управление Шаблонами Уведомлений
+*   **`POST /templates`**
+    *   Описание: Создание нового шаблона уведомлений.
+    *   Тело запроса: `{"data": {"type": "notificationTemplate", "attributes": {"name": "user_registration_email", "channel": "email", "language": "ru-RU", "subject_template": "Добро пожаловать, {{username}}!", "body_template_html": "<p>Спасибо за регистрацию...</p>", "body_template_text": "Спасибо за регистрацию..."}}}`
+    *   Ответ (201 Created): (Созданный `NotificationTemplate`)
+    *   Пример ошибки (400 Bad Request - VALIDATION_ERROR): `{"errors": [{"code": "VALIDATION_ERROR", "title": "Ошибка валидации", "detail": "Поле 'name' обязательно."}]}`
+*   **`GET /templates`**
+    *   Описание: Получение списка шаблонов (с пагинацией).
+*   **`GET /templates/{template_id}`**
+    *   Описание: Получение конкретного шаблона.
+*   **`PUT /templates/{template_id}`**
+    *   Описание: Обновление шаблона.
 
-### 3.1.3. Отправка Уведомлений (Прямая, для сервисов/админов)
+#### 3.1.2. Управление Пользовательскими Предпочтениями
+*   **`GET /preferences/users/{user_id}`**
+    *   Описание: Получение предпочтений уведомлений для пользователя.
+    *   Ответ: `{"data": {"type": "userNotificationPreferences", "attributes": {"user_id": "...", "preferences": {"marketing_email": {"email": true, "push": false}, "social_activity": {"push": true}}}}}`
+*   **`PUT /preferences/users/{user_id}`**
+    *   Описание: Обновление предпочтений уведомлений пользователя.
+    *   Тело запроса: (Аналогично ответу GET)
+    *   Пример ошибки (401 Unauthorized - если пользователь пытается изменить чужие настройки без прав админа): `{"errors": [{"code": "UNAUTHENTICATED", "title": "Ошибка аутентификации", "detail": "Действие требует аутентификации."}]}`
+    *   Пример ошибки (403 Forbidden - если нет прав): `{"errors": [{"code": "PERMISSION_DENIED", "title": "Доступ запрещен", "detail": "У вас нет прав на изменение этих настроек."}]}`
+
+#### 3.1.3. Отправка Уведомлений (Прямая, для сервисов/админов)
 *   **`POST /send/direct`**
     *   Описание: Прямая отправка уведомления одному или нескольким получателям. Используется для специфических случаев, не покрываемых событийной моделью, или администраторами.
-    *   Тело запроса: (Пример из раздела 5.2, `com.platform.notification.send.request.v1`)
+    *   Тело запроса (аналогично событию `com.platform.notification.send.request.v1`):
+        ```json
+        {
+          "data": {
+            "type": "directNotificationRequest",
+            "attributes": {
+              "recipients": [ // Массив получателей
+                {"user_id": "user-uuid-123", "email_to": "user1@example.com"},
+                {"device_token": "push-token-xyz", "push_platform": "android_ru"}
+              ],
+              "template_name": "custom_admin_message", // Или указать subject/body напрямую
+              "payload_variables": {"message_body": "Важное системное сообщение."},
+              "channel_priority": ["email", "push"], // Предпочтительные каналы
+              "correlation_id": "manual-send-admin-xyz"
+            }
+          }
+        }
+        ```
     *   Ответ (202 Accepted): `{ "data": { "type": "notificationSendResponse", "id": "message-log-uuid", "status": "queued" } }`
+    *   Пример ошибки (404 Not Found - если шаблон не найден): `{"errors": [{"code": "TEMPLATE_NOT_FOUND", "title": "Шаблон не найден", "detail": "Шаблон 'non_existent_template' не найден."}]}`
 
-### 3.1.4. Управление Кампаниями (для Администраторов/Маркетологов)
+#### 3.1.4. Управление Кампаниями (для Администраторов/Маркетологов)
 *   **`POST /campaigns`**
     *   Описание: Создание новой кампании уведомлений.
     *   Тело запроса: `{"data": {"type": "notificationCampaignCreation", "attributes": {"name": "Новогодняя Распродажа 2025", "description": "...", "target_segment_id": "active_shoppers_last_3m", "template_name": "new_year_sale_email", "scheduled_at": "2024-12-20T10:00:00Z"}}}`
@@ -260,7 +300,156 @@ sequenceDiagram
     *   Описание: Возобновить приостановленную кампанию.
 
 ## 4. Модели Данных (Data Models)
-(ERD и DDL для PostgreSQL, описание ClickHouse и Redis как в существующем документе, с уточнениями).
+### 3.2. gRPC API (для межсервисного взаимодействия)
+*   **Пакет:** `notification.v1`
+*   **Файл .proto:** `proto/notification/v1/notification_service.proto` (или в общем репозитории `platform-protos`)
+
+*   **`rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse)`**
+    *   Описание: Отправка уведомления одному или нескольким получателям. Аналогично REST `/send/direct`, но для внутреннего использования.
+    *   Пример запроса:
+        ```protobuf
+        message SendNotificationRequest {
+          string request_id = 1; // Для идемпотентности
+          repeated Recipient recipients = 2;
+          string template_name = 3;
+          map<string, string> payload_variables = 4;
+          repeated string channel_priority = 5; // "email", "push_android_ru", "sms"
+        }
+        message Recipient {
+          string user_id = 1;
+          string email_to = 2;
+          string phone_to = 3;
+          string device_token = 4;
+          string push_platform = 5; // "android_ru", "ios_apns"
+        }
+        ```
+    *   Пример ответа:
+        ```protobuf
+        message SendNotificationResponse {
+          string message_log_id = 1;
+          string status = 2; // "queued", "failed_validation"
+        }
+        ```
+    *   Примеры ошибок gRPC:
+        *   `INVALID_ARGUMENT`: Некорректные параметры в запросе (например, не указан получатель или шаблон).
+        *   `NOT_FOUND`: Шаблон не найден.
+        *   `INTERNAL`: Внутренняя ошибка сервиса при постановке в очередь.
+
+*   **`rpc GetNotificationHistory(GetNotificationHistoryRequest) returns (GetNotificationHistoryResponse)`**
+    *   Описание: Получение истории отправленных уведомлений для пользователя (или по другим критериям).
+    *   Пример запроса:
+        ```protobuf
+        message GetNotificationHistoryRequest {
+          string user_id = 1;
+          int32 page_size = 2;
+          string page_token = 3;
+          google.protobuf.Timestamp time_from = 4;
+          google.protobuf.Timestamp time_to = 5;
+        }
+        ```
+    *   Пример ответа:
+        ```protobuf
+        message NotificationLogEntry {
+          string message_log_id = 1;
+          string template_name = 2;
+          string channel = 3;
+          string status = 4; // "sent", "delivered", "failed", "opened"
+          google.protobuf.Timestamp sent_at = 5;
+          string subject = 6; // Опционально, для email
+        }
+        message GetNotificationHistoryResponse {
+          repeated NotificationLogEntry entries = 1;
+          string next_page_token = 2;
+        }
+        ```
+    *   Примеры ошибок gRPC:
+        *   `UNAUTHENTICATED`/`PERMISSION_DENIED`: Если запрос не от имени пользователя или админа с нужными правами.
+
+*   **`rpc GetUserPreferences(GetUserPreferencesRequest) returns (GetUserPreferencesResponse)`**
+    *   Описание: Получение текущих настроек уведомлений для пользователя.
+    *   Пример запроса: `message GetUserPreferencesRequest { string user_id = 1; }`
+    *   Пример ответа:
+        ```protobuf
+        message UserNotificationPreferences {
+          string user_id = 1;
+          map<string, ChannelPreference> type_preferences = 2; // e.g., "marketing_promo" -> {email:true, push:false}
+          map<string, ChannelSetting> channel_settings = 3;    // e.g., "email" -> {enabled:true, dnd_until:"ISO_timestamp"}
+        }
+        message ChannelPreference {
+          bool email_enabled = 1;
+          bool push_enabled = 2;
+          bool sms_enabled = 3;
+          bool in_app_enabled = 4;
+        }
+        message ChannelSetting {
+          bool globally_enabled = 1;
+          string dnd_until_iso_timestamp = 2;
+        }
+        message GetUserPreferencesResponse {
+          UserNotificationPreferences preferences = 1;
+        }
+        ```
+*   **`rpc SetUserPreferences(SetUserPreferencesRequest) returns (google.protobuf.Empty)`**
+    *   Описание: Установка настроек уведомлений для пользователя.
+    *   Пример запроса: `message SetUserPreferencesRequest { UserNotificationPreferences preferences = 1; }`
+    *   Примеры ошибок gRPC: `INVALID_ARGUMENT` (некорректные значения).
+
+## 4. Модели Данных (Data Models)
+См. также `../../../../project_database_structure.md`.
+
+### 4.1. Основные Сущности (PostgreSQL)
+*   **`NotificationTemplate` (Шаблон Уведомления)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `name` (VARCHAR, UK): Уникальное имя шаблона. **Обязательность: Да.**
+    *   `channel_type` (ENUM: `email`, `push`, `sms`, `in_app`). **Обязательность: Да.**
+    *   `language_code` (VARCHAR(10)). **Обязательность: Да.**
+    *   `subject_template` (TEXT, Nullable): Шаблон темы (для email). **Обязательность: Нет (если канал не email).**
+    *   `body_template_html` (TEXT, Nullable): HTML-шаблон тела. **Обязательность: Нет.**
+    *   `body_template_text` (TEXT): Текстовый шаблон тела. **Обязательность: Да.**
+    *   `default_payload_variables` (JSONB): Переменные по умолчанию. **Обязательность: Нет.**
+    *   `is_active` (BOOLEAN, Default: true). **Обязательность: Да.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`UserNotificationPreferences` (Предпочтения Пользователя)**
+    *   `user_id` (UUID, PK). **Обязательность: Да.**
+    *   `preferences_json` (JSONB): Настройки по типам уведомлений и каналам. **Обязательность: Да (DEFAULT '{}').**
+      Пример: `{"marketing_promo": {"email": true, "push": false}, "social_friend_request": {"push": true, "in_app": true}}`
+    *   `channel_settings_json` (JSONB): Глобальные настройки каналов. **Обязательность: Да (DEFAULT '{}').**
+      Пример: `{"email": {"enabled": true, "dnd_until": null}, "push": {"enabled": true}}`
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`NotificationMessageLog` (Лог Сообщений Уведомлений - для PostgreSQL, краткосрочный)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `recipient_address` (TEXT): Email, телефон, токен устройства. **Обязательность: Да.**
+    *   `channel_type` (ENUM). **Обязательность: Да.**
+    *   `template_name` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `status` (ENUM: `queued`, `sent`, `delivered`, `failed`, `opened`, `clicked`). **Обязательность: Да.**
+    *   `provider_message_id` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `error_message` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `sent_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `last_status_update_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`DeviceToken` (Токен Устройства)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `token` (TEXT, UK). **Обязательность: Да.**
+    *   `platform_type` (ENUM: `android_ru`, `ios_apns`). **Обязательность: Да.**
+    *   `last_registered_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `is_active` (BOOLEAN, Default: true). **Обязательность: Да.**
+*   **`NotificationCampaign` (Кампания Уведомлений)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `name` (VARCHAR). **Обязательность: Да.**
+    *   `description` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `target_segment_id` (VARCHAR, Nullable): ID сегмента из Analytics Service. **Обязательность: Нет (если ручной список).**
+    *   `target_user_ids` (ARRAY_UUID, Nullable): Список ID пользователей. **Обязательность: Нет (если сегмент).**
+    *   `template_name` (VARCHAR, FK). **Обязательность: Да.**
+    *   `status` (ENUM: `draft`, `scheduled`, `active`, `paused`, `completed`, `archived`). **Обязательность: Да (DEFAULT 'draft').**
+    *   `scheduled_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `started_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `completed_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `created_by_admin_id` (UUID). **Обязательность: Да.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 
 #### 4.2.2. ClickHouse (Статистика и Долгосрочные Логи Доставки)
 *   **Таблица `notification_delivery_events` (или `notification_funnel_events`):** Детальные события жизненного цикла уведомлений.
@@ -285,7 +474,60 @@ sequenceDiagram
     *   **Назначение:** Хранение всех событий жизненного цикла уведомлений для анализа воронок, эффективности каналов, шаблонов, кампаний, выявления проблем доставки.
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
-(Как в существующем документе, с уточнением payload для `com.platform.notification.send.request.v1` и добавлением `notification.opened`, `notification.clicked`).
+## 5. Потоковая Обработка Событий (Event Streaming)
+*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
+*   **Основной топик для публикуемых событий:** `com.platform.notification.events.v1`. (для статусов)
+*   **Основной топик для потребляемых запросов на отправку:** `com.platform.notification.send.requests.v1`.
+
+### 5.1. Публикуемые События (Produced Events)
+*   **`com.platform.notification.message.status.updated.v1`**
+    *   Описание: Статус конкретного сообщения изменился (отправлено, доставлено, ошибка, открыто, кликнуто).
+    *   `data` Payload: `{"messageLogId": "msg-uuid", "userId": "user-uuid", "channel": "email", "newStatus": "delivered", "providerStatus": "250 OK", "timestamp": "ISO8601", "campaignId": "camp-uuid", "errorCode": null}`
+*   **`com.platform.notification.user.preferences.updated.v1`**
+    *   Описание: Пользователь обновил свои предпочтения по уведомлениям.
+    *   `data` Payload: `{"userId": "user-uuid", "updatedPreferences": {"marketing_email": {"email": false}}, "timestamp": "ISO8601"}`
+*   **`com.platform.notification.campaign.status.changed.v1`**
+    *   Описание: Статус маркетинговой кампании изменился.
+    *   `data` Payload: `{"campaignId": "camp-uuid", "newName": "Новогодняя Распродажа 2025 Актив", "newStatus": "active", "changeTimestamp": "ISO8601"}`
+
+### 5.2. Потребляемые События (Consumed Events)
+*   **`com.platform.notification.send.request.v1`** (из различных сервисов)
+    *   Топик: `com.platform.notification.send.requests.v1`
+    *   Описание: Запрос на отправку уведомления.
+    *   Ожидаемый `data` Payload:
+        ```json
+        {
+          "recipients": [ // Массив получателей
+            {"user_id": "user-uuid-123", "email_to": "user1@example.com", "phone_to": "+7..."}, // Могут быть указаны конкретные адреса/токены
+            {"user_id": "user-uuid-456"} // Или только user_id, тогда адреса берутся из Account/DeviceToken
+          ],
+          "template_name": "order_confirmation", // Имя шаблона
+          "payload_variables": { // Переменные для шаблона
+            "orderId": "order-uuid-abc",
+            "totalAmount": "1999.00 RUB",
+            "items": [{"name": "Игра X", "price": "999.00 RUB"}]
+          },
+          "channel_priority": ["email", "push_android_ru", "sms"], // Предпочтительные каналы в порядке убывания
+          "correlation_id": "source-service-request-uuid", // Для трассировки
+          "campaign_id": "optional-campaign-uuid" // Если это часть кампании
+        }
+        ```
+*   **`com.platform.auth.user.registered.v1`** (от Auth Service)
+    *   Описание: Зарегистрирован новый пользователь.
+    *   Ожидаемый `data` Payload: `{"userId": "user-uuid-123", "email": "user@example.com", "username": "NewUser", "preferredLanguage": "ru-RU", "verificationCode": "optional_code"}`
+    *   Логика обработки: Отправка приветственного письма или письма с подтверждением email.
+*   **`com.platform.payment.transaction.status.updated.v1`** (от Payment Service)
+    *   Описание: Статус транзакции изменился (например, `completed`).
+    *   Ожидаемый `data` Payload: `{"transactionId": "txn-uuid", "orderId": "order-uuid", "userId": "user-uuid", "status": "completed", "amount": 199900, "currency": "RUB"}`
+    *   Логика обработки: Отправка уведомления об успешной оплате и фискального чека.
+*   **`com.platform.catalog.product.on_sale.v1`** (от Catalog Service, гипотетическое событие для Wishlist)
+    *   Описание: Игра появилась в продаже со скидкой.
+    *   Ожидаемый `data` Payload: `{"productId": "game-uuid-xyz", "gameTitle": "Супер Игра", "discountPercent": 30, "newPrice": "699.00 RUB"}`
+    *   Логика обработки: Найти пользователей, у которых игра в списке желаемого, и отправить им уведомление.
+*   **`com.platform.social.friend.request.received.v1`** (от Social Service)
+    *   Описание: Пользователь получил новый запрос в друзья.
+    *   Ожидаемый `data` Payload: `{"senderId": "user-uuid-sender", "senderNickname": "Друг123", "receiverId": "user-uuid-receiver"}`
+    *   Логика обработки: Отправка уведомления получателю запроса.
 
 ## 6. Интеграции (Integrations)
 (Как в существующем документе).
@@ -303,6 +545,7 @@ sequenceDiagram
 
 ## 9. Безопасность (Security)
 (Как в существующем документе, с акцентом на ФЗ-152 и защиту ПДн в уведомлениях).
+*   **ФЗ-152 "О персональных данных":** Notification Service обрабатывает ПДн пользователей (email, телефон, токены устройств, содержимое уведомлений, которое может содержать ПДн). Все эти данные должны обрабатываться и храниться в соответствии с ФЗ-152 на территории РФ. Пользовательские предпочтения по уведомлениям являются важной частью соблюдения законодательства.
 
 ## 10. Развертывание (Deployment)
 (Как в существующем документе).
@@ -311,7 +554,15 @@ sequenceDiagram
 (Как в существующем документе).
 
 ## 12. Нефункциональные Требования (NFRs)
-(Как в существующем документе).
+*   **Производительность:**
+    *   Время обработки запроса на отправку (от Kafka до передачи провайдеру): P95 < 500 мс.
+    *   Пропускная способность: > 1000 уведомлений/сек (суммарно по всем каналам).
+    *   Задержка доставки Push/SMS (от сервиса до провайдера): P99 < 100 мс.
+*   **Надежность:**
+    *   Гарантированная доставка критичных уведомлений (с механизмами retry).
+    *   Доступность API: 99.95%.
+*   **Масштабируемость:** Горизонтальное масштабирование обработчиков Kafka и API-серверов.
+*   **Максимальное количество уведомлений на пользователя в час:** [Уточнить значение, например, 100] (для предотвращения спама).
 
 ## 13. Приложения (Appendices)
 (Как в существующем документе).
@@ -469,17 +720,18 @@ sequenceDiagram
 
 ## 15. Резервное Копирование и Восстановление (Backup and Recovery)
 (Как в предыдущем моем ответе).
+*   **Данные для бэкапа:** Шаблоны уведомлений, пользовательские предпочтения, история отправленных уведомлений (краткосрочная в PostgreSQL, долгосрочная в ClickHouse), информация о кампаниях, токены устройств.
+*   **Стратегия:** Регулярные бэкапы PostgreSQL и ClickHouse согласно общей стратегии проекта. Redis используется в основном для кэша и оперативных данных, которые могут быть перестроены.
 
 ## 16. Приложения (Appendices)
 (Как в предыдущем моем ответе).
 
 ## 17. Связанные Рабочие Процессы (Related Workflows)
-(Как в предыдущем моем ответе, с добавлением плейсхолдеров для новых воркфлоу).
 *   [Регистрация пользователя и начальная настройка профиля](../../../../project_workflows/user_registration_flow.md)
 *   [Процесс покупки игры и обновления библиотеки пользователя](../../../../project_workflows/game_purchase_flow.md)
 *   [Процесс подачи разработчиком новой игры на модерацию](../../../../project_workflows/game_submission_flow.md)
-*   [Процесс сброса и восстановления пароля](../../../../project_workflows/password_reset_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/password_reset_flow.md}} -->
-*   [Уведомление пользователя о скидке на игру из списка желаемого](../../../../project_workflows/wishlist_sale_notification_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/wishlist_sale_notification_flow.md}} -->
+*   [Процесс сброса и восстановления пароля](../../../../project_workflows/password_reset_flow.md) <!-- [Ссылка на password_reset_flow.md - документ в разработке] -->
+*   [Уведомление пользователя о скидке на игру из списка желаемого](../../../../project_workflows/wishlist_sale_notification_flow.md) <!-- [Ссылка на wishlist_sale_notification_flow.md - документ в разработке] -->
 
 ---
 *Этот документ является основной спецификацией для Notification Service и должен поддерживаться в актуальном состоянии.*

@@ -1,5 +1,8 @@
 # Package Standardization Guidelines
 
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-16
+
 This document outlines the recommended standard packages and libraries for common tasks across microservices. Adhering to these standards helps in maintaining consistency, reducing boilerplate, improving security, and simplifying dependency management.
 
 ## 1. Guiding Principles
@@ -18,42 +21,6 @@ This section will be populated based on the primary programming language(s) used
 **If the primary language is not yet defined, this section should state that and recommend defining it first.**
 
 ---
-**(Example for Node.js/TypeScript - Replace/Adapt as needed)**
-
-### 2.1. Node.js / TypeScript
-*   **TODO: This section is an example and should be removed or replaced if Node.js is not a primary backend language. The project currently focuses on Go, with potential Java/Kotlin and Python for specific services.**
-*   **HTTP Client:**
-    *   **`axios`**: Promise-based HTTP client for the browser and node.js. Widely used, feature-rich, and well-documented.
-    *   *Alternative:* `node-fetch` (for a more lightweight, standard Fetch API experience).
-*   **Logging:**
-    *   **`pino`**: Extremely fast, JSON-based logger. Good for structured logging.
-    *   *Alternative:* `winston` (more flexible, supports multiple transports).
-*   **Web Framework (for REST APIs):**
-    *   **`Express.js`**: Minimal and flexible Node.js web application framework. Vast ecosystem.
-    *   *Alternative:* `Fastify` (focus on speed and low overhead). Consider if performance is paramount.
-*   **gRPC Implementation:**
-    *   **`@grpc/grpc-js`** and **`@grpc/proto-loader`**: Official gRPC libraries for Node.js.
-*   **Environment Variables Management:**
-    *   **`dotenv`**: Loads environment variables from a `.env` file.
-*   **Date/Time Manipulation:**
-    *   **`date-fns`** or **`luxon`**: Modern libraries for date/time manipulation, offering immutability and I18N support. Avoid Moment.js for new projects due to its mutability and size.
-*   **Validation:**
-    *   **`joi`** or **`zod`** (especially for TypeScript): Powerful schema description language and data validator.
-*   **UUID Generation:**
-    *   **`uuid`**: For creating RFC4122 UUIDs.
-*   **Testing:**
-    *   **`Jest`**: A delightful JavaScript Testing Framework with a focus on simplicity.
-    *   *Alternatives:* `Mocha` (flexible, often paired with `Chai` for assertions).
-*   **ORM/Database Interaction (PostgreSQL Example):**
-    *   **`pg` (node-postgres)**: Non-blocking PostgreSQL client for Node.js.
-    *   **`Sequelize`** or **`TypeORM`** (for TypeScript): Promise-based Node.js ORM for Postgres, MySQL, MariaDB, SQLite and Microsoft SQL Server. Choose one and stick to it.
-*   **Caching Client (Redis Example):**
-    *   **`ioredis`**: A robust, performance-focused and full-featured Redis client for Node.js.
-*   **Message Queue Client (Kafka Example):**
-    *   **`kafkajs`**: A modern Apache Kafka client for Node.js.
-
----
-**(End of Node.js/TypeScript Example)**
 
 ### 2.2. Go
 *   **HTTP Framework (REST APIs):**

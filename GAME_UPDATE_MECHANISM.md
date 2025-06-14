@@ -1,5 +1,8 @@
 # Game and Game Component Update Mechanism
 
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-16
+
 The platform provides a robust mechanism for updating games, DLCs, and other game components, aiming for efficiency and reliability. This process involves coordination between the Developer Service, Catalog Service, Download Service, Library Service, and the client application.
 
 ## A. Update Submission by Developers

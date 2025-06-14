@@ -1,5 +1,8 @@
 # Documentation Guidelines and Maintenance Process
 
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-16
+
 This document outlines the guidelines and processes for maintaining the documentation of the "Российский Аналог Платформы Steam" project. Up-to-date and consistent documentation is crucial for onboarding new team members, ensuring architectural alignment, and facilitating effective development and operations.
 
 ## 1. Ownership

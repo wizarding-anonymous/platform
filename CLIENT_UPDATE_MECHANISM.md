@@ -1,5 +1,8 @@
 # Client Update Mechanism
 
+**Версия:** 1.0
+**Дата последнего обновления:** 2024-07-16
+
 Данный документ описывает механизмы обновления для различных платформ, поддерживаемых клиентским приложением. Обзор поддерживаемых платформ см. в [CROSS_PLATFORM_SUPPORT.md](./CROSS_PLATFORM_SUPPORT.md).
 
 The frontend client, built with Flutter, supports multiple platforms (iOS, Android, Windows, Linux, Web). The update mechanism is tailored for each platform to ensure a smooth user experience and timely delivery of new features and fixes.
@@ -28,6 +31,7 @@ The frontend client, built with Flutter, supports multiple platforms (iOS, Andro
     *   **Tooling Consideration:**
         *   **Windows:** Libraries like `flutter_distributor` (which can wrap tools like Inno Setup) or a custom solution leveraging `Squirrel.Windows` principles (background downloads, easy install).
         *   **Linux:** While direct self-update is possible, packaging for system package managers is often preferred. If self-update is primary, it might involve downloading an AppImage or a script to manage .deb/.rpm updates.
+        *   **macOS:** macOS (x64, Нативная поддержка Apple Silicon (Universal Binaries) и Intel x64) - Similar to Windows, can use Sparkle framework or custom logic for updates. For App Store distribution, updates go through the App Store.
 2.  **Manual Download:** Users can always download the latest version of the desktop application from the official platform website (e.g., from a "Downloads" page).
 3.  **Linux Package Managers (Preferred for Linux):**
     *   For Linux, the primary update mechanism should ideally be through system package managers.
