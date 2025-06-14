@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	ckafka "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
 	"github.com/russian-steam/auth-service/internal/config"
 )
@@ -35,7 +35,7 @@ type CloudEvent struct {
 
 // KafkaProducer implements EventPublisher for Kafka.
 type KafkaProducer struct {
-	producer    *kafka.Producer
+	producer    *ckafka.Producer
 	topicPrefix string
 	serviceName string // e.g. "platform.auth-service"
 }
@@ -47,7 +47,7 @@ func NewKafkaProducer(cfg *config.KafkaConfig, serviceName string) (EventPublish
 		log.Println("Kafka brokers not configured, Kafka producer disabled. Using NoOpProducer.")
 		return &NoOpProducer{}, nil
 	}
-	p, err := kafka.NewProducer(&kafka.ConfigMap{
+	p, err := ckafka.NewProducer(&ckafka.ConfigMap{
 		"bootstrap.servers": cfg.Brokers,
 		"acks":              "all", // Wait for all in-sync replicas to ack
 		"retries":           3,
@@ -63,14 +63,14 @@ func NewKafkaProducer(cfg *config.KafkaConfig, serviceName string) (EventPublish
 	go func() {
 		for e := range p.Events() {
 			switch ev := e.(type) {
-			case *kafka.Message:
+			case *ckafka.Message:
 				if ev.TopicPartition.Error != nil {
 					log.Printf("Kafka delivery failed for message to topic %s: %v\n", *ev.TopicPartition.Topic, ev.TopicPartition.Error)
 				} else {
 					log.Printf("Kafka message delivered to %s [%d] at offset %v\n",
 						*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
 				}
-			case kafka.Error:
+			case ckafka.Error:
 				log.Printf("Kafka producer error: %v\n", ev)
 			}
 		}
@@ -83,18 +83,17 @@ func (kp *KafkaProducer) Publish(ctx context.Context, eventType string, data int
 	if kp.producer == nil {
 		return fmt.Errorf("kafka producer is not initialized")
 	}
-    // Construct topic from eventType, e.g., "com.platform.auth.user.registered.v1" -> "com.platform.auth.user.events.v1"
-    // This assumes a convention where specific event types map to a more general event topic for that entity.
-    parts := strings.Split(eventType, ".")
-    if len(parts) < 4 { // Expecting at least service.entity.verb.version
-        return fmt.Errorf("invalid eventType format: %s, expected e.g. com.platform.auth.user.registered.v1", eventType)
-    }
-    // Example: com.platform.auth.user.registered.v1 -> topic com.platform.auth.user.events.v1
-    // Example: com.platform.auth.email.verification_requested.v1 -> topic com.platform.auth.email.events.v1
-    // Example: com.platform.auth.session.revoked.v1 -> topic com.platform.auth.session.events.v1
-    entityTopicName := strings.Join(parts[0:len(parts)-2], ".") // e.g., com.platform.auth.user
-    topic := kp.topicPrefix + entityTopicName + ".events.v1"
-
+	// Construct topic from eventType, e.g., "com.platform.auth.user.registered.v1" -> "com.platform.auth.user.events.v1"
+	// This assumes a convention where specific event types map to a more general event topic for that entity.
+	parts := strings.Split(eventType, ".")
+	if len(parts) < 4 { // Expecting at least service.entity.verb.version
+		return fmt.Errorf("invalid eventType format: %s, expected e.g. com.platform.auth.user.registered.v1", eventType)
+	}
+	// Example: com.platform.auth.user.registered.v1 -> topic com.platform.auth.user.events.v1
+	// Example: com.platform.auth.email.verification_requested.v1 -> topic com.platform.auth.email.events.v1
+	// Example: com.platform.auth.session.revoked.v1 -> topic com.platform.auth.session.events.v1
+	entityTopicName := strings.Join(parts[0:len(parts)-2], ".") // e.g., com.platform.auth.user
+	topic := kp.topicPrefix + entityTopicName + ".events.v1"
 
 	event := CloudEvent{
 		SpecVersion:     "1.0",
@@ -115,11 +114,11 @@ func (kp *KafkaProducer) Publish(ctx context.Context, eventType string, data int
 		return fmt.Errorf("failed to marshal CloudEvent: %w", err)
 	}
 
-	deliveryChan := make(chan kafka.Event)
+	deliveryChan := make(chan ckafka.Event)
 	// No defer close(deliveryChan) here as Produce sends on it and then closes it internally (or the event loop does)
 
-	err = kp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+	err = kp.producer.Produce(&ckafka.Message{
+		TopicPartition: ckafka.TopicPartition{Topic: &topic, Partition: ckafka.PartitionAny},
 		Value:          payload,
 		Key:            []byte(event.ID),
 	}, deliveryChan)
@@ -133,7 +132,7 @@ func (kp *KafkaProducer) Publish(ctx context.Context, eventType string, data int
 	// Wait for delivery report with timeout
 	select {
 	case e := <-deliveryChan:
-		m := e.(*kafka.Message)
+		m := e.(*ckafka.Message)
 		if m.TopicPartition.Error != nil {
 			return fmt.Errorf("kafka delivery failed: %w", m.TopicPartition.Error)
 		}
@@ -163,12 +162,12 @@ type NoOpProducer struct{}
 
 func (p *NoOpProducer) Publish(ctx context.Context, eventType string, data interface{}) error {
 	// Reconstruct topic for logging, similar to how KafkaProducer does it
-    parts := strings.Split(eventType, ".")
-    topic := "unknown-topic"
-    if len(parts) >= 4 {
-         entityTopicName := strings.Join(parts[0:len(parts)-2], ".")
-         topic = "no_op_prefix." + entityTopicName + ".events.v1" // Simulate a prefix
-    }
+	parts := strings.Split(eventType, ".")
+	topic := "unknown-topic"
+	if len(parts) >= 4 {
+		entityTopicName := strings.Join(parts[0:len(parts)-2], ".")
+		topic = "no_op_prefix." + entityTopicName + ".events.v1" // Simulate a prefix
+	}
 
 	log.Printf("Kafka (NoOp): Publishing event type %s (data: %+v) to constructed topic %s\n", eventType, data, topic)
 	return nil
@@ -208,6 +207,6 @@ type UserLoginSuccessEventData struct {
 type SessionRevokedEventData struct {
 	UserID           string    `json:"userId"`
 	SessionID        string    `json:"sessionId,omitempty"` // JTI of the (access) token that was blacklisted/revoked
-	RevocationReason string    `json:"revocationReason"`  // "user_logout", "admin_action", "token_compromised"
+	RevocationReason string    `json:"revocationReason"`    // "user_logout", "admin_action", "token_compromised"
 	RevokedAt        time.Time `json:"revokedAt"`
 }
