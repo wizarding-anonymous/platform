@@ -20,7 +20,7 @@
 ### 1.2. Ключевые Функциональности
 *   **Многоканальная доставка:**
     *   Email (транзакционные, маркетинговые).
-    *   Push-уведомления (Firebase Cloud Messaging (FCM) для Android, Apple Push Notification service (APNS) для iOS).
+    *   Push-уведомления: Для Android будет использоваться российский сервис push-уведомлений (например, PushPole, RuStore Push SDK, или другой доступный на момент реализации) или соответствующий сервис от российского магазина приложений. Использование Firebase Cloud Messaging (FCM) исключено. Для iOS используется Apple Push Notification Service (APNS) как стандартная платформа Apple (если разрешено).
     *   SMS (для критически важных оповещений, 2FA).
     *   In-App уведомления (через WebSocket Gateway или аналогичный механизм для отображения внутри клиентских приложений).
 *   **Управление Шаблонами Уведомлений:**
@@ -63,7 +63,7 @@
     *   PostgreSQL (версия 15+): Для хранения метаданных (шаблоны, кампании, пользовательские предпочтения, токены устройств, краткосрочные логи сообщений для оперативных нужд). Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
     *   ClickHouse (версия 23.x+): Для хранения и агрегации больших объемов статистики по доставке и взаимодействию с уведомлениями (события доставки, открытия, клики). (согласно `../../../../project_technology_stack.md`).
 *   **Кэширование:** Redis (версия 7.0+) для кэширования пользовательских предпочтений, активных шаблонов, счетчиков для rate limiting по провайдерам, временных данных для дедупликации уведомлений. Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Интеграции с внешними провайдерами:** Через их HTTP API (для Email - {{EMAIL_PROVIDER: SendGrid/Mailgun/отечественный аналог}}, SMS - {{SMS_PROVIDER: отечественный SMS-шлюз}}, Push - FCM/APNS).
+*   **Интеграции с внешними провайдерами:** Через их HTTP API (для Email - **приоритетно российские провайдеры, например, SendPulse, Unisender, MailRu Cloud**, SMS - **российские SMS-шлюзы, например, SMSC, SMS.ru**), Push - **российские сервисы для Android, APNS для iOS**).
 *   **Управление конфигурацией:** Viper (`github.com/spf13/viper`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Логирование:** Zap (`go.uber.org/zap`) (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client (`github.com/prometheus/client_golang`). (согласно `../../../../project_observability_standards.md`).

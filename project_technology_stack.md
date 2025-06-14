@@ -35,6 +35,7 @@
 *   **Контейнеризация**: Docker
 *   **Оркестрация**: Kubernetes (версия 1.25+)
 *   **CI/CD**: GitLab CI/CD или Jenkins (или GitHub Actions, если используется).
+*   **Хостинг: Проект будет размещен на мощностях российского хостинг-провайдера Beget. Облачные сервисы (S3-совместимые хранилища, базы данных, Kubernetes), если используются, будут от российских провайдеров (например, Yandex Cloud, VK Cloud, SberCloud), совместимых с инфраструктурой Beget или как часть гибридного решения.**
 *   **Мониторинг**: Prometheus + Grafana. Alertmanager для оповещений.
 *   **Логирование**: Fluent Bit / Fluentd + Elasticsearch/ClickHouse/Loki + Kibana/Grafana.
 *   **Трассировка**: OpenTelemetry + Jaeger/Tempo.
@@ -229,7 +230,7 @@ flutter_app/
 *   **Utility:**
     *   **`dartz`** (Functional programming utilities)
     *   **`cached_network_image`** (For image caching; other UI utility libraries like `flutter_screenutil`, `flutter_svg`, `shimmer` can be used as per design needs).
-*   **Аналитика/Мониторинг:** `firebase_crashlytics`, `sentry_flutter`, `flutter_fimber` (as previously listed, these are valid choices).
+*   **Аналитика/Мониторинг:** Для сбора ошибок и анализа производительности будет использоваться российский сервис (например, AppMetrica) или self-hosted Sentry. `flutter_fimber` или аналоги для логирования. Использование `firebase_crashlytics` исключено.
 *   *Примечание: Выбор конкретных библиотек из альтернатив и их версии должны быть зафиксированы и согласованы командой frontend-разработки. Список приоритетных библиотек также отражен в `PACKAGE_STANDARDIZATION.md`.*
 
 ### 6.10. Тестирование (Go)

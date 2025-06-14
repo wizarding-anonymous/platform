@@ -146,6 +146,7 @@ This section will be populated based on the primary programming language(s) used
 *   **Utility:**
     *   **`dartz`**: Functional programming utilities (e.g., `Either`, `Option`).
     *   **`cached_network_image`**: For displaying images from the internet and keeping them in the cache.
+*   **Аналитика/Мониторинг:** Для сбора ошибок и анализа производительности будет использоваться российский сервис (например, AppMetrica) или self-hosted Sentry. `flutter_fimber` или аналоги для логирования. Использование `firebase_crashlytics` исключено.
 
 ---
 
