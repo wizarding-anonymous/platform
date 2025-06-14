@@ -76,7 +76,7 @@ The MVP focuses on delivering the core functionality of the platform, enabling u
 *   **Payment Gateway Integration:** Final selection and technical integration of one Russian payment gateway (e.g., YooKassa API, Tinkoff Acquiring API, or SBP QR/redirect flow).
 *   **OFD Integration:** Integration with one Russian OFD provider for fiscal receipt generation.
 *   **CDN/S3 Storage:** Setup and integration for game build hosting and delivery.
-*   **Initial Deployment & CI/CD:** Setup of CI/CD pipelines for MVP services and basic infrastructure on a chosen cloud provider located in Russia (e.g., Yandex Cloud, VK Cloud, SberCloud).
+*   **Initial Deployment & CI/CD:** Setup of CI/CD pipelines for MVP services and basic infrastructure. **Проект будет размещен на мощностях российского хостинг-провайдера Beget.** Облачные сервисы (S3-совместимые хранилища, базы данных, Kubernetes), если используются, будут от российских провайдеров (например, Yandex Cloud, VK Cloud, SberCloud), совместимых с инфраструктурой Beget или как часть гибридного решения.
 *   **Security:** Foundational security measures: HTTPS for all endpoints, input validation, protection against common web vulnerabilities (OWASP Top 10 basics like XSS, SQLi prevention), secure JWT handling.
 *   **Logging & Monitoring:** Basic centralized logging (e.g., ELK/Loki) and monitoring (e.g., Prometheus/Grafana) for all MVP services, focusing on uptime and error rates.
 *   **Testing:** Unit tests for business logic, basic integration tests for service interactions (e.g., Payment -> Library event flow).
@@ -115,7 +115,7 @@ This major release focuses on building community features, improving user engage
     *   **Library Service (Enhancement):**
         *   Wishlist functionality: API to add/remove games from a personal wishlist, view wishlist. Data stored in PostgreSQL.
     *   **Notification Service (New - Basic):**
-        *   Initial setup for email notifications via a selected provider (e.g., SendGrid or a Russian alternative).
+        *   Initial setup for email notifications via a selected **Russian provider** (e.g., SendPulse, Unisender, MailRu Cloud).
         *   Manages user notification preferences (opt-in/opt-out for basic categories like "Social Activity", "Wishlist Updates"). Stored in PostgreSQL.
         *   API for other services to request notification sending (or consumes Kafka events).
         *   Basic email templates for: new friend request, friend request accepted, game from wishlist is now on sale.
@@ -315,7 +315,7 @@ This major release focuses on enhancing core platform services with advanced fea
     *   **Admin Service (Enhancement):**
         *   Tools for creating and managing targeted marketing notification campaigns via Notification Service.
         *   Advanced analytics dashboards for platform performance and user behavior.
-        *   Moderation tools for group content and user-generated content within groups.
+        *   Moderation tools for group names, descriptions, and admin-posted announcements within groups.
 *   **User-Facing Functions Supported:**
     *   Users receive in-app notifications for important events.
     *   Users can finely tune their notification preferences across different channels and types.
@@ -335,155 +335,10 @@ This major release focuses on enhancing core platform services with advanced fea
 
 ## V. Client Update Mechanism
 
-The frontend client, built with Flutter, supports multiple platforms (iOS, Android, Windows, Linux, Web). The update mechanism is tailored for each platform to ensure a smooth user experience and timely delivery of new features and fixes.
-
-### A. Mobile Platforms (iOS & Android)
-
-1.  **Primary Distribution:** Updates are delivered through the official Apple App Store (iOS) and Google Play Store (Android). This is the standard and recommended approach for these platforms.
-2.  **Process:**
-    *   CI/CD pipelines (as defined in `project_deployment_standards.md`) automatically build, test, sign, and submit new app versions to the respective stores (e.g., using Fastlane or platform-specific APIs like Google Play Developer API).
-    *   Following the store's review and approval process, the update becomes available to users. Rollout may be staged (e.g., percentage-based rollout in Google Play).
-3.  **In-App Update Prompts:**
-    *   **Android:** The application will utilize the `in_app_update` package to check for updates and prompt users for immediate or flexible updates directly within the app, as per Google Play policies.
-    *   **iOS:** The application will periodically check a version endpoint (see Common Considerations) and, if a new version is available, display a custom, non-intrusive UI element notifying users and directing them to the App Store page for the update. Apple's guidelines generally discourage custom in-app update prompts that mimic system behavior.
-4.  **Mandatory Updates:**
-    *   For critical updates (e.g., security patches, major API compatibility changes), the application will implement a mechanism to enforce updates.
-    *   This involves the client checking its version against a minimum required version fetched from a server endpoint.
-    *   If the client version is below the mandatory level, it will display a blocking screen after a grace period, instructing the user to update from the store to continue using the application.
-
-### B. Desktop Platforms (Windows & Linux)
-
-1.  **In-App Self-Updater (Primary for Windows, Secondary for Linux):**
-    *   The desktop application will periodically (e.g., on startup, daily) check a dedicated update server (or an API endpoint, possibly versioned and managed by Download Service or a simple static JSON file on a CDN) for information about the latest available version for its platform.
-    *   This version information endpoint will provide the version number, release notes URL, and download URL(s) for the installer/package.
-    *   If an update is detected, the application will offer to download the new installer/package (e.g., .msi for Windows, .deb/.rpm/.AppImage for Linux) in the background.
-    *   Upon successful and verified (e.g., SHA256 checksum) download, the user will be prompted to install the update. This may involve launching the installer and closing the current application.
-    *   **Tooling Consideration:**
-        *   **Windows:** Libraries like `flutter_distributor` (which can wrap tools like Inno Setup) or a custom solution leveraging `Squirrel.Windows` principles (background downloads, easy install).
-        *   **Linux:** While direct self-update is possible, packaging for system package managers is often preferred. If self-update is primary, it might involve downloading an AppImage or a script to manage .deb/.rpm updates.
-2.  **Manual Download:** Users can always download the latest version of the desktop application from the official platform website (e.g., from a "Downloads" page).
-3.  **Linux Package Managers (Preferred for Linux):**
-    *   For Linux, the primary update mechanism should ideally be through system package managers.
-    *   The application will be packaged and distributed via:
-        *   **Snapcraft Store (Snap):** Cross-distro, transactional updates.
-        *   **Flathub (Flatpak):** Cross-distro, sandboxed applications.
-        *   **APT/YUM Repositories:** Distribution via dedicated repositories for Debian/Ubuntu-based and Fedora/RHEL-based systems respectively.
-    *   Updates are then handled by the system's package manager, providing a native experience. The in-app checker can notify users to run `sudo apt update` or check their software center.
-
-### C. Web Platform
-
-1.  **Automatic Updates:** The web application, being composed of static assets (HTML, JS, CSS, images), updates automatically when users reload the page or open it in a new browser session. The web server/CDN will serve the latest deployed version of these assets.
-2.  **Cache Management:**
-    *   Cache-busting techniques (e.g., versioned asset filenames using content hashes, managed by the Flutter build process for JS/CSS) will be employed to ensure users' browsers fetch the latest assets and not serve stale content from cache.
-    *   HTTP cache headers (ETag, Cache-Control) will be configured appropriately on the server/CDN.
-3.  **Service Workers:**
-    *   (Optional, for future enhancement) Service workers may be implemented to:
-        *   Provide improved background updates: download new assets in the background and prompt the user to refresh when ready.
-        *   Enhance offline capabilities for parts of the application.
-        *   Offer faster load times by serving assets from cache first.
-
-### D. Common Considerations
-
-1.  **Versioning:**
-    *   A clear semantic versioning scheme (SemVer: MAJOR.MINOR.PATCH, e.g., `1.0.0`, `1.1.0`, `1.1.1`) will be used for all client releases across all platforms.
-    *   Build numbers or platform-specific version codes (e.g., Android `versionCode`, iOS `CFBundleVersion`) will also be incremented with each release.
-2.  **Release Notes & Update Information:**
-    *   Users will be informed of changes, new features, and bug fixes in each update.
-    *   This information will be available through:
-        *   In-app notifications or dialogs when an update is detected or applied.
-        *   Store listings (for iOS and Android).
-        *   A dedicated "What's New" or "Release Notes" section on the platform website or within the application.
-    *   The update server/endpoint for desktop clients will also serve a link to the release notes for the latest version.
-3.  **CI/CD Automation:**
-    *   The build, testing, signing, and deployment/submission process for all client platforms will be automated as part of the CI/CD pipeline (defined in `project_deployment_standards.md`).
-    *   This includes generating installers/packages for desktop, bundles/IPAs for mobile, and deploying static assets for web.
-    *   Automated submission to app stores will be implemented where feasible (e.g., using Fastlane tools).
-4.  **Rollback Strategy:**
-    *   In case of critical issues discovered in a new client release:
-        *   **Mobile:** Submit a patched version or a previous stable version to the app stores as quickly as possible. Utilize staged rollouts to catch issues before they affect all users.
-        *   **Desktop (Self-Update):** Revert the 'latest version' information on the update server to point to a previous stable version. Users who haven't updated yet will not receive the faulty version. For users who have, a new "update" to the stable version can be pushed.
-        *   **Desktop (Package Managers):** Publish a new package that reverts the changes or fixes the issue.
-        *   **Web:** Re-deploy the previous stable version of static assets to the web server/CDN.
-    *   **Server-Side Feature Flags:** Critical client-side features that depend on backend stability can be designed to be remotely disabled via server-side feature flags, mitigating the impact of certain types of client bugs without requiring an immediate client update.
-    *   **Forced Update Revision:** The "mandatory update" mechanism can be used to quickly force users off a critically flawed version by setting its version as below the new minimum required version.
+Детальное описание механизма обновления клиента см. в документе [CLIENT_UPDATE_MECHANISM.md](./CLIENT_UPDATE_MECHANISM.md).
 
 ---
 
 ## VI. Game and Game Component Update Mechanism
 
-The platform provides a robust mechanism for updating games, DLCs, and other game components, aiming for efficiency and reliability. This process involves coordination between the Developer Service, Catalog Service, Download Service, Library Service, and the client application.
-
-### A. Update Submission by Developers
-
-1.  **New Version Upload:** Developers and publishers use the Developer Portal (interfacing with the Developer Service) to submit new versions of their games or game components (e.g., DLCs, major patches). This includes specifying the version number (e.g., 1.1.0), release notes, and any changes to metadata.
-2.  **Build and Manifest Upload:**
-    *   For each new version, developers upload game builds for all supported platforms (e.g., Windows, Linux) to the S3-compatible storage designated by the platform. This upload process is managed by the Developer Service, which may provide pre-signed URLs for direct uploads.
-    *   Developer Service also facilitates the creation or update of a detailed file manifest for the new version. This manifest includes a list of all files in the build, their sizes, and their SHA256 checksums. For delta updates, information about changed files or binary diffs might also be included or generated at this stage.
-3.  **Update Notification & Moderation:**
-    *   Upon successful upload and validation of a new version's builds and manifest, the Developer Service flags this version as ready.
-    *   An event (e.g., `com.platform.developer.product.version.submitted.v1`) is published to Kafka.
-    *   This event is consumed by the Admin Service to trigger a moderation process if required for updates (e.g., for significant changes or new DLCs).
-    *   Once approved (or if no moderation is needed for a patch), Admin Service or Developer Service publishes an event (e.g., `com.platform.admin.product.version.approved.v1`).
-    *   Catalog Service consumes this approval event. It updates its records with the new version information (version number, release notes, manifest location) and then publishes an event like `com.platform.catalog.product.version.published.v1`.
-    *   Download Service consumes the `com.platform.catalog.product.version.published.v1` event to become aware of the new version, its manifest, and the location of its builds, preparing it for distribution.
-
-### B. Client-Side Update Detection and Process
-
-1.  **Automatic Update Check:**
-    *   The user's client application, upon startup and periodically in the background (e.g., every few hours), checks for updates for all installed games.
-    *   This check involves the client querying the Library Service (e.g., `GET /api/v1/library/me/items/updates-check`) with a list of installed product IDs and their current versions.
-    *   Library Service, in turn, may query Catalog Service or Download Service (or have this information pushed/cached) to determine the latest available official version for each product.
-2.  **Manual Update Check:** Users can also manually trigger an update check for specific games or all games from their library interface within the client application.
-3.  **Update Notification:**
-    *   If an update is available for one or more games, the client application will notify the user.
-    *   The notification will typically include the game name, current version, new version, estimated download size (especially differentiating between delta patch and full download), and a link to release notes.
-    *   Users are provided options to: update immediately, add to download queue, schedule the update (if download scheduling is supported), or view more details.
-
-### C. Downloading and Applying Updates
-
-1.  **Download Initiation & Management:**
-    *   When the user initiates an update, the client application requests the download from the Download Service (e.g., `POST /api/v1/download/tasks` with product ID and target version ID).
-    *   Download Service authorizes the request (checking ownership via Library Service) and then manages the download process, providing download URLs (typically CDN links) for game files or patches.
-2.  **Delta Updates (Patches):**
-    *   The platform prioritizes delta updates to minimize download sizes and times.
-    *   Download Service, using the file manifests of the user's current version and the new version, determines if a delta update is possible and prepares/provides the patch data.
-    *   The client application downloads the patch files.
-    *   The client application is then responsible for applying the downloaded patch to the existing game files using a patching algorithm (e.g., bsdiff/bspatch, or a custom solution). This may involve creating temporary copies of files being patched.
-3.  **Full Downloads:**
-    *   If a delta update is not feasible (e.g., the version difference is too large, local game files are corrupted, or the developer did not provide necessary data for patching), or if a patch application fails, the system will fall back to downloading the full new version of the game or specific changed/corrupted files.
-4.  **File Verification:**
-    *   After downloading (either a patch or full files), the client application verifies the integrity of all downloaded and patched files using checksums (e.g., SHA256) provided in the file manifest for the new version.
-    *   If verification fails for any file, the client will attempt to re-download that specific file/chunk or report an error.
-5.  **Installation & Finalization:**
-    *   The client application manages the final installation steps, which may include:
-        *   Replacing old game files with new ones.
-        *   Applying patches to existing files.
-        *   Running any necessary post-update scripts or setup routines if provided by the game developer (e.g., updating configuration files, registering components).
-    *   Once the update is successfully applied and verified, the client updates its local record of the installed game version and notifies the Library Service (e.g., `PATCH /api/v1/library/me/items/{itemId}` with new version info).
-
-### D. DLC and Game Component Updates
-
-*   Updates for DLCs and other game components (e.g., optional high-resolution texture packs) are managed similarly to base game updates.
-*   Each DLC or component can have its own versioning and manifest.
-*   The client application checks for updates for installed DLCs alongside the base game.
-*   Download and patching mechanisms are identical.
-
-### E. Rollback to Previous Versions
-
-*   **Standard Policy:** The default behavior is to always update users to the latest approved version of a game or component. Direct user-initiated rollback to a previous version is generally **not** supported as a standard feature due to complexity in managing save game compatibility, server-side compatibility (for online games), and support.
-*   **Developer/Admin Initiated Rollback (Emergency):** In rare cases of a critically flawed update, developers (via Developer Service) or platform administrators (via Admin Service) can "roll back" an update by:
-    1.  Unpublishing the faulty version from the Catalog Service.
-    2.  Re-publishing a previous stable version as the current "latest" version.
-    *   Clients would then see the re-published older version as an "update" if they had already installed the faulty one, or simply get the stable version if they hadn't updated yet. This is not a true client-side rollback but a change in the official latest version.
-*   **Optional Client-Side Feature (Future Consideration):** As noted in the `Download Service` documentation, an *optional* feature for users to select and download specific older versions might be explored in the far future if there's strong demand and the technical complexities (especially around save game compatibility and developer opt-in) can be addressed. This would require Download Service to retain access to older game builds via CDN/S3.
-
-### F. Client Application's Role in Updates
-
-*   **Update Checking:** Periodically queries Library/Catalog/Download services for available updates for installed content.
-*   **User Interaction:** Notifies users of available updates, presents release notes, and allows users to manage when and how updates are downloaded and installed.
-*   **Download Coordination:** Interacts with the Download Service to fetch game files or patches, respecting user settings like bandwidth limits.
-*   **Patch Application:** Implements the logic to apply binary patches to existing game files.
-*   **File Verification:** Verifies checksums of all downloaded and patched files against the manifest.
-*   **Installation Management:** Handles the file system operations for replacing/updating game files.
-*   **State Reporting:** Reports the currently installed version of games and DLCs to the Library Service.
-```
+Детальное описание механизма обновления игр и их компонентов см. в документе [GAME_UPDATE_MECHANISM.md](./GAME_UPDATE_MECHANISM.md).
