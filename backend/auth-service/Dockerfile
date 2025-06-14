@@ -6,18 +6,21 @@ WORKDIR /app
 # Copy go.mod and go.sum files
 COPY go.mod go.sum ./
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN apk add --no-cache build-base librdkafka-dev
 RUN go mod download
 
 # Copy the source code
 COPY . .
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o auth-service ./cmd/auth-service
+RUN CGO_ENABLED=1 GOOS=linux go build -v -o auth-service ./cmd/auth-service
 
 # Final stage
 FROM alpine:latest
 
 WORKDIR /root/
+
+RUN apk add --no-cache librdkafka
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/auth-service .
