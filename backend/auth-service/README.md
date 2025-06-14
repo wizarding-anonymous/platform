@@ -36,6 +36,10 @@ Auth Service является центральным компонентом пл
 *   Redis instance
 *   Kafka instance
 *   OpenSSL (for generating RSA keys)
+*   librdkafka: Required for Kafka functionality.
+    *   On Alpine (used in Docker): `apk add librdkafka-dev` (for building) and `apk add librdkafka` (for running)
+    *   On Debian/Ubuntu: `sudo apt-get install librdkafka-dev`
+    *   On macOS: `brew install librdkafka`
 
 ### Configuration
 1.  **RSA Keys**: Generate RSA private and public keys for signing JWTs:
