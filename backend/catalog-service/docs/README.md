@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Catalog Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -350,15 +350,15 @@ sequenceDiagram
 *   **`MediaItem` (Медиа-элемент)** (Как в существующем документе)
 *   **`AchievementMeta` (Метаданные Достижения)** (Как в существующем документе)
 *   **`Tag` (Тег)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `name` (JSONB/Map<String, String>): Локализованное имя тега. Пример: `{"ru-RU": "Открытый мир", "en-US": "Open World"}`. Обязательность: Required.
-    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `open-world`. Валидация: unique, slug format. Обязательность: Required.
+    *   `id` (UUID): Уникальный идентификатор. **Обязательность: Да (генерируется БД).**
+    *   `name` (JSONB/Map<String, String>): Локализованное имя тега. Пример: `{"ru-RU": "Открытый мир", "en-US": "Open World"}`. **Обязательность: Да.**
+    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `open-world`. Валидация: unique, slug format. **Обязательность: Да.**
 *   **`Category` (Категория)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `name` (JSONB/Map<String, String>): Локализованное имя категории. Пример: `{"ru-RU": "Лучшие продажи", "en-US": "Top Sellers"}`. Обязательность: Required.
-    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `top-sellers`. Валидация: unique, slug format. Обязательность: Required.
-    *   `description` (JSONB/Map<String, String>): Локализованное описание. Обязательность: Optional.
-    *   `parent_category_id` (UUID, FK to Categories, Nullable): Для иерархических категорий.
+    *   `id` (UUID): Уникальный идентификатор. **Обязательность: Да (генерируется БД).**
+    *   `name` (JSONB/Map<String, String>): Локализованное имя категории. Пример: `{"ru-RU": "Лучшие продажи", "en-US": "Top Sellers"}`. **Обязательность: Да.**
+    *   `slug` (VARCHAR(100)): Уникальный текстовый идентификатор. Пример: `top-sellers`. Валидация: unique, slug format. **Обязательность: Да.**
+    *   `description` (JSONB/Map<String, String>): Локализованное описание. **Обязательность: Нет.**
+    *   `parent_category_id` (UUID, FK to Categories, Nullable): Для иерархических категорий. **Обязательность: Нет.**
 
 ### 4.2. Схема Базы Данных
 
@@ -500,7 +500,7 @@ CREATE TABLE achievement_metadata (
     description JSONB NOT NULL DEFAULT '{}'::jsonb,
     icon_url_unlocked VARCHAR(2048) NOT NULL,
     icon_url_locked VARCHAR(2048) NOT NULL,
-    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE, -- This line already exists and is correct
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -605,9 +605,9 @@ CREATE INDEX idx_achievement_metadata_product_id ON achievement_metadata(product
 *   **Основные топики Kafka:** `com.platform.catalog.events.v1`.
 
 *   **`com.platform.catalog.product.created.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`).
+    *   `data` Payload: (Структура payload должна содержать как минимум `productId`, `type` и ключевые атрибуты созданного продукта, аналогично ответу API на создание продукта).
 *   **`com.platform.catalog.product.updated.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`).
+    *   `data` Payload: (Структура payload должна содержать `productId`, `type` и список измененных полей с новыми значениями).
 *   **`com.platform.catalog.product.status.changed.v1`**
     *   Описание: Статус продукта изменен (например, опубликован, снят с публикации, отправлен на модерацию).
     *   `data` Payload:
@@ -621,7 +621,7 @@ CREATE INDEX idx_achievement_metadata_product_id ON achievement_metadata(product
         }
         ```
 *   **`com.platform.catalog.price.updated.v1`**
-    *   `data` Payload: (Как в существующем документе, с корректным `type` и `productId`, `priceId`).
+    *   `data` Payload: (Структура payload должна содержать `productId`, `priceId` или уникальный идентификатор цены, новые ценовые параметры и регион/валюту, если применимо).
 *   **`com.platform.catalog.genre.created.v1`**
     *   Описание: Создан новый жанр.
     *   `data` Payload:

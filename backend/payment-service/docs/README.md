@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Payment Service (Сервис Платежей)
 
 **Версия:** 1.1 (адаптировано из предыдущей версии)
-**Дата последнего обновления:** 2024-03-15
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -171,6 +171,31 @@
 #### 3.1.1. Транзакции (Transactions)
 *   **`POST /transactions/initiate`**
     *   Описание: Инициирование новой транзакции на покупку (например, игры, пополнения баланса). Сервис создает транзакцию в статусе "pending" и возвращает URL для редиректа на страницу оплаты или данные для SDK платежной системы.
+    *   Пример ответа (Ошибка 400 Bad Request - Некорректные данные заказа):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "VALIDATION_ERROR",
+              "title": "Ошибка валидации данных транзакции",
+              "detail": "Поле 'amount_minor_units' должно быть положительным числом.",
+              "source": { "pointer": "/data/attributes/amount_minor_units" }
+            }
+          ]
+        }
+        ```
+    *   Пример ответа (Ошибка 503 Service Unavailable - Платежный шлюз недоступен):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "SERVICE_UNAVAILABLE",
+              "title": "Сервис временно недоступен",
+              "detail": "Платежный шлюз временно недоступен. Пожалуйста, повторите попытку позже."
+            }
+          ]
+        }
+        ```
     *   Тело запроса:
         ```json
         {
@@ -230,6 +255,42 @@
         }
         ```
     *   Требуемые права доступа: `user_self_only` (если это его транзакция) или `payment_admin`.
+    *   Пример ответа (Ошибка 401 Unauthorized):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "UNAUTHENTICATED",
+              "title": "Ошибка аутентификации",
+              "detail": "Необходима аутентификация для доступа к этому ресурсу."
+            }
+          ]
+        }
+        ```
+    *   Пример ответа (Ошибка 403 Forbidden):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "PERMISSION_DENIED",
+              "title": "Доступ запрещен",
+              "detail": "У вас нет прав для просмотра этой транзакции."
+            }
+          ]
+        }
+        ```
+    *   Пример ответа (Ошибка 500 Internal Server Error):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "INTERNAL_ERROR",
+              "title": "Внутренняя ошибка сервера",
+              "detail": "Произошла непредвиденная ошибка на сервере. Пожалуйста, повторите попытку позже."
+            }
+          ]
+        }
+        ```
 
 #### 3.1.2. Платежные Методы (Payment Methods)
 *   **`POST /users/{user_id}/payment-methods`**
@@ -338,59 +399,109 @@
 ### 4.1. Основные Сущности
 
 *   **`Transaction` (Транзакция)**
-    *   `id` (UUID): Уникальный идентификатор транзакции. Обязательность: Required.
-    *   `user_id` (UUID): ID пользователя, инициировавшего транзакцию. Обязательность: Required (nullable для системных транзакций).
-    *   `order_id` (UUID): ID заказа из Order Service (если применимо). Обязательность: Optional.
-    *   `transaction_type` (ENUM: `purchase`, `refund`, `payout`, `deposit`, `hold`, `capture`): Тип транзакции. Обязательность: Required.
-    *   `status` (ENUM: `pending`, `processing`, `awaiting_psp_callback`, `awaiting_capture`, `completed`, `failed`, `cancelled`, `refunded`): Статус транзакции. Обязательность: Required.
-    *   `amount_minor_units` (BIGINT): Сумма транзакции в минимальных единицах валюты. Пример: `199900` для 1999.00. Обязательность: Required.
-    *   `currency_code` (VARCHAR(3)): Код валюты (RUB, USD, EUR). Обязательность: Required.
-    *   `payment_provider` (VARCHAR(50)): Имя платежного провайдера (yookassa, sbp_bankX). Обязательность: Optional (после выбора метода).
-    *   `payment_method_type` (VARCHAR(50)): Тип использованного платежного метода (card, sbp, yoomoney_wallet). Обязательность: Optional.
-    *   `psp_transaction_id` (VARCHAR(255)): ID транзакции в системе платежного провайдера. Обязательность: Optional.
-    *   `description` (TEXT): Описание транзакции. Обязательность: Optional.
-    *   `error_code` (VARCHAR(100)): Код ошибки от PSP или внутренний. Обязательность: Optional.
-    *   `error_message` (TEXT): Сообщение об ошибке. Обязательность: Optional.
-    *   `created_at` (TIMESTAMPTZ), `updated_at` (TIMESTAMPTZ).
-
+    *   `id` (UUID): Уникальный идентификатор транзакции. **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID): ID пользователя, инициировавшего транзакцию. **Обязательность: Да (nullable для системных транзакций, например, выплат).**
+    *   `order_id` (UUID): ID заказа из Order Service (если применимо). **Обязательность: Нет.**
+    *   `transaction_type` (ENUM: `purchase`, `refund`, `payout`, `deposit`, `hold`, `capture`): Тип транзакции. **Обязательность: Да.**
+    *   `status` (ENUM: `pending`, `processing`, `awaiting_psp_callback`, `awaiting_capture`, `completed`, `failed`, `cancelled`, `refunded`): Статус транзакции. **Обязательность: Да (DEFAULT 'pending').**
+    *   `amount_minor_units` (BIGINT): Сумма транзакции в минимальных единицах валюты. **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3)): Код валюты (RUB, USD, EUR). **Обязательность: Да.**
+    *   `payment_provider` (VARCHAR(50)): Имя платежного провайдера. **Обязательность: Нет (заполняется после выбора/использования).**
+    *   `payment_method_type` (VARCHAR(50)): Тип использованного платежного метода. **Обязательность: Нет (заполняется после использования).**
+    *   `psp_transaction_id` (VARCHAR(255)): ID транзакции в системе платежного провайдера. **Обязательность: Нет (заполняется после взаимодействия с PSP).**
+    *   `description` (TEXT): Описание транзакции. **Обязательность: Нет.**
+    *   `error_code` (VARCHAR(100)): Код ошибки от PSP или внутренний. **Обязательность: Нет.**
+    *   `error_message` (TEXT): Сообщение об ошибке. **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`TransactionItem` (Элемент Транзакции)** - для фискализации и детализации
+    *   `id` (UUID). **Обязательность: Да (генерируется БД).**
+    *   `transaction_id` (UUID, FK). **Обязательность: Да.**
+    *   `item_id` (VARCHAR): ID продукта/услуги. **Обязательность: Да.**
+    *   `item_name` (VARCHAR). **Обязательность: Да.**
+    *   `quantity` (INT). **Обязательность: Да.**
+    *   `price_per_unit_minor_units` (BIGINT). **Обязательность: Да.**
+    *   `total_amount_minor_units` (BIGINT). **Обязательность: Да.**
+    *   `vat_code` (VARCHAR): Код ставки НДС. **Обязательность: Да.**
+    *   `item_type_code` (VARCHAR): Признак предмета расчета. **Обязательность: Да.**
 *   **`PaymentMethod` (Сохраненный Платежный Метод Пользователя)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `user_id` (UUID): ID пользователя. Обязательность: Required.
-    *   `provider_name` (VARCHAR(50)): Имя платежного провайдера. Обязательность: Required.
-    *   `provider_method_token` (TEXT): Токен платежного метода от провайдера. Валидация: not null. Обязательность: Required.
-    *   `method_type` (ENUM: `card`, `e_wallet`): Тип метода. Обязательность: Required.
-    *   `details_hint` (JSONB): Маскированные детали для отображения пользователю. Пример: `{"card_type": "Visa", "last_four": "1234", "expiry_year": 2028, "expiry_month": 12}`. Обязательность: Optional.
-    *   `is_default` (BOOLEAN): Является ли методом по умолчанию. Обязательность: Required.
-    *   `added_at` (TIMESTAMPTZ).
-
+    *   `id` (UUID): Уникальный идентификатор. **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID): ID пользователя. **Обязательность: Да.**
+    *   `provider_name` (VARCHAR(50)): Имя платежного провайдера. **Обязательность: Да.**
+    *   `provider_method_token` (TEXT): Токен платежного метода от провайдера. **Обязательность: Да.**
+    *   `method_type` (ENUM: `card`, `e_wallet`). **Обязательность: Да.**
+    *   `details_hint` (JSONB): Маскированные детали. **Обязательность: Нет.**
+    *   `is_default` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
+    *   `is_active` (BOOLEAN). **Обязательность: Да (DEFAULT TRUE).**
+    *   `added_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`FiscalReceipt` (Фискальный Чек)**
-    *   `id` (UUID): Уникальный идентификатор. Обязательность: Required.
-    *   `transaction_id` (UUID, FK to Transaction): ID связанной транзакции. Обязательность: Required.
-    *   `receipt_type` (ENUM: `income`, `income_refund`): Тип чека. Обязательность: Required.
-    *   `status` (ENUM: `pending_fiscalization`, `fiscalized_success`, `fiscalization_failed`): Статус фискализации. Обязательность: Required.
-    *   `ofd_provider_name` (VARCHAR(100)): Имя ОФД-провайдера. Обязательность: Optional.
-    *   `fiscal_document_number` (VARCHAR(255)): Номер фискального документа. Обязательность: Optional.
-    *   `fiscal_document_sign` (VARCHAR(255)): Фискальный признак документа (ФПД/ФП). Обязательность: Optional.
-    *   `receipt_url_ofd` (TEXT): URL чека на сайте ОФД. Обязательность: Optional.
-    *   `qr_code_data` (TEXT): Данные для QR-кода чека. Обязательность: Optional.
-    *   `created_at` (TIMESTAMPTZ), `fiscalized_at` (TIMESTAMPTZ).
-
+    *   `id` (UUID): Уникальный идентификатор. **Обязательность: Да (генерируется БД).**
+    *   `transaction_id` (UUID, FK to Transaction): ID связанной транзакции. **Обязательность: Да.**
+    *   `receipt_type` (ENUM: `income`, `income_refund`, `expense`, `expense_refund`). **Обязательность: Да.**
+    *   `status` (ENUM: `pending_fiscalization`, `fiscalization_requested`, `fiscalized_success`, `fiscalization_failed`). **Обязательность: Да (DEFAULT 'pending_fiscalization').**
+    *   `ofd_provider_name` (VARCHAR(100)): Имя ОФД-провайдера. **Обязательность: Нет.**
+    *   `fiscal_document_number` (VARCHAR(255)): Номер фискального документа (ФН). **Обязательность: Нет.**
+    *   `fiscal_storage_number` (VARCHAR(255)): Фискальный накопитель (ФД). **Обязательность: Нет.**
+    *   `fiscal_document_sign` (VARCHAR(255)): Фискальный признак документа (ФПД/ФП). **Обязательность: Нет.**
+    *   `receipt_url_ofd` (TEXT): URL чека на сайте ОФД. **Обязательность: Нет.**
+    *   `qr_code_data` (TEXT): Данные для QR-кода чека. **Обязательность: Нет.**
+    *   `error_message` (TEXT). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `fiscalized_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`DeveloperBalance` (Баланс Разработчика)**
-    *   `developer_id` (UUID, PK): ID разработчика. Обязательность: Required.
-    *   `balance_minor_units` (BIGINT): Текущий баланс в минимальных единицах валюты. Обязательность: Required.
-    *   `currency_code` (VARCHAR(3)): Код валюты. Обязательность: Required.
-    *   `on_hold_minor_units` (BIGINT): Сумма, замороженная для выплат или других операций. Обязательность: Required.
-    *   `last_updated_at` (TIMESTAMPTZ).
-
+    *   `developer_id` (UUID, PK): ID разработчика. **Обязательность: Да.**
+    *   `balance_minor_units` (BIGINT). **Обязательность: Да (DEFAULT 0).**
+    *   `currency_code` (VARCHAR(3)). **Обязательность: Да.**
+    *   `on_hold_minor_units` (BIGINT). **Обязательность: Да (DEFAULT 0).**
+    *   `last_transaction_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`DeveloperPayout` (Выплата Разработчику)**
-    *   `id` (UUID): Уникальный идентификатор выплаты.
-    *   `developer_id` (UUID, FK to DeveloperBalance): ID разработчика. Обязательность: Required.
-    *   `amount_minor_units` (BIGINT): Сумма выплаты. Обязательность: Required.
-    *   `currency_code` (VARCHAR(3)): Валюта. Обязательность: Required.
-    *   `status` (ENUM: `requested`, `processing`, `completed`, `failed`, `cancelled`). Обязательность: Required.
-    *   `payout_method_snapshot` (JSONB): Снимок реквизитов на момент выплаты. Обязательность: Required.
-    *   `requested_at` (TIMESTAMPTZ), `processed_at` (TIMESTAMPTZ).
-    *   `psp_transaction_id` (VARCHAR(255)): ID транзакции в платежной системе. Обязательность: Optional.
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_id` (UUID, FK to DeveloperBalance): ID разработчика. **Обязательность: Да.**
+    *   `amount_minor_units` (BIGINT): Сумма выплаты. **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3)): Валюта. **Обязательность: Да.**
+    *   `status` (ENUM: `requested`, `processing`, `pending_approval`, `approved`, `sent_to_psp`, `completed`, `failed`, `cancelled`). **Обязательность: Да (DEFAULT 'requested').**
+    *   `payout_method_details` (JSONB): Снимок реквизитов на момент выплаты. **Обязательность: Да.**
+    *   `psp_transaction_id` (VARCHAR(255), Nullable, UK): ID транзакции в платежной системе. **Обязательность: Нет.**
+    *   `requested_by_user_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `approved_by_user_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `rejection_reason` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `error_message` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `requested_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `processed_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `completed_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`PromoCode` (Промокод)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `code` (VARCHAR, UK). **Обязательность: Да.**
+    *   `description` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `discount_type` (VARCHAR ENUM: `percentage`, `fixed_amount`). **Обязательность: Да.**
+    *   `discount_value` (NUMERIC). **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3), Nullable): Для `fixed_amount`. **Обязательность: Нет (но Да, если тип `fixed_amount`).**
+    *   `valid_from` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `valid_to` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `max_usages` (INT, Nullable). **Обязательность: Нет.**
+    *   `usages_per_user` (INT, Default: 1). **Обязательность: Да (DEFAULT 1).**
+    *   `current_total_usages` (INT, Default: 0). **Обязательность: Да (DEFAULT 0).**
+    *   `is_active` (BOOLEAN, Default: true). **Обязательность: Да (DEFAULT TRUE).**
+    *   `applicability_rules` (JSONB, Nullable). **Обязательность: Нет.**
+    *   `created_by_user_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`GiftCard` (Подарочная карта)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `code` (VARCHAR, UK). **Обязательность: Да.**
+    *   `initial_balance_minor_units` (BIGINT). **Обязательность: Да.**
+    *   `current_balance_minor_units` (BIGINT). **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3)). **Обязательность: Да.**
+    *   `is_active` (BOOLEAN, Default: true). **Обязательность: Да (DEFAULT TRUE).**
+    *   `valid_until` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `created_by_user_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 
 ### 4.2. Схема Базы Данных
 
@@ -666,42 +777,44 @@ CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
 *   **Формат событий:** CloudEvents v1.0 (JSON encoding), согласно `project_api_standards.md`.
 *   **Основной топик:** `payment.events.v1` (может быть разделен на более гранулярные топики при необходимости, например `platform.payment.transactions.v1`, `platform.payment.payouts.v1`).
 
-*   **`com.platform.payment.transaction.status.updated.v1`** (Ранее `payment.transaction.status.updated.v1`)
+*   **`com.platform.payment.transaction.status.updated.v1`**
     *   Описание: Статус транзакции изменился (например, создана, ожидает оплаты, успешно завершена, ошибка, отменена, возвращена).
-    *   Пример Payload (`data` секция CloudEvent):
+    *   `data` Payload:
         ```json
         {
           "transaction_id": "txn-uuid-xyz",
           "user_id": "user-uuid-123",
           "order_id": "order-uuid-abc", // Опционально
           "new_status": "completed", // "pending", "failed", "refunded", etc.
-          "previous_status": "processing",
+          "previous_status": "processing", // Опционально
           "amount_minor_units": 199900,
           "currency_code": "RUB",
-          "payment_provider": "yookassa",
-          "payment_method_type_used": "bank_card",
+          "payment_provider": "yookassa", // Опционально
+          "payment_method_type_used": "bank_card", // Опционально
+          "psp_transaction_id": "provider-txn-id", // Опционально
           "updated_at": "2024-03-15T10:05:00Z",
-          "error_code": null // или код ошибки, если new_status = "failed"
+          "error_code": null, // или код ошибки, если new_status = "failed"
+          "error_message": null // или сообщение об ошибке
         }
         ```
-    *   Потребители: Library Service (для предоставления доступа к контенту), Notification Service, Analytics Service, Order Service (для обновления статуса заказа).
-*   **`com.platform.payment.payout.status.updated.v1`** (Ранее `payment.payout.status.updated.v1`)
+    *   Потребители: Library Service, Notification Service, Analytics Service, Order Service.
+*   **`com.platform.payment.payout.status.updated.v1`**
     *   Описание: Статус выплаты разработчику изменился.
-    *   Пример Payload:
+    *   `data` Payload:
         ```json
         {
-          "payout_id": "payout-uuid-789",
+          "payout_id": "payout-uuid-789", // ID из DeveloperPayouts
           "developer_id": "dev-uuid-abc",
-          "new_status": "completed", // "processing", "failed"
-          "processed_at": "2024-03-18T10:00:00Z",
+          "new_status": "completed", // "processing", "failed", "sent_to_psp"
+          "processed_at": "2024-03-18T10:00:00Z", // Время изменения статуса
           "amount_minor_units": 5000000,
           "currency_code": "RUB",
-          "external_transaction_id": "psp_payout_txn_id", // ID в системе PSP
-          "failure_reason": null
+          "psp_transaction_id": "psp_payout_txn_id", // ID в системе PSP (если применимо)
+          "failure_reason": null // Описание причины сбоя, если newStatus = "failed"
         }
         ```
     *   Потребители: Developer Service, Notification Service.
-*   **`com.platform.payment.fiscal.receipt.status.updated.v1`** (Ранее `payment.fiscal.receipt.status.updated.v1`)
+*   **`com.platform.payment.fiscal.receipt.status.updated.v1`**
     *   Описание: Статус фискального чека изменился (например, успешно фискализирован, ошибка фискализации).
     *   Пример Payload:
         ```json
@@ -897,15 +1010,15 @@ CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
 *   Проверка принадлежности транзакций и платежных методов конкретному пользователю.
 
 ### 9.3. Защита Данных
-*   **PCI DSS Compliance:** Прямая обработка полных номеров банковских карт **не предполагается**. Сервис должен полагаться на токенизацию на стороне платежных шлюзов (PSP) и использование iFrame/редиректов на страницы оплаты PSP для минимизации области действия PCI DSS. Если в будущем потребуется работа с PAN, этот раздел должен быть кардинально пересмотрен с привлечением специалистов по PCI DSS.
-*   Шифрование чувствительных данных при хранении (например, токенизированные платежные методы, если они кэшируются/хранятся локально; реквизиты для выплат разработчикам) и при передаче (TLS 1.2+ для всех коммуникаций).
-*   Защита от мошенничества (fraud prevention): базовая проверка транзакций, возможно, интеграция с внешними антифрод-системами.
+*   **PCI DSS Compliance:** Прямая обработка полных номеров банковских карт **не предполагается**. Сервис должен полагаться на токенизацию на стороне платежных шлюзов (PSP) и использование iFrame/редиректов на страницы оплаты PSP для минимизации области действия PCI DSS. Детали интеграции с PSP должны обеспечивать, что PAN не попадают на серверы платформы. Если в будущем потребуется работа с PAN, этот раздел должен быть кардинально пересмотрен с привлечением QSA-аудитора и приведением инфраструктуры в полное соответствие PCI DSS.
+*   Шифрование чувствительных данных при хранении (например, `provider_method_token` в `UserPaymentMethods`, `details_encrypted` в `DeveloperPaymentMethod`) и при передаче (TLS 1.2+ для всех коммуникаций).
+*   Защита от мошенничества (fraud prevention): базовая проверка транзакций (лимиты, частота), возможно, интеграция с внешними антифрод-системами в будущем.
     *   **Соблюдение требований 54-ФЗ "О применении контрольно-кассовой техники..." является ключевой функцией сервиса.** Это включает формирование фискальных чеков для всех релевантных операций и их передачу через Оператора Фискальных Данных (ОФД).
     *   **ФЗ-152 "О персональных данных":** Обработка персональных данных пользователей и разработчиков (включая платежные данные, которые могут считаться ПДн, такие как ФИО плательщика, его email или телефон для отправки чека) осуществляется в строгом соответствии с ФЗ-152. **Персональные данные российских граждан, связанные с платежными операциями и необходимые для их проведения или фискализации, хранятся и обрабатываются на серверах, физически расположенных на территории Российской Федерации, с использованием инфраструктуры российского хостинг-провайдера Beget.** Это включает получение необходимых согласий, определение целей обработки, и обеспечение безопасности при их обработке и хранении, как детализировано в `project_security_standards.md`.
-    *   ФЗ-115 "О противодействии легализации (отмыванию) доходов..." (AML): Применяются необходимые проверки и процедуры, если это требуется для операций, обрабатываемых сервисом.
+    *   ФЗ-115 "О противодействии легализации (отмыванию) доходов..." (AML): Применяются необходимые проверки и процедуры, если это требуется для операций, обрабатываемых сервисом (например, при крупных выплатах разработчикам).
 
 ### 9.4. Управление Секретами
-*   API ключи для взаимодействия с платежными системами, ОФД, ключи шифрования должны храниться в HashiCorp Vault или Kubernetes Secrets и безопасно внедряться в приложение.
+*   API ключи для взаимодействия с платежными системами, ОФД, ключи шифрования должны храниться в [Метод безопасного хранения API ключей (например, Vault, Kubernetes Secrets)] и безопасно внедряться в приложение.
 *   Регулярная ротация секретов.
 *   **Аудит**: Детальное логирование всех финансовых операций, изменений статусов, действий администраторов.
 
@@ -955,7 +1068,7 @@ CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Производительность:**
-    *   Время ответа API для инициирования платежа (до редиректа на PSP): P95 < 500 мс.
+    *   Время ответа API для инициирования платежа (до редиректа на PSP): P95 < 500 мс ([Уточнить значение, например, < 2 секунд] для всего флоу до PSP).
     *   Время обработки колбэка от PSP (до постановки в очередь на фискализацию и отправки события): P95 < 200 мс.
     *   Пропускная способность: поддержка не менее 100 TPS (транзакций в секунду) на создание, до 500 TPS на проверку статуса.
 *   **Надежность:**
@@ -972,8 +1085,9 @@ CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
 
 ## 13. Приложения (Appendices)
 *   Детальные OpenAPI схемы для REST API и Protobuf определения для gRPC API будут доступны во внутреннем репозитории артефактов `[Ссылка на репозиторий/артефакт OpenAPI схем]` и `[Ссылка на репозиторий/артефакт Protobuf определений]` соответственно.
-*   Полные DDL схемы базы данных и миграции управляются с помощью [Liquibase] и доступны в репозитории исходного кода сервиса в директории `src/main/resources/db/changelog`.
+*   Полные DDL схемы базы данных и миграции управляются с помощью Liquibase (или аналогичный инструмент управления миграциями БД) и доступны в репозитории исходного кода сервиса в директории `src/main/resources/db/changelog`.
 *   Примеры фискальных чеков и форматы взаимодействия с конкретными ОФД.
+*   Политика возвратов: [Ссылка на Политику Возвратов или указание, что она определяется пользовательским соглашением].
 
 ---
 *Этот документ является основной спецификацией для Payment Service и должен поддерживаться в актуальном состоянии.*
@@ -1015,5 +1129,5 @@ CREATE INDEX idx_used_gift_cards_gift_card_id ON used_gift_cards(gift_card_id);
 
 ## 15. Связанные Рабочие Процессы (Related Workflows)
 *   [Game Purchase and Library Update](../../../project_workflows/game_purchase_flow.md)
-*   [Процесс Выплат Разработчикам](../../../project_workflows/developer_payout_flow.md) (Описание будет добавлено в указанный документ).
-*   [Процесс Обработки Возвратов](../../../project_workflows/refund_processing_flow.md) (Описание будет добавлено в указанный документ).
+*   [Процесс Выплат Разработчикам](../../../project_workflows/developer_payout_flow.md) <!-- [Ссылка на developer_payout_flow.md - документ в разработке] -->
+*   [Процесс Обработки Возвратов](../../../project_workflows/refund_processing_flow.md) <!-- [Ссылка на refund_processing_flow.md - документ в разработке] -->

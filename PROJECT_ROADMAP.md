@@ -342,3 +342,5 @@ This major release focuses on enhancing core platform services with advanced fea
 ## VI. Game and Game Component Update Mechanism
 
 Детальное описание механизма обновления игр и их компонентов см. в документе [GAME_UPDATE_MECHANISM.md](./GAME_UPDATE_MECHANISM.md).
+---
+*Последнее обновление документа: 2024-07-16*

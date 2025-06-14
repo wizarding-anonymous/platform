@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Library Service (Сервис Библиотеки Пользователя)
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -24,7 +24,7 @@
     *   Создание и управление пользовательскими категориями/коллекциями для организации игр в библиотеке.
     *   Скрытие игр из основного вида библиотеки (без удаления права владения).
     *   Отслеживание статуса установки игры на текущем устройстве (интеграция с клиентским приложением и Download Service).
-    *   (Опционально, {{TODO: Уточнить необходимость}}) Реализация функции "Семейный доступ" (Family Sharing) для предоставления временного доступа к играм другим пользователям согласно правилам платформы.
+    *   (Опционально, [Family Sharing: функционал будет уточнен]) Реализация функции "Семейный доступ" (Family Sharing) для предоставления временного доступа к играм другим пользователям согласно правилам платформы.
 *   **Отслеживание игрового времени (Playtime Tracking):**
     *   Автоматическая регистрация начала и окончания игровых сессий через API, вызываемое игровым клиентом или лаунчером.
     *   Периодические "heartbeat" сигналы от клиента для подтверждения активной игровой сессии.
@@ -43,7 +43,7 @@
     *   Предоставление API для игровых клиентов для загрузки файлов сохранений в облачное S3-хранилище.
     *   Скачивание последних (или выбранных пользователем) сохранений на другие устройства пользователя.
     *   Реализация стратегии разрешения конфликтов версий сохранений (например, "выбрать локальное", "выбрать облачное", "сохранить оба с разными именами", или автоматическое на основе временных меток).
-    *   Версионирование файлов сохранений (опционально, {{TODO: Уточнить глубину версионирования}}).
+    *   Версионирование файлов сохранений (опционально, [Cloud Save Versioning: глубина версионирования будет уточнена]).
     *   Управление квотами на облачное хранилище для сохранений на пользователя или на игру.
 *   **Управление Пользовательскими Настройками Игр (User-Specific Game Settings Storage):**
     *   Хранение и синхронизация пользовательских настроек для конкретных игр (например, настройки графики, управления, звука), если игра поддерживает такую интеграцию.
@@ -269,10 +269,115 @@ graph TD
     *   **`wishlistGameOnSale`**: `{"type": "wishlistGameOnSale", "payload": {"productId": "...", "productName":"...", "discountPercent":"30%"}}`
 
 ## 4. Модели Данных (Data Models)
+См. также `../../../../project_database_structure.md`.
+
+### 4.1. Основные Сущности
+*   **`UserLibraryItem` (Элемент Библиотеки Пользователя)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `acquisition_type` (ENUM: `purchase`, `gift`, `free`, `family_shared`). **Обязательность: Да.**
+    *   `acquisition_timestamp` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `last_played_timestamp` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `total_playtime_seconds` (BIGINT, Default: 0). **Обязательность: Да (DEFAULT 0).**
+    *   `installation_status` (ENUM: `not_installed`, `installing`, `installed`, `update_required`, `error`). **Обязательность: Да (DEFAULT 'not_installed').**
+    *   `installed_version_id` (UUID, Nullable). **Обязательность: Нет.**
+    *   `is_hidden` (BOOLEAN, Default: false). **Обязательность: Да (DEFAULT FALSE).**
+    *   `custom_categories` (ARRAY_TEXT, Nullable). **Обязательность: Нет.**
+    *   `added_to_library_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+*   **`PlaytimeSession` (Игровая Сессия)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_library_item_id` (UUID, FK). **Обязательность: Да.**
+    *   `user_id` (UUID). **Обязательность: Да.**
+    *   `product_id` (UUID). **Обязательность: Да.**
+    *   `start_timestamp` (TIMESTAMPTZ). **Обязательность: Да.**
+    *   `end_timestamp` (TIMESTAMPTZ, Nullable). **Обязательность: Нет (пока сессия активна).**
+    *   `duration_seconds` (INTEGER, Nullable). **Обязательность: Нет (рассчитывается при завершении).**
+    *   `last_heartbeat_timestamp` (TIMESTAMPTZ). **Обязательность: Да (для активных сессий).**
+*   **`UserAchievement` (Достижение Пользователя)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `achievement_api_name` (VARCHAR, FK на AchievementMeta в Catalog Service). **Обязательность: Да.**
+    *   `is_unlocked` (BOOLEAN, Default: false). **Обязательность: Да (DEFAULT FALSE).**
+    *   `unlocked_timestamp` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `progress_percentage` (INTEGER, Nullable, 0-100). **Обязательность: Нет.**
+*   **`WishlistItem` (Элемент Списка Желаемого)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `added_timestamp` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `priority` (INTEGER, Nullable). **Обязательность: Нет.**
+    *   `notes` (TEXT, Nullable). **Обязательность: Нет.**
+*   **`SavegameMetadata` (Метаданные Игрового Сохранения)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `slot_name` (VARCHAR). **Обязательность: Да.**
+    *   `s3_object_key` (VARCHAR, UK). **Обязательность: Да.**
+    *   `file_size_bytes` (BIGINT). **Обязательность: Да.**
+    *   `file_hash_sha256` (VARCHAR). **Обязательность: Да.**
+    *   `client_modified_timestamp` (TIMESTAMPTZ). **Обязательность: Да.**
+    *   `server_uploaded_timestamp` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `version_number` (INTEGER, Default: 1). **Обязательность: Да (для версионирования).**
+    *   `tags` (JSONB, Nullable). **Обязательность: Нет.**
+*   **`UserGameSetting` (Пользовательские Настройки Игры)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `settings_payload` (JSONB). **Обязательность: Да.**
+    *   `last_synced_timestamp` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   UNIQUE (`user_id`, `product_id`).
+*   **`FamilyLink` (Связь Семейного Доступа)**
+    *   `link_id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `owner_user_id` (UUID, FK). **Обязательность: Да.**
+    *   `shared_user_id` (UUID, FK). **Обязательность: Да.**
+    *   `status` (ENUM: `pending_approval`, `active`, `revoked`). **Обязательность: Да.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   UNIQUE (`owner_user_id`, `shared_user_id`).
+
+### 4.2. Схема Базы Данных (PostgreSQL)
 (ERD и DDL для PostgreSQL, описание Redis и S3 структуры как в предыдущем моем ответе).
+*Примечание: DDL для всех перечисленных выше сущностей должен быть создан или проверен на соответствие. Примеры DDL для ключевых таблиц, таких как `user_library_items`, `playtime_sessions`, `user_achievements`, `wishlist_items`, `savegame_metadata`, `user_game_settings`, `family_links`, должны быть детализированы в этом разделе, следуя структуре других сервисных документов.*
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
-(Описание публикуемых и потребляемых событий как в предыдущем моем ответе).
+*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
+*   **Основной топик для публикуемых событий:** `com.platform.library.events.v1`.
+
+### 5.1. Публикуемые События (Produced Events)
+*   **`com.platform.library.item.added.v1`**
+    *   Описание: Продукт добавлен в библиотеку пользователя.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "acquisitionType": "purchase", "timestamp": "ISO8601"}`
+*   **`com.platform.library.playtime.updated.v1`**
+    *   Описание: Обновлено игровое время для продукта.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "totalPlaytimeSeconds": 7200, "lastPlayedTimestamp": "ISO8601"}`
+*   **`com.platform.library.achievement.unlocked.v1`**
+    *   Описание: Пользователь разблокировал достижение.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "achievementApiName": "FIRST_BLOOD", "unlockedTimestamp": "ISO8601"}`
+*   **`com.platform.library.savegame.uploaded.v1`**
+    *   Описание: Новое игровое сохранение загружено в облако.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "savegameId": "save-uuid", "slotName": "slot1", "timestamp": "ISO8601"}`
+*   **`com.platform.library.wishlist.item.added.v1`**
+    *   Описание: Продукт добавлен в список желаемого.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "timestamp": "ISO8601"}`
+*   **`com.platform.library.wishlist.item.removed.v1`**
+    *   Описание: Продукт удален из списка желаемого.
+    *   `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "timestamp": "ISO8601"}`
+
+### 5.2. Потребляемые События (Consumed Events)
+*   **`com.platform.payment.transaction.completed.v1`** (от Payment Service)
+    *   Описание: Успешная транзакция покупки.
+    *   Ожидаемый `data` Payload: `{"userId": "user-uuid", "orderId": "order-uuid", "items": [{"productId": "prod-uuid", "productType": "game"}], "timestamp": "ISO8601"}`
+    *   Логика обработки: Добавить купленные продукты в библиотеку пользователя.
+*   **`com.platform.catalog.product.updated.v1`** (от Catalog Service)
+    *   Описание: Обновлены метаданные продукта (например, название, иконки достижений).
+    *   Ожидаемый `data` Payload: `{"productId": "prod-uuid", "updatedFields": ["name", "achievement_definitions"], ...}`
+    *   Логика обработки: Обновить кэшированную информацию о продукте в Library Service, если это необходимо для отображения в библиотеке или для достижений.
+*   **`com.platform.social.review.submitted.v1`** (от Social Service)
+    *   Описание: Пользователь оставил отзыв на игру.
+    *   Ожидаемый `data` Payload: `{"userId": "user-uuid", "productId": "prod-uuid", "rating": 5, "reviewId": "review-uuid"}`
+    *   Логика обработки: Может использоваться для отображения информации о том, оставлял ли пользователь отзыв на игру в своей библиотеке (опционально).
 
 ## 6. Интеграции (Integrations)
 (Описание интеграций как в предыдущем моем ответе).
@@ -482,10 +587,9 @@ graph TD
 (Как в предыдущем моем ответе).
 
 ## 17. Связанные Рабочие Процессы (Related Workflows)
-(Как в предыдущем моем ответе, с добавлением плейсхолдеров для новых воркфлоу).
 *   [Процесс покупки игры и обновления библиотеки пользователя](../../../../project_workflows/game_purchase_flow.md)
-*   [Синхронизация игровых сохранений с облаком](../../../../project_workflows/cloud_save_sync_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/cloud_save_sync_flow.md}} -->
-*   [Процесс разблокировки достижений](../../../../project_workflows/achievement_unlocking_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/achievement_unlocking_flow.md}} -->
+*   [Синхронизация игровых сохранений с облаком](../../../../project_workflows/cloud_save_sync_flow.md) <!-- [Ссылка на cloud_save_sync_flow.md - документ в разработке] -->
+*   [Процесс разблокировки достижений](../../../../project_workflows/achievement_unlocking_flow.md) <!-- [Ссылка на achievement_unlocking_flow.md - документ в разработке] -->
 
 ---
 *Этот документ является основной спецификацией для Library Service и должен поддерживаться в актуальном состоянии.*

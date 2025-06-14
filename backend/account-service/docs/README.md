@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Account Service
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -124,6 +124,18 @@ graph TD
           }
         }
         ```
+    *   Пример ответа (Ошибка 401 Unauthorized):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "UNAUTHENTICATED",
+              "title": "Ошибка аутентификации",
+              "detail": "Необходима аутентификация для доступа к этому ресурсу."
+            }
+          ]
+        }
+        ```
     *   Требуемые права доступа: Аутентифицированный пользователь (`user`).
 *   **`PUT /me/profile`**
     *   Описание: Обновление профиля текущего пользователя.
@@ -140,6 +152,19 @@ graph TD
               "privacySettings": { "showRealName": false, "inventoryPublic": true }
             }
           }
+        }
+        ```
+    *   Пример ответа (Ошибка 409 Conflict - Никнейм занят):
+        ```json
+        {
+          "errors": [
+            {
+              "code": "NICKNAME_TAKEN",
+              "title": "Никнейм уже занят",
+              "detail": "Выбранный никнейм 'NewUser123' уже используется. Пожалуйста, выберите другой.",
+              "source": { "pointer": "/data/attributes/nickname" }
+            }
+          ]
         }
         ```
     *   Требуемые права доступа: Владелец профиля (`user`).
@@ -245,7 +270,7 @@ graph TD
 
 ### 3.2. gRPC API
 *   **Пакет:** `account.v1`
-*   **Файл .proto:** `proto/account/v1/account_service.proto` (предполагаемое расположение в репозитории `platform-protos` или локально)
+*   **Файл .proto:** `proto/account/v1/account_service.proto` (предполагаемое расположение в репозитории `platform-protos` или локально в директории `proto` сервиса. Необходимо уточнить и стандартизировать расположение proto-файлов в рамках всего проекта.)
 *   **Аутентификация:** mTLS для межсервисного взаимодействия, опционально передача UserID/токена в метаданных для служебных запросов.
 
 #### 3.2.1. Сервис: AccountService
@@ -280,40 +305,40 @@ graph TD
 
 ### 4.1. Основные Сущности
 *   **Account**:
-    *   `id` (UUID, PK): Уникальный идентификатор аккаунта в Account Service.
-    *   `user_id` (UUID, FK, Unique): Идентификатор пользователя из Auth Service. **Обязательное поле.**
-    *   `status` (ENUM: `active`, `inactive`, `blocked`, `pending_deletion`, `deleted`): Статус аккаунта. **Обязательное поле.**
-    *   `created_at` (TIMESTAMPTZ).
-    *   `updated_at` (TIMESTAMPTZ).
+    *   `id` (UUID, PK): Уникальный идентификатор аккаунта в Account Service. **Обязательность: Да (генерируется БД).**
+    *   `user_id` (UUID, FK, Unique): Идентификатор пользователя из Auth Service. **Обязательность: Да.**
+    *   `status` (ENUM: `active`, `inactive`, `blocked`, `pending_deletion`, `deleted`): Статус аккаунта. **Обязательность: Да (DEFAULT 'inactive').**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **Profile**:
-    *   `id` (UUID, PK).
-    *   `account_id` (UUID, FK, Unique): Ссылка на Account. **Обязательное поле.**
-    *   `nickname` (VARCHAR, Nullable, Unique): Отображаемое имя.
-    *   `bio` (TEXT, Nullable).
-    *   `avatar_url` (VARCHAR, Nullable).
-    *   `country_code` (CHAR(2), Nullable): ISO 3166-1 alpha-2.
-    *   `custom_url_slug` (VARCHAR, Nullable, Unique): Кастомный URL для профиля.
-    *   `privacy_settings` (JSONB): Настройки приватности профиля (например, `{"inventory_visibility": "public", "friends_list_visibility": "private"}`).
-    *   `created_at` (TIMESTAMPTZ).
-    *   `updated_at` (TIMESTAMPTZ).
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `account_id` (UUID, FK, Unique): Ссылка на Account. **Обязательность: Да.**
+    *   `nickname` (VARCHAR, Nullable, Unique): Отображаемое имя. **Обязательность: Нет (но может быть установлено при регистрации).**
+    *   `bio` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `avatar_url` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `country_code` (CHAR(2), Nullable): ISO 3166-1 alpha-2. **Обязательность: Нет.**
+    *   `custom_url_slug` (VARCHAR, Nullable, Unique): Кастомный URL для профиля. **Обязательность: Нет.**
+    *   `privacy_settings` (JSONB): Настройки приватности профиля (например, `{"inventory_visibility": "public", "friends_list_visibility": "private"}`). **Обязательность: Да (DEFAULT '{}').**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **ContactInfo**:
-    *   `id` (UUID, PK).
-    *   `account_id` (UUID, FK): Ссылка на Account. **Обязательное поле.**
-    *   `type` (ENUM: `email`, `phone`). **Обязательное поле.**
-    *   `value` (VARCHAR, Not Null). **Обязательное поле.**
-    *   `is_verified` (BOOLEAN, Default: false).
-    *   `is_primary` (BOOLEAN, Default: false).
-    *   `verification_code_hash` (VARCHAR, Nullable): Хэш кода верификации.
-    *   `verification_code_expires_at` (TIMESTAMPTZ, Nullable).
-    *   `created_at` (TIMESTAMPTZ).
-    *   `updated_at` (TIMESTAMPTZ).
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `account_id` (UUID, FK): Ссылка на Account. **Обязательность: Да.**
+    *   `type` (ENUM: `email`, `phone`). **Обязательность: Да.**
+    *   `value` (VARCHAR, Not Null). **Обязательность: Да.**
+    *   `is_verified` (BOOLEAN, Default: false). **Обязательность: Да (DEFAULT false).**
+    *   `is_primary` (BOOLEAN, Default: false). **Обязательность: Да (DEFAULT false).**
+    *   `verification_code_hash` (VARCHAR, Nullable): Хэш кода верификации. **Обязательность: Нет.**
+    *   `verification_code_expires_at` (TIMESTAMPTZ, Nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   (Constraint: Unique(account_id, type, value), Unique(account_id, type, is_primary) WHERE is_primary = TRUE)
 *   **UserSetting**:
-    *   `id` (UUID, PK).
-    *   `account_id` (UUID, FK, Unique): Ссылка на Account. **Обязательное поле.**
-    *   `settings_data` (JSONB): Все настройки пользователя, сгруппированные по категориям (например, `{"notifications": {"email_updates": true}, "interface": {"language": "ru"}}`).
-    *   `created_at` (TIMESTAMPTZ).
-    *   `updated_at` (TIMESTAMPTZ).
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `account_id` (UUID, FK, Unique): Ссылка на Account. **Обязательность: Да.**
+    *   `settings_data` (JSONB): Все настройки пользователя, сгруппированные по категориям (например, `{"notifications": {"email_updates": true}, "interface": {"language": "ru"}}`). **Обязательность: Да (DEFAULT '{}').**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 
 ### 4.2. Схема Базы Данных (PostgreSQL)
 *   ERD Диаграмма:

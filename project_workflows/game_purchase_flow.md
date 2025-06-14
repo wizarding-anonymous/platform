@@ -1,3 +1,5 @@
+**Дата последнего обновления:** 2024-07-16
+
 # Game Purchase and Library Update Workflow
 
 This diagram illustrates the sequence of interactions between services when a user purchases a game and it's added to their library. This example assumes a successful payment flow, **including interaction with typical Russian payment gateways (like ЮKassa, Tinkoff, SberPay) where `PaymentSvc` might redirect the user or handle API calls, and subsequently process webhooks/callbacks from these providers. The flow also covers the necessary fiscalization steps as per 54-ФЗ.** A more complex Saga pattern might be used for robust error handling and rollbacks, as described in `project_database_structure.md`.

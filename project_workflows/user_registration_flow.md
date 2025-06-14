@@ -1,3 +1,5 @@
+**Дата последнего обновления:** 2024-07-16
+
 # User Registration and Initial Profile Setup Workflow
 
 This diagram illustrates user registration, including direct email/password signup and registration via external OAuth providers like VKontakte and Telegram.

@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Developer Service (Сервис для Разработчиков)
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -24,7 +24,7 @@
     *   Управление юридическими соглашениями и документами.
 *   **Управление Продуктами (Игры, DLC, ПО):**
     *   Создание и управление карточками продуктов (игры, DLC, ПО, комплекты).
-    *   Загрузка и управление билдами продуктов через интеграцию с S3-совместимым хранилищем. Поддержка различных платформ (Windows, Linux, macOS, Android, iOS - {{TODO: Уточнить список платформ}}).
+    *   Загрузка и управление билдами продуктов через интеграцию с S3-совместимым хранилищем. Поддержка различных платформ (Windows, Linux, macOS, Android, iOS - [Платформы: Windows, Linux, macOS, Android, iOS - подлежит уточнению в соответствии с `project_cross_platform_support.md`]).
     *   Версионирование билдов и управление их статусами (например, `alpha`, `beta`, `release_candidate`, `live`).
     *   Управление метаданными продуктов: локализованные названия, описания, системные требования, возрастные рейтинги, информация о разработчиках и издателях.
     *   Настройка страницы продукта в магазине: кастомизация описания, загрузка медиа-контента (скриншоты, трейлеры, арты), управление промо-материалами.
@@ -311,8 +311,7 @@ graph TD
 
 ### 3.2. gRPC API
 *   На данный момент Developer Service в основном **потребляет** gRPC API других сервисов.
-*   Могут быть определены внутренние gRPC эндпоинты для специфичных задач, например, для взаимодействия с CLI-утилитой для разработчиков, если таковая будет. Если такие эндпоинты появятся, они будут задокументированы здесь.
-    *   `{{TODO: Определить gRPC API, если потребуется для CLI или других внутренних нужд.}}`
+*   Если в будущем возникнет необходимость в предоставлении собственных gRPC эндпоинтов (например, для CLI-утилиты разработчика или специфичных внутренних интеграций), они будут определены и задокументированы здесь в соответствии со стандартами `project_api_standards.md`.
 
 ### 3.3. WebSocket API
 *   Не планируется для Developer Service на данном этапе. Может быть рассмотрено в будущем для real-time уведомлений на Портале Разработчика.
@@ -322,65 +321,93 @@ graph TD
 
 ### 4.1. Основные Сущности
 *   **`DeveloperAccount` (Аккаунт Разработчика/Издателя)**
-    *   `id` (UUID, PK)
-    *   `owner_user_id` (UUID, FK на User в Auth Service): Пользователь-владелец аккаунта.
-    *   `company_name` (VARCHAR), `legal_entity_type` (VARCHAR), `tax_id` (VARCHAR), `country_code` (CHAR(2)).
-    *   `contact_email` (VARCHAR), `contact_phone` (VARCHAR, nullable).
-    *   `status` (VARCHAR: `pending_verification`, `active`, `suspended`, `rejected`).
-    *   `verification_documents` (JSONB, ссылки на S3).
-    *   `created_at`, `updated_at`.
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `owner_user_id` (UUID, FK на User в Auth Service): Пользователь-владелец аккаунта. **Обязательность: Да.**
+    *   `company_name` (VARCHAR). **Обязательность: Да.**
+    *   `legal_entity_type` (VARCHAR). **Обязательность: Нет (может быть уточнено при верификации).**
+    *   `tax_id` (VARCHAR). **Обязательность: Нет (может быть уточнено при верификации).**
+    *   `country_code` (CHAR(2)). **Обязательность: Да.**
+    *   `contact_email` (VARCHAR). **Обязательность: Да.**
+    *   `contact_phone` (VARCHAR, nullable). **Обязательность: Нет.**
+    *   `status` (VARCHAR: `pending_verification`, `active`, `suspended`, `rejected`). **Обязательность: Да (DEFAULT 'pending_verification').**
+    *   `verification_documents` (JSONB, ссылки на S3). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`DeveloperTeamMember` (Член Команды Разработчика)**
-    *   `developer_account_id` (UUID, PK, FK на DeveloperAccount).
-    *   `user_id` (UUID, PK, FK на User в Auth Service).
-    *   `role_in_team` (VARCHAR: `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`, `marketing_manager`).
-    *   `permissions_override` (JSONB, nullable): Индивидуальные переопределения прав.
-    *   `invited_by_user_id` (UUID, FK на User), `joined_at`.
+    *   `developer_account_id` (UUID, PK, FK на DeveloperAccount). **Обязательность: Да.**
+    *   `user_id` (UUID, PK, FK на User в Auth Service). **Обязательность: Да.**
+    *   `role_in_team` (VARCHAR: `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`, `marketing_manager`). **Обязательность: Да.**
+    *   `permissions_override` (JSONB, nullable): Индивидуальные переопределения прав. **Обязательность: Нет.**
+    *   `invited_by_user_id` (UUID, FK на User). **Обязательность: Да (для приглашенных).**
+    *   `joined_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
 *   **`ProductSubmission` (Представление Продукта/Черновик)**: Используется для хранения данных о продукте, пока он находится в разработке или на модерации в Developer Service, перед отправкой в Catalog Service.
-    *   `id` (UUID, PK)
-    *   `developer_account_id` (UUID, FK).
-    *   `catalog_product_id` (UUID, nullable): ID продукта в Catalog Service (после успешной первой синхронизации).
-    *   `product_type` (VARCHAR: `game`, `dlc`, `software`, `bundle`).
-    *   `status` (VARCHAR: `draft`, `in_review`, `changes_requested`, `approved_by_developer_service`, `rejected_by_developer_service`).
-    *   `current_version_id` (UUID, FK на `ProductVersion`, nullable).
-    *   `draft_metadata` (JSONB): Полная структура метаданных, включая локализованные поля (названия, описания), системные требования, платформы, языки, теги, жанры, категории, медиа-ссылки (на загруженные в S3 файлы).
-    *   `draft_pricing` (JSONB): Предлагаемые цены (базовая, региональные), информация о скидках.
-    *   `moderation_notes_to_admin` (TEXT, nullable).
-    *   `moderation_feedback_from_admin` (TEXT, nullable).
-    *   `created_at`, `updated_at`, `submitted_at`.
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
+    *   `catalog_product_id` (UUID, nullable): ID продукта в Catalog Service. **Обязательность: Нет.**
+    *   `product_type` (VARCHAR: `game`, `dlc`, `software`, `bundle`). **Обязательность: Да.**
+    *   `status` (VARCHAR: `draft`, `in_review`, `changes_requested`, `approved_by_developer_service`, `rejected_by_developer_service`). **Обязательность: Да (DEFAULT 'draft').**
+    *   `current_version_id` (UUID, FK на `ProductVersion`, nullable). **Обязательность: Нет.**
+    *   `draft_metadata` (JSONB): Полная структура метаданных. **Обязательность: Да (может быть пустым JSON '{}').**
+    *   `draft_pricing` (JSONB): Предлагаемые цены. **Обязательность: Да (может быть пустым JSON '{}').**
+    *   `moderation_notes_to_admin` (TEXT, nullable). **Обязательность: Нет.**
+    *   `moderation_feedback_from_admin` (TEXT, nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `submitted_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
 *   **`ProductVersion` (Версия Продукта)**
-    *   `id` (UUID, PK)
-    *   `product_submission_id` (UUID, FK на ProductSubmission).
-    *   `version_name` (VARCHAR, например, "1.0.0", "Beta 2.1").
-    *   `status` (VARCHAR: `draft`, `uploading_builds`, `ready_for_submission`, `submitted_for_review`, `live`, `deprecated`).
-    *   `changelog` (JSONB, локализованный).
-    *   `created_at`, `updated_at`.
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `product_submission_id` (UUID, FK на ProductSubmission). **Обязательность: Да.**
+    *   `version_name` (VARCHAR, например, "1.0.0", "Beta 2.1"). **Обязательность: Да.**
+    *   `status` (VARCHAR: `draft`, `uploading_builds`, `ready_for_submission`, `submitted_for_review`, `live`, `deprecated`). **Обязательность: Да (DEFAULT 'draft').**
+    *   `changelog` (JSONB, локализованный). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`BuildArtifact` (Артефакт Билда)**
-    *   `id` (UUID, PK)
-    *   `product_version_id` (UUID, FK на ProductVersion).
-    *   `platform` (VARCHAR: `windows_x64`, `linux_x86_64`, `macos_arm64`, `android_arm64v8a`, `ios_arm64`).
-    *   `s3_path` (VARCHAR): Путь к файлу билда в S3.
-    *   `file_name` (VARCHAR), `file_size_bytes` (BIGINT), `file_hash_sha256` (VARCHAR).
-    *   `status` (VARCHAR: `uploading`, `uploaded`, `processing`, `ready`, `failed_processing`).
-    *   `upload_expires_at` (TIMESTAMPTZ, для pre-signed URL).
-    *   `created_at`, `updated_at`.
-*   **`DeveloperPayoutRequest` (Запрос на Выплату)** (переименовано из `DeveloperPayout` для ясности)
-    *   `id` (UUID, PK).
-    *   `developer_account_id` (UUID, FK).
-    *   `amount_requested_minor_units` (BIGINT), `currency_code` (VARCHAR(3)).
-    *   `status` (VARCHAR: `pending_request`, `pending_approval`, `processing`, `completed`, `failed`, `cancelled`).
-    *   `payment_method_id` (UUID, FK на `DeveloperPaymentMethod` - отдельная таблица для хранения реквизитов).
-    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса.
-    *   `requested_at`, `approved_at`, `processed_at`.
-    *   `transaction_id_payment_service` (UUID, nullable).
-    *   `comment_developer` (TEXT, nullable), `comment_admin` (TEXT, nullable).
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `product_version_id` (UUID, FK на ProductVersion). **Обязательность: Да.**
+    *   `platform` (VARCHAR: `windows_x64`, `linux_x86_64`, `macos_arm64`, `android_arm64v8a`, `ios_arm64`). **Обязательность: Да.**
+    *   `s3_path` (VARCHAR): Путь к файлу билда в S3. **Обязательность: Да.**
+    *   `file_name` (VARCHAR). **Обязательность: Да.**
+    *   `file_size_bytes` (BIGINT). **Обязательность: Да.**
+    *   `file_hash_sha256` (VARCHAR). **Обязательность: Нет (может быть вычислен после загрузки).**
+    *   `status` (VARCHAR: `uploading`, `uploaded`, `processing`, `ready`, `failed_processing`). **Обязательность: Да (DEFAULT 'uploading').**
+    *   `upload_expires_at` (TIMESTAMPTZ, для pre-signed URL). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`DeveloperPayoutRequest` (Запрос на Выплату)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
+    *   `amount_requested_minor_units` (BIGINT). **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3)). **Обязательность: Да.**
+    *   `status` (VARCHAR: `pending_request`, `pending_approval`, `processing`, `completed`, `failed`, `cancelled`). **Обязательность: Да (DEFAULT 'pending_request').**
+    *   `payment_method_id` (UUID, FK на `DeveloperPaymentMethod`). **Обязательность: Да.**
+    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса. **Обязательность: Да.**
+    *   `requested_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+    *   `approved_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `processed_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `transaction_id_payment_service` (UUID, nullable). **Обязательность: Нет.**
+    *   `comment_developer` (TEXT, nullable). **Обязательность: Нет.**
+    *   `comment_admin` (TEXT, nullable). **Обязательность: Нет.**
 *   **`DeveloperPaymentMethod` (Платежный Метод Разработчика)**
-    *   `id` (UUID, PK).
-    *   `developer_account_id` (UUID, FK).
-    *   `method_type` (VARCHAR: `bank_transfer_ru`, `swift_transfer`, `crypto_wallet_placeholder`).
-    *   `details_encrypted` (TEXT): Зашифрованные банковские реквизиты или адрес кошелька.
-    *   `is_default` (BOOLEAN), `is_verified` (BOOLEAN).
-    *   `created_at`, `updated_at`.
-*   **`DeveloperAPIKey` (API Ключ Разработчика)** (Как описано ранее)
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
+    *   `method_type` (VARCHAR: `bank_transfer_ru`, `swift_transfer`, `crypto_wallet_placeholder`). **Обязательность: Да.**
+    *   `details_encrypted` (TEXT): Зашифрованные банковские реквизиты или адрес кошелька. **Обязательность: Да.**
+    *   `is_default` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
+    *   `is_verified` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+*   **`DeveloperAPIKey` (API Ключ Разработчика)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
+    *   `name` (VARCHAR). **Обязательность: Да.**
+    *   `prefix` (VARCHAR(8), UK). **Обязательность: Да.**
+    *   `key_hash` (VARCHAR, UK). **Обязательность: Да.**
+    *   `permissions` (JSONB). **Обязательность: Да (DEFAULT '[]').**
+    *   `is_active` (BOOLEAN). **Обязательность: Да (DEFAULT TRUE).**
+    *   `expires_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `last_used_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 
 ### 4.2. Схема Базы Данных
 
@@ -828,7 +855,7 @@ security:
 
 ## 12. Нефункциональные Требования (NFRs)
 *   **Производительность Портала Разработчика:** P95 < 500мс для большинства операций. Загрузка дашбордов с аналитикой P95 < 2с.
-*   **Процесс загрузки билдов:** Должен поддерживать файлы до 50-100 ГБ ({{TODO: Уточнить максимальный размер билда}}). Скорость загрузки зависит от S3 и сети клиента.
+*   **Процесс загрузки билдов:** Должен поддерживать файлы до 50-100 ГБ ([Максимальный размер билда: будет определен на основе технических возможностей и политик платформы, целевой диапазон 50-100 ГБ].). Скорость загрузки зависит от S3 и сети клиента.
 *   **Надежность:** Доступность сервиса > 99.9%.
 *   **Масштабируемость:** Поддержка до 10,000+ активных разработчиков/издателей и 100,000+ продуктов.
 
@@ -1032,7 +1059,7 @@ security:
 
 ## 17. Связанные Рабочие Процессы (Related Workflows)
 *   [Подача разработчиком новой игры на модерацию](../../../../project_workflows/game_submission_flow.md)
-*   [Процесс выплат разработчикам] <!-- {{TODO: Workflow будет создан и описан в project_workflows/developer_payout_flow.md}} -->
+*   [Процесс выплат разработчикам] Подробное описание этого рабочего процесса будет добавлено в [developer_payout_flow.md](../../../../project_workflows/developer_payout_flow.md) (документ в разработке).
 
 ---
 *Этот документ является основной спецификацией для Developer Service и должен поддерживаться в актуальном состоянии.*

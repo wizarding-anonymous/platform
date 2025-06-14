@@ -1,7 +1,7 @@
 # Спецификация Микросервиса: Social Service (Социальный Сервис)
 
 **Версия:** 1.0
-**Дата последнего обновления:** 2024-07-11
+**Дата последнего обновления:** 2024-07-16
 
 ## 1. Обзор Сервиса (Overview)
 
@@ -26,7 +26,7 @@
     *   Отправка, принятие, отклонение и отмена запросов на добавление в друзья.
     *   Просмотр списка друзей, их онлайн-статусов и текущей активности (игры, в которые играют).
     *   Удаление из списка друзей.
-    *   (Опционально, {{TODO}}) Предложения друзей на основе общих игр, групп или друзей второго порядка.
+    *   (Опционально, [TODO: Реализовать предложения друзей]) Предложения друзей на основе общих игр, групп или друзей второго порядка.
 *   **Управление Группами Пользователей:**
     *   Создание и настройка публичных и приватных групп (с различными моделями вступления: открытое, по заявкам, по приглашениям).
     *   Управление членством в группах (вступление, выход, приглашение, исключение, назначение ролей – администратор, модератор группы).
@@ -35,9 +35,9 @@
 *   **Обмен Сообщениями (Чаты):**
     *   Личные (1-на-1) чаты между друзьями.
     *   Групповые чаты для участников групп.
-    *   Отправка текстовых сообщений, эмодзи. ({{TODO: Рассмотреть поддержку изображений/файлов на будущих этапах}}).
+    *   Отправка текстовых сообщений, эмодзи. ([Поддержка изображений/файлов в чатах: будет рассмотрена на будущих этапах]).
     *   Отображение статусов доставки и прочтения сообщений.
-    *   Доступ к истории сообщений с возможностью поиска ({{TODO: Глубина поиска и хранения истории}}).
+    *   Доступ к истории сообщений с возможностью поиска ([История чатов: глубина поиска и хранения будет уточнена]).
     *   Уведомления о новых сообщениях (через Notification Service).
 *   **Лента Активности:**
     *   Формирование персонализированной ленты событий от друзей (например, "друг X начал играть в Y", "друг Z получил достижение A", "друг W оставил отзыв об игре Q") и из групп, на которые подписан пользователь.
@@ -55,7 +55,7 @@
     *   Базовое модерирование форумов (прикрепление тем, закрытие тем, удаление постов).
     *   Подписка на темы для получения уведомлений о новых постах.
 *   **Модерация Пользовательских Текстовых Материалов:**
-    *   Интеграция с Admin Service для обработки жалоб на пользовательские текстовые материалы (например, тексты профилей, сообщения, отзывы, посты на форумах).
+    *   Интеграция с Admin Service для обработки жалоб на пользовательские текстовые материалы (например, тексты профилей, сообщения, отзывы, посты на форумах). [Стратегия модерации контента (например, автоматическая с использованием AI + ручная)].
     *   API для применения решений модерации (скрытие, удаление контента, применение санкций к пользователям).
 
 ### 1.3. Основные Технологии
@@ -63,14 +63,14 @@
 *   **API:**
     *   REST API: Echo (`github.com/labstack/echo/v4`) (для клиентских приложений, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
     *   gRPC: `google.golang.org/grpc` (для внутреннего межсервисного взаимодействия, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-    *   WebSocket: `github.com/gorilla/websocket` (или аналогичная Go-библиотека) для обеспечения real-time функциональности чатов, обновлений ленты и онлайн-статусов.
+    *   WebSocket: `github.com/gorilla/websocket` (или аналогичная Go-библиотека) для обеспечения real-time функциональности чатов, обновлений ленты и онлайн-статусов. [Детали компонента реального времени (например, WebSockets, технология, масштабирование)].
 *   **Базы данных (Polyglot Persistence):**
     *   PostgreSQL (версия 15+): Для структурированных данных (профили пользователей, информация о группах, структура форумов, отзывы, комментарии, метаданные для управления связями в Neo4j, если требуется). Драйвер: GORM (`gorm.io/gorm`) с `gorm.io/driver/postgres` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
     *   Apache Cassandra (версия 4.x+): Для хранения данных с высокой интенсивностью записи и чтения, таких как сообщения чатов и элементы ленты активности. Клиент: `github.com/gocql/gocql`. (согласно `../../../../project_technology_stack.md`).
     *   Neo4j (версия 5.x+): Для хранения и обработки социального графа (связи дружбы, членство в группах, рекомендации). Клиент: официальный Go драйвер `github.com/neo4j/neo4j-go-driver`. (согласно `../../../../project_technology_stack.md`).
     *   Redis (версия 7.0+): Применяется для кэширования часто запрашиваемых данных (профили, списки друзей), хранения онлайн-статусов пользователей, управления сессиями WebSocket, временных данных (например, счетчики непрочитанных сообщений). Клиент: `go-redis/redis` (согласно `../../../../PACKAGE_STANDARDIZATION.md`).
 *   **Брокер сообщений:** Apache Kafka (клиент `github.com/confluentinc/confluent-kafka-go`, согласно `../../../../PACKAGE_STANDARDIZATION.md`).
-*   **Поисковый движок (опционально, {{TODO: Уточнить необходимость}}):** Elasticsearch (версия 8.x+) может использоваться для поиска по профилям, группам, форумам, если возможности PostgreSQL окажутся недостаточными.
+*   **Поисковый движок (опционально, [Elasticsearch для поиска: необходимость будет уточнена]):** Elasticsearch (версия 8.x+) может использоваться для поиска по профилям, группам, форумам, если возможности PostgreSQL окажутся недостаточными.
 *   **Управление конфигурацией:** Viper (`github.com/spf13/viper`).
 *   **Логирование:** Zap (`go.uber.org/zap`).
 *   **Мониторинг/Трассировка:** OpenTelemetry SDK, Prometheus client.
@@ -171,8 +171,155 @@ graph TD
 ## 3. API Endpoints
 (Раздел API как в существующем документе, с уточнением payload и добавлением эндпоинтов для форумов и расширенного управления группами).
 
+### 3.1. REST API
+*   **Базовый URL (через API Gateway):** `/api/v1/social`
+*   (Примеры эндпоинтов REST API для управления профилями, друзьями, группами, отзывами, комментариями, форумами будут детализированы здесь, следуя `project_api_standards.md`. Например: `GET /users/{userId}/profile`, `POST /users/me/friends`, `GET /groups`, `POST /groups/{groupId}/posts`, `GET /products/{productId}/reviews`)
+
+### 3.2. gRPC API
+*   **Пакет:** `social.v1`
+*   **Файл .proto:** `proto/social/v1/social_service.proto` (или в общем репозитории `platform-protos`)
+
+*   **`rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse)`**
+    *   Описание: Получение расширенного профиля пользователя.
+    *   Пример запроса: `message GetUserProfileRequest { string user_id = 1; }`
+    *   Пример ответа: `message UserProfileResponse { string user_id = 1; string nickname = 2; string avatar_url = 3; string status_message = 4; string about_me = 5; ... }`
+    *   Ошибки: `NOT_FOUND`, `PERMISSION_DENIED`.
+*   **`rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UserProfileResponse)`**
+    *   Описание: Обновление профиля текущего пользователя.
+    *   Пример запроса: `message UpdateUserProfileRequest { string user_id = 1; optional string nickname = 2; optional string avatar_url = 3; ... }`
+    *   Ошибки: `INVALID_ARGUMENT`, `UNAUTHENTICATED`, `PERMISSION_DENIED`.
+*   **`rpc SendFriendRequest(SendFriendRequestRequest) returns (FriendRequestResponse)`**
+    *   Описание: Отправка запроса на добавление в друзья.
+    *   Пример запроса: `message SendFriendRequestRequest { string target_user_id = 1; }` // user_id отправителя из контекста
+    *   Пример ответа: `message FriendRequestResponse { string request_id = 1; string status = 2; /* pending, already_friends, etc. */ }`
+    *   Ошибки: `NOT_FOUND` (target_user_id), `ALREADY_EXISTS` (уже друзья или запрос отправлен), `FAILED_PRECONDITION` (нельзя отправить себе).
+*   **`rpc AcceptFriendRequest(AcceptFriendRequestRequest) returns (AcceptFriendRequestResponse)`**
+    *   Описание: Принятие запроса в друзья.
+    *   Пример запроса: `message AcceptFriendRequestRequest { string requester_user_id = 1; }`
+    *   Пример ответа: `message AcceptFriendRequestResponse { bool success = 1; }`
+    *   Ошибки: `NOT_FOUND` (запрос не найден), `PERMISSION_DENIED`.
+*   **`rpc GetFriendsList(GetFriendsListRequest) returns (GetFriendsListResponse)`**
+    *   Описание: Получение списка друзей пользователя.
+    *   Пример запроса: `message GetFriendsListRequest { string user_id = 1; int32 page_size = 2; string page_token = 3; }`
+    *   Пример ответа: `message Friend { string user_id = 1; string nickname = 2; string avatar_url = 3; string online_status = 4; } message GetFriendsListResponse { repeated Friend friends = 1; string next_page_token = 2; }`
+    *   Ошибки: `NOT_FOUND` (пользователь не найден).
+*   **`rpc CreatePost(CreatePostRequest) returns (PostResponse)`**
+    *   Описание: Создание поста (например, в группе или на форуме).
+    *   Пример запроса: `message CreatePostRequest { string target_id = 1; /* groupId или forumTopicId */ string content = 2; }`
+    *   Пример ответа: `message PostResponse { string post_id = 1; string author_id = 2; string content = 3; google.protobuf.Timestamp created_at = 4; }`
+    *   Ошибки: `INVALID_ARGUMENT`, `PERMISSION_DENIED`.
+*   **`rpc GetPosts(GetPostsRequest) returns (GetPostsResponse)`**
+    *   Описание: Получение постов (из группы, темы форума, ленты).
+    *   Пример запроса: `message GetPostsRequest { string target_id = 1; int32 page_size = 2; string page_token = 3; }`
+    *   Пример ответа: `message GetPostsResponse { repeated PostResponse posts = 1; string next_page_token = 2; }`
+*   (Аналогичные gRPC методы для других функций: управление группами, отзывами, комментариями, форумами).
+
+### 3.3. WebSocket API
+*   **Эндпоинт:** `/ws/social/updates` (требует аутентификации).
+*   **Назначение:** Real-time доставка сообщений чата, уведомлений о новой активности в ленте, изменений онлайн-статусов друзей.
+*   **Формат сообщений:** JSON, согласно `project_api_standards.md`.
+    *   Пример нового сообщения в чате: `{"type": "social.chat.message.new", "payload": {"chat_room_id": "...", "message_id": "...", "sender_id": "...", "text": "...", "timestamp": "..."}}`
+    *   Пример обновления статуса друга: `{"type": "social.friend.status.updated", "payload": {"user_id": "...", "online_status": "in_game", "current_game_id": "..."}}`
+
 ## 4. Модели Данных (Data Models)
-(ERD и DDL для PostgreSQL, описание Cassandra, Neo4j, Redis как в существующем документе, с добавлением концептуальных диаграмм для Cassandra и Neo4j).
+См. также `../../../../project_database_structure.md`.
+
+### 4.1. Основные Сущности
+*   **`UserProfile` (Расширенный Профиль Пользователя - PostgreSQL)**
+    *   `user_id` (UUID, PK, FK на User в Auth/Account Service). **Обязательность: Да.**
+    *   `custom_status_message` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `about_me_text` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `profile_background_url` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `showcase_items` (JSONB, Nullable): Витрина (любимые игры, достижения). **Обязательность: Нет.**
+    *   `privacy_settings` (JSONB): Настройки приватности (кто видит профиль, активность, список друзей). **Обязательность: Да (DEFAULT '{}').**
+    *   `last_online_timestamp` (TIMESTAMPTZ, Nullable). **Обязательность: Нет (обновляется через Redis).**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
+*   **`Friendship` (Дружба - Neo4j)**
+    *   Отношение `[:FRIENDS_WITH]` между двумя узлами `:User`.
+    *   Свойства: `since` (TIMESTAMPTZ). **Обязательность: Да.**
+    *   `status` (ENUM: `pending_request`, `accepted`, `blocked`). **Обязательность: Да.**
+*   **`Group` (Группа - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `name` (VARCHAR, UK). **Обязательность: Да.**
+    *   `description` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `avatar_url` (VARCHAR, Nullable). **Обязательность: Нет.**
+    *   `owner_user_id` (UUID, FK). **Обязательность: Да.**
+    *   `group_type` (ENUM: `public`, `private`, `invite_only`). **Обязательность: Да.**
+    *   `member_count` (INTEGER, Default: 1). **Обязательность: Да.**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
+*   **`GroupMember` (Участник Группы - PostgreSQL, и отношение в Neo4j)**
+    *   `group_id` (UUID, PK, FK). **Обязательность: Да.**
+    *   `user_id` (UUID, PK, FK). **Обязательность: Да.**
+    *   `role` (ENUM: `member`, `moderator`, `admin`). **Обязательность: Да (DEFAULT 'member').**
+    *   `joined_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
+*   **`ChatMessage` (Сообщение Чата - Cassandra)**
+    *   `chat_room_id` (TEXT, PK - партишн ключ, может быть `user1_id::user2_id` или `group_id`). **Обязательность: Да.**
+    *   `message_id` (TIMEUUID, PK - кластерный ключ). **Обязательность: Да.**
+    *   `sender_id` (UUID). **Обязательность: Да.**
+    *   `sender_nickname` (TEXT). **Обязательность: Да.**
+    *   `content_text` (TEXT). **Обязательность: Да.**
+    *   `attachments` (LIST<TEXT>, Nullable): Ссылки на медиа. **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMP). **Обязательность: Да.**
+    *   `is_edited` (BOOLEAN, Default: false). **Обязательность: Да.**
+*   **`ActivityFeedItem` (Элемент Ленты Активности - Cassandra)**
+    *   `user_id` (UUID, PK - партишн ключ, для чьей ленты это событие). **Обязательность: Да.**
+    *   `event_time` (TIMEUUID, PK - кластерный ключ). **Обязательность: Да.**
+    *   `actor_id` (UUID): Кто совершил действие. **Обязательность: Да.**
+    *   `actor_nickname` (TEXT). **Обязательность: Да.**
+    *   `verb` (TEXT): Тип действия (e.g., "unlocked_achievement", "became_friends_with", "posted_review"). **Обязательность: Да.**
+    *   `object_id` (UUID, Nullable): ID объекта действия. **Обязательность: Нет.**
+    *   `object_type` (TEXT, Nullable): Тип объекта (game, achievement, review). **Обязательность: Нет.**
+    *   `object_preview` (TEXT, Nullable): Краткое описание/ссылка на объект. **Обязательность: Нет.**
+    *   `target_id` (UUID, Nullable): ID цели действия (если есть). **Обязательность: Нет.**
+    *   `target_type` (TEXT, Nullable): Тип цели. **Обязательность: Нет.**
+    *   `target_preview` (TEXT, Nullable). **Обязательность: Нет.**
+*   **`Review` (Отзыв - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `product_id` (UUID, FK). **Обязательность: Да.**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `rating_score` (SMALLINT, Nullable): Оценка (1-5 или 0/1). **Обязательность: Нет.**
+    *   `review_text` (TEXT). **Обязательность: Да.**
+    *   `status` (ENUM: `published`, `pending_moderation`, `rejected`, `hidden`). **Обязательность: Да.**
+    *   `upvotes` (INTEGER, Default: 0). **Обязательность: Да.**
+    *   `downvotes` (INTEGER, Default: 0). **Обязательность: Да.**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
+*   **`Comment` (Комментарий - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `parent_entity_type` (ENUM: `review`, `post`, `feed_item`). **Обязательность: Да.**
+    *   `parent_entity_id` (UUID). **Обязательность: Да.**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `comment_text` (TEXT). **Обязательность: Да.**
+    *   `status` (ENUM: `published`, `pending_moderation`, `rejected`, `hidden`). **Обязательность: Да.**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
+*   **`Like` (Лайк - PostgreSQL или Redis для счетчиков)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `target_entity_type` (ENUM: `review`, `comment`, `post`, `feed_item`). **Обязательность: Да.**
+    *   `target_entity_id` (UUID). **Обязательность: Да.**
+    *   `user_id` (UUID, FK). **Обязательность: Да.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   UNIQUE (`target_entity_type`, `target_entity_id`, `user_id`).
+*   **`Forum` (Форум - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `name` (VARCHAR, UK). **Обязательность: Да.**
+    *   `description` (TEXT, Nullable). **Обязательность: Нет.**
+    *   `is_locked` (BOOLEAN, Default: false). **Обязательность: Да.**
+*   **`ForumTopic` (Тема Форума - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `forum_id` (UUID, FK). **Обязательность: Да.**
+    *   `title` (VARCHAR). **Обязательность: Да.**
+    *   `author_user_id` (UUID, FK). **Обязательность: Да.**
+    *   `is_locked` (BOOLEAN, Default: false). **Обязательность: Да.**
+    *   `is_pinned` (BOOLEAN, Default: false). **Обязательность: Да.**
+    *   `post_count` (INTEGER, Default: 1). **Обязательность: Да.**
+    *   `last_post_timestamp` (TIMESTAMPTZ). **Обязательность: Да.**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
+*   **`ForumPost` (Пост на Форуме - PostgreSQL)**
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `topic_id` (UUID, FK). **Обязательность: Да.**
+    *   `author_user_id` (UUID, FK). **Обязательность: Да.**
+    *   `content_markdown` (TEXT). **Обязательность: Да.**
+    *   `status` (ENUM: `published`, `pending_moderation`, `rejected`, `hidden`). **Обязательность: Да.**
+    *   `created_at`, `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируются БД).**
 
 #### 4.2.2. Apache Cassandra (Чаты, Ленты Активности)
 *   **Концептуальная диаграмма `chat_messages`:**
@@ -246,7 +393,44 @@ graph TD
     *   Найти группы, в которых состоят друзья пользователя: `MATCH (u:User {userId: $userId})-[:FRIENDS_WITH]-(friend:User)-[:MEMBER_OF]->(group:Group) WHERE NOT (u)-[:MEMBER_OF]->(group) RETURN DISTINCT group.groupId, group.name, count(friend) as friends_in_group ORDER BY friends_in_group DESC LIMIT 10`
 
 ## 5. Потоковая Обработка Событий (Event Streaming)
-(Как в существующем документе, с уточнением имен событий до `com.platform.social.*.v1`).
+## 5. Потоковая Обработка Событий (Event Streaming)
+*   **Формат событий:** CloudEvents v1.0 JSON (согласно `../../../../project_api_standards.md`).
+*   **Основной топик для публикуемых событий:** `com.platform.social.events.v1`.
+
+### 5.1. Публикуемые События (Produced Events)
+*   **`com.platform.social.friend.request.sent.v1`**
+    *   Описание: Отправлен запрос на добавление в друзья.
+    *   `data` Payload: `{"requesterUserId": "uuid-user-A", "targetUserId": "uuid-user-B", "requestTimestamp": "ISO8601"}`
+*   **`com.platform.social.friend.request.accepted.v1`**
+    *   Описание: Запрос на добавление в друзья принят.
+    *   `data` Payload: `{"accepterUserId": "uuid-user-B", "requesterUserId": "uuid-user-A", "acceptedTimestamp": "ISO8601"}`
+*   **`com.platform.social.chat.message.sent.v1`**
+    *   Описание: Отправлено новое сообщение в чате (личном или групповом).
+    *   `data` Payload: `{"messageId": "uuid-msg", "chatRoomId": "uuid-room", "senderUserId": "uuid-user-A", "receiverUserId": "uuid-user-B", "groupId": null, "text": "Привет!", "sentTimestamp": "ISO8601"}`
+*   **`com.platform.social.review.submitted.v1`**
+    *   Описание: Пользователь оставил отзыв об игре.
+    *   `data` Payload: `{"reviewId": "uuid-review", "userId": "uuid-user", "productId": "uuid-game", "rating": 5, "submissionTimestamp": "ISO8601"}`
+*   **`com.platform.social.comment.posted.v1`**
+    *   Описание: Оставлен комментарий к сущности (отзыв, пост, и т.д.).
+    *   `data` Payload: `{"commentId": "uuid-comment", "userId": "uuid-user", "parentEntityType": "review", "parentEntityId": "uuid-review", "text": "Согласен!", "postedTimestamp": "ISO8601"}`
+*   **`com.platform.social.user_activity.event.v1`**
+    *   Описание: Общее событие активности пользователя для формирования ленты.
+    *   `data` Payload: `{"userId": "uuid-user-B", "activityType": "NEW_ACHIEVEMENT", "details": {"achievementName": "Мастер Клинка", "gameName": "Супер РПГ"}, "timestamp": "ISO8601"}`
+    *   (Примеры `activityType`: `NEW_POST_IN_GROUP`, `JOINED_GROUP`, `NEW_REVIEW`, `NEW_FRIEND`)
+
+### 5.2. Потребляемые События (Consumed Events)
+*   **`com.platform.account.created.v1`** (от Account Service)
+    *   Описание: Создан новый аккаунт пользователя.
+    *   Логика обработки: Создать `UserProfile` для нового пользователя.
+*   **`com.platform.account.profile.updated.v1`** (от Account Service)
+    *   Описание: Базовый профиль пользователя обновлен (например, никнейм, аватар).
+    *   Логика обработки: Обновить соответствующие поля в `UserProfile` Social Service.
+*   **`com.platform.library.achievement.unlocked.v1`** (от Library Service)
+    *   Описание: Пользователь разблокировал достижение.
+    *   Логика обработки: Создать событие для ленты активности.
+*   **`com.platform.catalog.game.published.v1`** (от Catalog Service)
+    *   Описание: Новая игра опубликована.
+    *   Логика обработки: Может использоваться для создания автоматических постов на форуме игры или в группах, связанных с игрой.
 
 ## 6. Интеграции (Integrations)
 (Как в существующем документе).
@@ -264,6 +448,8 @@ graph TD
 
 ## 9. Безопасность (Security)
 (Как в существующем документе, с акцентом на модерацию пользовательских текстовых материалов, приватность, защиту от спама/харассмента).
+*   **ФЗ-152 "О персональных данных":** Social Service обрабатывает значительные объемы ПДн (профили, сообщения, списки друзей, контент). Все данные российских пользователей должны храниться и обрабатываться на территории РФ. Настройки приватности должны строго соблюдаться. Содержимое чатов и другой пользовательский контент должен быть защищен от несанкционированного доступа.
+*   **Модерация:** Интеграция с Admin Service для модерации пользовательского контента. [Стратегия модерации контента (например, автоматическая с использованием AI + ручная)].
 
 ## 10. Развертывание (Deployment)
 (Как в существующем документе).
@@ -272,7 +458,20 @@ graph TD
 (Как в существующем документе).
 
 ## 12. Нефункциональные Требования (NFRs)
-(Как в существующем документе).
+*   **Производительность API:** P95 < 200 мс для большинства запросов. P99 < 500 мс.
+*   **Лента активности:** P95 < 300 мс на генерацию/отображение.
+*   **Чаты:** Доставка сообщений P99 < 1 секунды (в идеале < 500 мс).
+*   **Масштабируемость:** Горизонтальное масштабирование для поддержки >1 млн активных пользователей в социальных функциях. Поддержка до [Уточнить значение, например, 1000] друзей на пользователя (`{{MAX_FRIENDS_PER_USER}}` заменено).
+*   **Надежность:** Доступность > 99.9%.
+*   **Согласованность данных:** Eventual consistency для лент активности и счетчиков. Strong consistency для операций с дружбой и членством в группах (в рамках Neo4j/PostgreSQL).
+*   **Scalability (Стратегии масштабирования):**
+    *   Использование специализированных БД (Cassandra для чатов/лент, Neo4j для графа).
+    *   Кэширование (Redis) для профилей, онлайн-статусов, списков друзей.
+    *   Асинхронная обработка событий (Kafka) для генерации лент, уведомлений.
+    *   Горизонтальное масштабирование stateless компонентов сервиса.
+    *   Потенциальное использование CQRS для разделения моделей чтения и записи для высоконагруженных компонентов (например, лента).
+
+## 13. Приложения (Appendices)
 
 ## 13. Приложения (Appendices)
 (Как в существующем документе).
@@ -499,9 +698,9 @@ graph TD
 
 ## 17. Связанные Рабочие Процессы (Related Workflows)
 (Как в существующем документе, с добавлением плейсхолдеров для новых воркфлоу).
-*   [Процесс Модерации Пользовательских Текстовых Материалов](../../../../project_workflows/user_text_content_moderation_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/user_text_content_moderation_flow.md}} -->
-*   [Процесс Формирования Рекомендаций Друзей и Контента](../../../project_workflows/social_recommendation_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/social_recommendation_flow.md}} -->
-*   [Процесс Обработки Жалоб Пользователей](../../../project_workflows/user_complaint_handling_flow.md) <!-- {{TODO: Workflow будет создан и описан в project_workflows/user_complaint_handling_flow.md}} -->
+*   [Процесс Модерации Пользовательских Текстовых Материалов](../../../../project_workflows/user_text_content_moderation_flow.md) <!-- [Ссылка на user_text_content_moderation_flow.md - документ в разработке] -->
+*   [Процесс Формирования Рекомендаций Друзей и Контента](../../../../project_workflows/social_recommendation_flow.md) <!-- [Ссылка на social_recommendation_flow.md - документ в разработке] -->
+*   [Процесс Обработки Жалоб Пользователей](../../../../project_workflows/user_complaint_handling_flow.md) <!-- [Ссылка на user_complaint_handling_flow.md - документ в разработке] -->
 
 ---
 *Этот документ является основной спецификацией для Social Service и должен поддерживаться в актуальном состоянии.*
