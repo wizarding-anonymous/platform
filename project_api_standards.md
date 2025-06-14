@@ -1,300 +1,432 @@
-<!-- project_api_standards.md -->
-# Стандарты API, Форматов Данных, Событий и Конфигурационных Файлов
+# Стандарты API, форматов данных, событий и конфигурационных файлов
 
 **Версия:** 1.0
 **Дата последнего обновления:** 2024-07-16
 
-## 1. Введение
+## 1. REST API Стандарты
 
-Данный документ определяет единые стандарты для API (REST, gRPC, WebSocket), форматов данных, событий и конфигурационных файлов, используемых во всех микросервисах российского аналога платформы Steam. Цель документа — обеспечить согласованность и совместимость между всеми компонентами системы, упростить интеграцию и поддержку.
+### 1.1. Версионирование
+*   Версия API указывается в URL: `/api/v1/resource`
+*   Мажорная версия (v1, v2) изменяется при несовместимых изменениях
+*   Минорные изменения (добавление полей) не требуют новой версии
+*   Старые версии поддерживаются минимум 6 месяцев после выпуска новой
 
-## 2. Стандарты REST API
+### 1.2. Формат URL
+*   Использовать существительные во множественном числе: `/users`, `/games`
+*   Вложенные ресурсы: `/games/{game_id}/reviews`
+*   Фильтрация через query параметры: `/games?genre=action&platform=pc`
+*   Действия как подресурсы для не-CRUD операций: `/users/{id}/reset-password`
 
-### 2.1. Общие принципы
+### 1.3. HTTP Методы
+*   **GET** - получение ресурса или коллекции
+*   **POST** - создание нового ресурса
+*   **PUT** - полное обновление ресурса
+*   **PATCH** - частичное обновление ресурса
+*   **DELETE** - удаление ресурса
 
-1.  **Версионирование:**
-    *   Версия API указывается в URL: `/api/v1/resource`.
-    *   Мажорная версия (v1, v2) меняется при несовместимых изменениях.
-    *   Минорные изменения (добавление новых полей) не требуют изменения версии.
+### 1.4. Коды Состояния
+*   **200 OK** - успешный GET, PUT, PATCH
+*   **201 Created** - успешный POST
+*   **204 No Content** - успешный DELETE
+*   **400 Bad Request** - некорректный запрос
+*   **401 Unauthorized** - требуется аутентификация
+*   **403 Forbidden** - недостаточно прав
+*   **404 Not Found** - ресурс не найден
+*   **409 Conflict** - конфликт состояния
+*   **422 Unprocessable Entity** - ошибка валидации
+*   **429 Too Many Requests** - превышен лимит запросов
+*   **500 Internal Server Error** - ошибка сервера
+*   **503 Service Unavailable** - сервис недоступен
 
-2.  **Формат URL:**
-    *   Использовать существительные во множественном числе для ресурсов: `/api/v1/games`.
-    *   Вложенные ресурсы: `/api/v1/games/{game_id}/reviews`.
-    *   kebab-case для составных слов: `/api/v1/payment-methods`.
-    *   Специальные действия: `/api/v1/games/{game_id}/publish`.
+### 1.5. Формат Ответа
 
-3.  **HTTP-методы:**
-    *   `GET`: получение ресурса/коллекции.
-    *   `POST`: создание нового ресурса.
-    *   `PUT`: полное обновление ресурса.
-    *   `PATCH`: частичное обновление ресурса.
-    *   `DELETE`: удаление ресурса.
-
-4.  **Коды ответов:**
-    *   `200 OK`: Успешный запрос.
-    *   `201 Created`: Успешное создание.
-    *   `204 No Content`: Успешный запрос без тела ответа.
-    *   `400 Bad Request`: Ошибка в запросе.
-    *   `401 Unauthorized`: Отсутствие аутентификации.
-    *   `403 Forbidden`: Недостаточно прав.
-    *   `404 Not Found`: Ресурс не найден.
-    *   `409 Conflict`: Конфликт создания/обновления.
-    *   `422 Unprocessable Entity`: Ошибка валидации.
-    *   `429 Too Many Requests`: Превышение лимита.
-    *   `500 Internal Server Error`: Внутренняя ошибка сервера.
-
-5.  **Пагинация:**
-    *   Параметры: `page` (номер страницы, с 1), `per_page` (количество на странице, max 100).
-    *   Ответ должен содержать метаданные пагинации и ссылки (`self`, `first`, `prev`, `next`, `last`).
-    ```json
-    {
-      "data": [...],
-      "meta": { "page": 1, "per_page": 20, "total_pages": 5, "total_items": 97 },
-      "links": { ... }
+#### Успешный ответ (одиночный ресурс):
+```json
+{
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "type": "game",
+    "attributes": {
+      "title": "Название игры",
+      "releaseDate": "2024-01-15",
+      "price": 1999
+    },
+    "relationships": {
+      "developer": {
+        "data": { "type": "developer", "id": "456" }
+      }
     }
-    ```
+  },
+  "meta": {
+    "timestamp": "2024-07-16T10:30:00Z"
+  }
+}
+```
 
-6.  **Фильтрация:**
-    *   Простые фильтры: `/api/v1/games?genre=strategy&price_min=100`.
-    *   Сложные фильтры: `/api/v1/games?filter={"genre":["strategy","rpg"]}`.
-
-7.  **Сортировка:**
-    *   Параметр `sort`: `?sort=price` (возрастание), `?sort=-price` (убывание).
-    *   Множественная: `?sort=genre,-price`.
-
-8.  **Выборка полей:**
-    *   Параметр `fields`: `?fields=id,title,price`.
-    *   Вложенные поля: `?fields=id,title,developer{id,name}`.
-
-9.  **Формат ответа (JSON API-подобный):**
-    *   Одиночный ресурс:
-        ```json
-        {
-          "data": {
-            "id": "uuid",
-            "type": "resource_type",
-            "attributes": { ... },
-            "relationships": { ... }
-          }
-        }
-        ```
-    *   Коллекция:
-        ```json
-        {
-          "data": [ { "id": "uuid", "type": "resource_type", "attributes": { ... } }, ... ],
-          "meta": { ... },
-          "links": { ... }
-        }
-        ```
-
-10. **Формат ошибок:**
-    ```json
+#### Успешный ответ (коллекция):
+```json
+{
+  "data": [
     {
-      "errors": [
-        {
-          "code": "error_code_string",
-          "title": "Human-readable title",
-          "detail": "Detailed message.",
-          "source": { "pointer": "/data/attributes/field" }
-        }
-      ]
+      "id": "123",
+      "type": "game",
+      "attributes": { ... }
     }
-    ```
+  ],
+  "meta": {
+    "totalItems": 150,
+    "totalPages": 15,
+    "currentPage": 1,
+    "perPage": 10,
+    "timestamp": "2024-07-16T10:30:00Z"
+  },
+  "links": {
+    "self": "/api/v1/games?page=1",
+    "first": "/api/v1/games?page=1",
+    "last": "/api/v1/games?page=15",
+    "next": "/api/v1/games?page=2"
+  }
+}
+```
 
-11. **Заголовки:**
-    *   `Content-Type: application/json`
-    *   `Accept: application/json`
-    *   `Authorization: Bearer <token>`
-    *   `X-Request-ID: <uuid>`
-    *   `X-API-Key: <key>` (альтернатива JWT)
+#### Формат ошибки:
+```json
+{
+  "errors": [
+    {
+      "code": "VALIDATION_ERROR",
+      "title": "Ошибка валидации",
+      "detail": "Поле 'email' имеет неверный формат",
+      "source": { 
+        "pointer": "/data/attributes/email" 
+      },
+      "meta": {
+        "field": "email",
+        "rejectedValue": "invalid-email"
+      }
+    }
+  ],
+  "meta": {
+    "timestamp": "2024-07-16T10:30:00Z",
+    "traceId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
 
-12. **Документация:**
-    *   OpenAPI (Swagger) 3.0 для каждого REST API.
-    *   Доступна по `/api/v1/docs`.
-13. **Обработка клиентами:**
-    *   Клиентские приложения (включая frontend) должны быть готовы обрабатывать стандартные коды ошибок и структуры ответов, определенные в этих стандартах, и соответствующим образом обновлять UI/состояние.
+### 1.6. Пагинация
+*   Query параметры: `page` и `per_page` (или `limit` и `offset`)
+*   Максимум элементов на странице: 100
+*   Значения по умолчанию: page=1, per_page=20
+*   В ответе включать meta информацию и links
 
-### 2.2. Специфические требования для микросервисов
+### 1.7. Сортировка
+*   Query параметр: `sort`
+*   Формат: `sort=field` (по возрастанию) или `sort=-field` (по убыванию)
+*   Множественная сортировка: `sort=genre,-price`
 
-*   **Auth Service:** Публичные эндпоинты для регистрации/логина. Эндпоинты для валидации/обновления токенов.
-*   **API Gateway:** Добавляет заголовки `X-User-Id`, `X-User-Roles`, `X-Original-IP` для внутренних сервисов.
-*   **Catalog Service:** Публичные эндпоинты для каталога, защищенные для управления.
-*   **Payment Service:** Все эндпоинты через HTTPS. Webhook для уведомлений от платежных систем.
+### 1.8. Фильтрация
+*   Простые фильтры: `?status=active&type=game`
+*   Операторы сравнения: `?price[gte]=1000&price[lte]=5000`
+*   Поиск по тексту: `?search=название`
+*   Фильтр по массиву: `?tags[]=action&tags[]=multiplayer`
 
-### 2.3. Интеграция с Российскими Сервисами
-*   **Авторизация:** Для авторизации пользователей через российские сервисы, платформа интегрируется с ВКонтакте (OAuth) и Telegram (Telegram Login). Auth Service отвечает за реализацию этих OAuth/OpenID Connect флоу. API Gateway проксирует запросы к соответствующим эндпоинтам Auth Service.
-*   **Оплата:** Платежный Сервис (Payment Service) обеспечивает интеграцию с российскими платежными шлюзами, включая ЮKassa, Тинькофф, Сбербанк (SberPay), ВТБ и другими (по мере добавления). Взаимодействие может включать как redirect-based флоу, так и прямое API взаимодействие для некоторых методов (например, оплата по сохраненной карте с согласия пользователя, если применимо и соответствует PCI DSS). Payment Service также отвечает за фискализацию платежей согласно 54-ФЗ.
+### 1.9. Частичные Ответы
+*   Query параметр `fields` для выбора полей
+*   Формат: `?fields=id,title,price`
+*   Вложенные поля: `?fields=id,title,developer{id,name}`
 
-## 3. Стандарты gRPC API
+### 1.10. Заголовки
 
-### 3.1. Общие принципы
+#### Обязательные заголовки запроса:
+*   `Accept: application/json`
+*   `Content-Type: application/json` (для POST, PUT, PATCH)
+*   `Authorization: Bearer <token>` (для защищенных эндпоинтов)
 
-1.  **Версионирование:** В имени пакета: `package platform.v1.service;`.
-2.  **Именование:**
-    *   Сервисы: `PascalCaseService` (e.g., `UserService`).
-    *   Методы: `PascalCaseAction` (e.g., `GetUser`).
-    *   Сообщения: `PascalCaseNoun` (e.g., `User`, `CreateUserRequest`).
-    *   Поля: `snake_case` (e.g., `user_id`).
-    *   Перечисления: `PascalCaseEnum`, значения `ENUM_UPPER_SNAKE_CASE`.
-3.  **Структура .proto файлов:** Каждый сервис в отдельном файле. Общие сообщения/enum в `common.proto`.
-4.  **Формат сообщений:** Запросы `{Method}Request`, ответы `{Method}Response`. `google.protobuf.Timestamp`, `google.protobuf.Empty`.
-5.  **Типы методов:** Унарные, серверные/клиентские/двунаправленные потоки.
-6.  **Обработка ошибок:** Стандартные коды gRPC, метаданные для деталей.
-7.  **Документация:** Комментарии в формате Protodoc.
-8.  **Безопасность:** TLS, токены в метаданных (`authorization: Bearer <token>`).
+#### Стандартные заголовки ответа:
+*   `Content-Type: application/json`
+*   `X-Request-ID: <uuid>`
+*   `X-RateLimit-Limit: 1000`
+*   `X-RateLimit-Remaining: 999`
+*   `X-RateLimit-Reset: 1620000000`
 
-### 3.2. Пример определения сервиса
+## 2. gRPC API Стандарты
+
+### 2.1. Именование
+*   Сервисы: PascalCase с суффиксом Service (например, `UserService`)
+*   Методы: PascalCase (например, `GetUser`, `CreateOrder`)
+*   Сообщения: PascalCase с суффиксами Request/Response
+*   Поля: snake_case
+
+### 2.2. Структура Proto файлов
 ```protobuf
 syntax = "proto3";
 
-package platform.v1.user;
+package platform.servicename.v1;
+
+option go_package = "github.com/platform/api/servicename/v1;servicev1";
 
 import "google/protobuf/timestamp.proto";
-// import "common.proto"; // Если есть общие типы
+import "google/api/annotations.proto";
 
-option go_package = "github.com/company/platform/api/grpc/v1/user";
-
-// UserService предоставляет методы для управления пользователями.
-service UserService {
-  // GetUser возвращает информацию о пользователе по ID.
-  rpc GetUser(GetUserRequest) returns (GetUserResponse);
-  // ... другие методы
+service GameService {
+  rpc GetGame(GetGameRequest) returns (GetGameResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/games/{game_id}"
+    };
+  }
 }
 
-message GetUserRequest {
-  string user_id = 1; // ID пользователя.
+message GetGameRequest {
+  string game_id = 1;
 }
 
-message GetUserResponse {
-  User user = 1; // Информация о пользователе.
+message GetGameResponse {
+  Game game = 1;
 }
 
-message User {
+message Game {
   string id = 1;
-  string username = 2;
-  string email = 3;
-  // ... другие поля
-  google.protobuf.Timestamp created_at = 5;
+  string title = 2;
+  google.protobuf.Timestamp created_at = 3;
 }
 ```
 
-## 4. Стандарты WebSocket API
+### 2.3. Обработка Ошибок
+*   Использовать стандартные gRPC коды
+*   Добавлять детали через `google.rpc.Status`
+*   Включать trace_id в metadata
 
-### 4.1. Общие принципы
+### 2.4. Версионирование
+*   Версия в package name: `platform.servicename.v1`
+*   Новые версии в отдельных файлах
+*   Обратная совместимость обязательна
 
-1.  **Подключение:** URL `/api/v1/ws/{service}`. Аутентификация через query параметр `token` или заголовок `Authorization`. Ping/Pong.
-2.  **Формат сообщений (JSON):**
-    ```json
-    {
-      "type": "message_type_string", // Тип сообщения
-      "id": "unique_message_id_uuid", // Уникальный ID сообщения (для ack)
-      "payload": { ... } // Полезная нагрузка
-    }
-    ```
-3.  **Обработка ошибок:** Сообщение типа `error` с `code` и `message` в `payload`.
-4.  **Подтверждение доставки (Ack):** Для важных сообщений, тип `ack` с `original_message_id`.
-5.  **Документация:** Описание всех типов сообщений и их структур.
-6.  **Обработка клиентами:** Клиентские приложения (включая frontend) должны быть готовы обрабатывать стандартные структуры сообщений и ошибок, определенные в этих стандартах, и соответствующим образом обновлять UI/состояние.
+## 3. События (Event Streaming)
 
-### 4.2. Специфические требования
-*   **Social Service (Chat):** Типы `chat_message`, `typing_status`, `read_receipt`.
-*   **Notification Service:** Тип `notification`, `notification_read`.
+### 3.1. Формат CloudEvents
+```json
+{
+  "specversion": "1.0",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "source": "platform.auth-service",
+  "type": "com.platform.auth.user.registered.v1",
+  "time": "2024-07-16T10:30:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "userId": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "user@example.com",
+    "registeredAt": "2024-07-16T10:30:00Z"
+  },
+  "traceid": "550e8400-e29b-41d4-a716-446655440000",
+  "correlationid": "660e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### 3.2. Именование Событий
+*   Формат: `com.platform.[service].[entity].[action].v[version]`
+*   Примеры:
+    *   `com.platform.auth.user.registered.v1`
+    *   `com.platform.payment.transaction.completed.v1`
+    *   `com.platform.game.achievement.unlocked.v1`
+
+### 3.3. Kafka Topics
+*   Naming: `platform.[domain].[entity].events`
+*   Примеры:
+    *   `platform.auth.user.events`
+    *   `platform.payment.transaction.events`
+*   Partitioning по entity ID для порядка событий
+
+### 3.4. Гарантии Доставки
+*   At-least-once delivery
+*   Идемпотентность на стороне получателя
+*   Дедупликация по event ID
+
+## 4. WebSocket Протокол
+
+### 4.1. Формат Сообщений
+```json
+{
+  "type": "message.send",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-07-16T10:30:00Z",
+  "payload": {
+    "chatId": "123",
+    "text": "Привет!"
+  }
+}
+```
+
+### 4.2. Типы Сообщений
+*   Клиент → Сервер:
+    *   `auth.token` - аутентификация
+    *   `subscribe.channel` - подписка на канал
+    *   `unsubscribe.channel` - отписка от канала
+    *   `message.send` - отправка сообщения
+*   Сервер → Клиент:
+    *   `auth.success` / `auth.failed`
+    *   `message.new` - новое сообщение
+    *   `user.status` - изменение статуса пользователя
+    *   `error` - ошибка
+
+### 4.3. Heartbeat
+*   Ping/Pong каждые 30 секунд
+*   Отключение при отсутствии pong в течение 60 секунд
 
 ## 5. Форматы Данных
 
-### 5.1. Общие принципы
+### 5.1. Дата и Время
+*   Формат: ISO 8601 с временной зоной
+*   Пример: `2024-07-16T10:30:00Z`
+*   Всегда в UTC
 
-1.  **JSON:** Для REST API и WebSocket. camelCase для имен полей. UTF-8. Даты ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`).
-2.  **Protocol Buffers:** Для gRPC. snake_case для полей. `google.protobuf.Timestamp` для дат/времени.
-3.  **Общие типы:**
-    *   Идентификаторы: UUID v4 (строка).
-    *   Денежные значения: Целое число (копейки/центы) для внутренних операций, строка с десятичной точкой для отображения API.
-    *   Перечисления: Строковые константы (REST), числовые (gRPC).
-4.  **Локализация:** JSON объект `{"ru": "Текст", "en": "Text"}`. Коды языков ISO 639-1 (`ru`, `en`).
-5.  **Валидация:** Ограничения для типов данных должны быть документированы в OpenAPI/Protobuf.
+### 5.2. UUID
+*   Формат: UUID v4
+*   Пример: `550e8400-e29b-41d4-a716-446655440000`
+*   Lowercase, с дефисами
 
-### 5.2. Стандартные объекты (Примеры)
-*   **User:** `id`, `username`, `email`, `status`, `createdAt`, `updatedAt`, `roles`.
-*   **Game:** `id`, `title` (локализовано), `description` (локализовано), `price`, `developer`, `publisher`, `genres`, `tags`.
-*   **Transaction:** `id`, `userId`, `type`, `status`, `amount`, `currency`, `items`.
-*   **Error:** `errors: [ { code, title, detail, source: { pointer } } ]`.
+### 5.3. Денежные Значения
+*   Хранить в копейках (minor units)
+*   Тип: integer
+*   Пример: 199900 (1999 рублей)
 
-## 6. Стандарты Событий (Kafka)
-
-### 6.1. Общие принципы
-
-1.  **Формат события (CloudEvents-подобный):**
-    ```json
-    {
-      "id": "uuid", // Уникальный ID события
-      "type": "domain.resource.action.v1", // Тип события с версией
-      "source": "service-name", // Источник события
-      "time": "YYYY-MM-DDTHH:mm:ssZ", // Время события (UTC)
-      "dataContentType": "application/json",
-      "data": { ... }, // Полезная нагрузка события
-      "subject": "resource_id", // ID основного ресурса
-      "correlationId": "uuid" // ID для трассировки
-    }
-    ```
-2.  **Именование типов событий:** `domain.resource.action` (e.g., `user.registered`, `game.published`). Глагол в прошедшем времени.
-3.  **Версионирование событий:** В типе события (e.g., `user.registered.v1`).
-4.  **Обработка событий:** Идемпотентность, порядок (по `time`), отказоустойчивость.
-5.  **Топики Kafka:** Именование `{service}.{resource}.{action}` (e.g., `auth.user.registered`). Партиционирование по `subject`. Репликация >= 3. Retention >= 7 дней.
-
-### 6.2. Стандартные события (Примеры)
-*   **User Events:** `user.registered`, `user.verified`, `user.updated`, `user.deleted`, `user.logged_in`.
-*   **Game Events:** `game.created`, `game.updated`, `game.published`, `game.price_changed`.
-*   **Payment Events:** `payment.initiated`, `payment.completed`, `payment.failed`.
-
-## 7. Стандарты Конфигурационных Файлов
-
-### 7.1. Общие принципы
-
-1.  **Формат:** YAML. snake_case для параметров. Комментарии `#`.
-2.  **Структура:** Группировка по секциям, вложенность. Без дублирования.
-3.  **Переменные окружения:** Чувствительные данные из переменных окружения (`SERVICE_SECTION_PARAMETER`). Плейсхолдеры в YAML: `${ENV_VAR_NAME}`.
-4.  **Профили окружений:** `config.yaml` (базовый), `config.{env}.yaml` (специфичный для окружения).
-5.  **Валидация:** При запуске сервиса.
-
-### 7.2. Пример конфигурационного файла (YAML)
-```yaml
-service:
-  name: auth-service
-  version: 1.0.0
-
-http:
-  port: 8080
-
-database:
-  driver: postgres
-  host: postgres
-  port: 5432
-  password: "${AUTH_DB_PASSWORD}" # Загружается из переменной окружения
-
-kafka:
-  brokers:
-    - "kafka-1:9092"
-  producer:
-    acks: "all"
-
-logger:
-  level: "info"
-  format: "json"
+### 5.4. Локализация
+*   Поля с локализацией как JSON объект
+*   Ключи - ISO 639-1 коды языков
+```json
+{
+  "title": {
+    "ru": "Название",
+    "en": "Title"
+  }
+}
 ```
 
-## 8. Стандарты Инфраструктурных Файлов и CI/CD
-Стандарты для инфраструктурных файлов (Dockerfile, Docker Compose, Kubernetes манифесты) и CI/CD детально описаны в документе `project_deployment_standards.md`.
+### 5.5. Изображения
+*   Абсолютные URL для CDN
+*   Разные размеры в объекте:
+```json
+{
+  "images": {
+    "thumbnail": "https://cdn.example.com/thumb.jpg",
+    "medium": "https://cdn.example.com/medium.jpg",
+    "large": "https://cdn.example.com/large.jpg",
+    "original": "https://cdn.example.com/original.jpg"
+  }
+}
+```
 
-## 9. Соответствие Законодательству РФ
+## 6. Аутентификация и Авторизация
 
-*   **Локализация персональных данных (ФЗ-152):**
-    *   Все персональные данные российских граждан собираются, записываются, систематизируются, накапливаются, хранятся, уточняются (обновляются, изменяются), извлекаются с использованием баз данных, находящихся на территории Российской Федерации.
-    *   Для этих целей платформа использует серверную инфраструктуру российского хостинг-провайдера Beget.
-    *   Основная ответственность за хранение ПДн пользователей лежит на Auth Service и Account Service, однако другие сервисы, обрабатывающие ПДн, также должны обеспечивать их хранение и обработку на указанной российской инфраструктуре.
-*   **Безопасность персональных данных:** Обработка и защита персональных данных осуществляются в строгом соответствии с ФЗ-152 и сопутствующими нормативными актами. Это включает технические и организационные меры для предотвращения несанкционированного доступа, утечки, изменения или уничтожения ПДн, как описано в `project_security_standards.md`.
-*   **Обработка платежной информации:** Обработка платежной информации соответствует стандартам безопасности платежных систем (например, PCI DSS, если применимо) и требованиям российского законодательства. Чувствительные платежные данные (полные номера карт и т.д.) на стороне платформы не хранятся, а обрабатываются на стороне сертифицированных платежных шлюзов.
-*   **Фискализация (54-ФЗ):** Все расчеты с пользователями за цифровые товары подлежат фискализации в соответствии с 54-ФЗ. Payment Service интегрируется с оператором фискальных данных (ОФД) для передачи данных о чеках.
-*   **API и Передача Данных:** При проектировании API и определении форматов данных особое внимание уделяется минимизации собираемых и передаваемых персональных данных только до объема, необходимого для выполнения функций платформы. Все API, передающие ПДн, должны использовать шифрование (TLS 1.3).
+### 6.1. JWT Токены
+*   Алгоритм: RS256
+*   Access Token TTL: 15 минут
+*   Refresh Token TTL: 30 дней
+*   Структура claims:
+```json
+{
+  "iss": "https://auth.steamanalog.ru",
+  "sub": "user-id",
+  "aud": ["https://api.steamanalog.ru"],
+  "exp": 1620000000,
+  "iat": 1619999000,
+  "jti": "token-id",
+  "roles": ["user", "developer"],
+  "permissions": ["read:games", "write:reviews"]
+}
+```
+
+### 6.2. API Keys
+*   Для сервис-сервис взаимодействия
+*   Формат: `pak_live_xxxxxxxxxxxxxxxx`
+*   Передача в заголовке: `X-API-Key`
+
+### 6.3. OAuth 2.0
+*   Поддержка Authorization Code flow
+*   PKCE обязателен для публичных клиентов
+*   Scopes согласно бизнес-требованиям
+
+## 7. Конфигурационные Файлы
+
+### 7.1. Формат
+*   Основной формат: YAML
+*   Альтернатива: переменные окружения
+*   Именование: `config.yaml`, `config.dev.yaml`
+
+### 7.2. Структура
+```yaml
+server:
+  host: 0.0.0.0
+  port: ${SERVER_PORT:8080}
+  
+database:
+  host: ${DB_HOST:localhost}
+  port: ${DB_PORT:5432}
+  name: ${DB_NAME:platform}
+  user: ${DB_USER:postgres}
+  password: ${DB_PASSWORD}
+  
+redis:
+  url: ${REDIS_URL:redis://localhost:6379}
+  
+kafka:
+  brokers: ${KAFKA_BROKERS:localhost:9092}
+  
+logging:
+  level: ${LOG_LEVEL:info}
+  format: json
+  
+metrics:
+  enabled: true
+  port: ${METRICS_PORT:9090}
+```
+
+### 7.3. Управление Секретами
+*   Никогда не коммитить секреты
+*   Использовать переменные окружения
+*   В production - Kubernetes Secrets или Vault
+*   Placeholder в примерах: `YOUR_SECRET_HERE`
+
+## 8. Документация API
+
+### 8.1. OpenAPI (Swagger)
+*   Версия: OpenAPI 3.0
+*   Автогенерация где возможно
+*   Включать примеры запросов/ответов
+*   Доступность по `/api/v1/docs`
+
+### 8.2. gRPC Documentation
+*   Комментарии в proto файлах
+*   Генерация через protoc-gen-doc
+*   Reflection API в dev окружении
+
+## 9. Rate Limiting
+
+### 9.1. Лимиты по умолчанию
+*   Анонимные: 100 req/hour
+*   Аутентифицированные: 1000 req/hour
+*   По IP: 10000 req/hour
+
+### 9.2. Заголовки
+*   `X-RateLimit-Limit` - лимит запросов
+*   `X-RateLimit-Remaining` - осталось запросов
+*   `X-RateLimit-Reset` - время сброса (Unix timestamp)
+
+### 9.3. Ответ при превышении
+*   Status: 429 Too Many Requests
+*   Body: стандартный формат ошибки
+*   Заголовок `Retry-After`
+
+## 10. CORS
+
+### 10.1. Разрешенные источники
+*   Production: `https://steamanalog.ru`, `https://www.steamanalog.ru`
+*   Staging: `https://stage.steamanalog.ru`
+*   Development: `http://localhost:*`
+
+### 10.2. Заголовки
+*   `Access-Control-Allow-Methods`: GET, POST, PUT, PATCH, DELETE, OPTIONS
+*   `Access-Control-Allow-Headers`: Content-Type, Authorization, X-Request-ID
+*   `Access-Control-Max-Age`: 86400
 
 ---
-*Этот документ должен регулярно обновляться и дополняться по мере развития платформы.*
+*Этот документ является обязательным к исполнению для всех разработчиков платформы. Любые отклонения должны быть согласованы с архитектурной командой.*
