@@ -1,3 +1,4 @@
+<!-- backend\admin-service\docs\README.md -->
 # Спецификация Микросервиса: Admin Service
 
 **Версия:** 1.0

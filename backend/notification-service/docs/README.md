@@ -1,3 +1,4 @@
+<!-- backend\notification-service\docs\README.md -->
 # Спецификация Микросервиса: Notification Service (Сервис Уведомлений)
 
 **Версия:** 1.0

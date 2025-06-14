@@ -1,3 +1,4 @@
+<!-- backend\notification-service\README.md -->
 # Notification Service (Сервис Уведомлений)
 
 ## Обзор (Overview)

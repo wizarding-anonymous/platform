@@ -1,3 +1,4 @@
+<!-- project_workflows\game_submission_flow.md -->
 **Дата последнего обновления:** 2024-07-16
 
 # Developer Submits a New Game for Moderation Workflow

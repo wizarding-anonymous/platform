@@ -1,3 +1,4 @@
+<!-- GAME_UPDATE_MECHANISM.md -->
 # Game and Game Component Update Mechanism
 
 **Версия:** 1.0

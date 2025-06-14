@@ -1,3 +1,4 @@
+<!-- standard_frontend_template.md -->
 # Спецификация Frontend Приложения: {{APP_NAME}}
 
 **Версия:** 1.0

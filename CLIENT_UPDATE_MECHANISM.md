@@ -1,3 +1,4 @@
+<!-- CLIENT_UPDATE_MECHANISM.md -->
 # Client Update Mechanism
 
 **Версия:** 1.0

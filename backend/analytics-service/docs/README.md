@@ -1,3 +1,4 @@
+<!-- backend\analytics-service\docs\README.md -->
 # Спецификация Микросервиса: Analytics Service
 
 **Версия:** 1.0

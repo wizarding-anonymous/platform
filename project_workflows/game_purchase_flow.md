@@ -1,3 +1,4 @@
+<!-- project_workflows\game_purchase_flow.md -->
 **Дата последнего обновления:** 2024-07-16
 
 # Game Purchase and Library Update Workflow

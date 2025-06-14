@@ -1,3 +1,4 @@
+<!-- project_workflows\user_registration_flow.md -->
 **Дата последнего обновления:** 2024-07-16
 
 # User Registration and Initial Profile Setup Workflow

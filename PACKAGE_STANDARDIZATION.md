@@ -1,3 +1,4 @@
+<!-- PACKAGE_STANDARDIZATION.md -->
 # Package Standardization Guidelines
 
 **Версия:** 1.0

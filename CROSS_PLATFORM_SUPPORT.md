@@ -1,3 +1,4 @@
+<!-- CROSS_PLATFORM_SUPPORT.md -->
 # Cross-Platform Support
 
 **Версия:** 1.0

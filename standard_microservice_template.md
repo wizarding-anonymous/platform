@@ -1,3 +1,4 @@
+<!-- standard_microservice_template.md -->
 # Спецификация Микросервиса: {{SERVICE_NAME}}
 
 **Версия:** 1.0

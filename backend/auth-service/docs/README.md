@@ -1,3 +1,4 @@
+<!-- backend\auth-service\docs\README.md -->
 # Спецификация Микросервиса: Auth Service
 
 **Версия:** 2.0

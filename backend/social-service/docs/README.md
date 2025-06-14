@@ -1,3 +1,4 @@
+<!-- backend\social-service\docs\README.md -->
 # Спецификация Микросервиса: Social Service (Социальный Сервис)
 
 **Версия:** 1.0

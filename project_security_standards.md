@@ -1,3 +1,4 @@
+<!-- project_security_standards.md -->
 # Стандарты Безопасности
 
 **Версия:** 1.0

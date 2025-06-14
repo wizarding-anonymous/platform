@@ -1,3 +1,4 @@
+<!-- backend\catalog-service\README.md -->
 # Catalog Service (Микросервис Каталога Продуктов)
 
 ## Обзор (Overview)

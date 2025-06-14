@@ -1,3 +1,4 @@
+<!-- backend\auth-service\README.md -->
 # Auth Service (Микросервис Аутентификации и Авторизации)
 
 ## Обзор (Overview)

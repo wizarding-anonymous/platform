@@ -1,3 +1,4 @@
+<!-- PROJECT_ROADMAP.md -->
 # Project Roadmap: Russian Steam Analog
 
 This document outlines the strategic development roadmap for the Russian Steam analog platform. It details the planned phases, from the Minimum Viable Product (MVP) through subsequent major and minor releases, outlining the features, components, and update mechanisms at each stage.

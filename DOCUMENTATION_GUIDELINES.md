@@ -1,3 +1,4 @@
+<!-- DOCUMENTATION_GUIDELINES.md -->
 # Documentation Guidelines and Maintenance Process
 
 **Версия:** 1.0

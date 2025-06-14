@@ -1,3 +1,4 @@
+<!-- backend\library-service\docs\README.md -->
 # Спецификация Микросервиса: Library Service (Сервис Библиотеки Пользователя)
 
 **Версия:** 1.0
