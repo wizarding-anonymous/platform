@@ -325,90 +325,120 @@ graph TD
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
     *   `owner_user_id` (UUID, FK на User в Auth Service): Пользователь-владелец аккаунта. **Обязательность: Да.**
     *   `company_name` (VARCHAR). **Обязательность: Да.**
-    *   `legal_entity_type` (VARCHAR). **Обязательность: Нет (может быть уточнено при верификации).**
-    *   `tax_id` (VARCHAR). **Обязательность: Нет (может быть уточнено при верификации).**
-    *   `country_code` (CHAR(2)). **Обязательность: Да.**
-    *   `contact_email` (VARCHAR). **Обязательность: Да.**
+    *   `legal_entity_type` (VARCHAR, например, "ООО", "ИП", "Самозанятый"). **Обязательность: Да (при регистрации, может быть уточнено при верификации).**
+    *   `tax_id` (VARCHAR, например, ИНН для РФ). **Обязательность: Да (для юр.лиц и ИП РФ, может быть уточнено при верификации).**
+    *   `country_code` (CHAR(2), ISO 3166-1 alpha-2). **Обязательность: Да.**
+    *   `address_legal` (JSONB): Юридический адрес. Структура зависит от страны. **Обязательность: Да (для юр.лиц).**
+    *   `address_postal` (JSONB): Почтовый адрес, если отличается от юридического. **Обязательность: Нет.**
+    *   `contact_email` (VARCHAR, уникальный). **Обязательность: Да.**
     *   `contact_phone` (VARCHAR, nullable). **Обязательность: Нет.**
-    *   `status` (VARCHAR: `pending_verification`, `active`, `suspended`, `rejected`). **Обязательность: Да (DEFAULT 'pending_verification').**
-    *   `verification_documents` (JSONB, ссылки на S3). **Обязательность: Нет.**
+    *   `website_url` (VARCHAR, nullable). **Обязательность: Нет.**
+    *   `status` (VARCHAR: `pending_verification`, `active`, `limited_access`, `suspended`, `rejected`, `closed`). **Обязательность: Да (DEFAULT 'pending_verification').**
+    *   `verification_documents_s3_links` (JSONB, массив ссылок на файлы в S3). **Обязательность: Нет.**
+    *   `default_payout_method_id` (UUID, FK на `DeveloperPaymentMethod`, nullable). **Обязательность: Нет.**
+    *   `developer_agreement_version_accepted` (VARCHAR, nullable). **Обязательность: Нет.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `verified_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `closed_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
 *   **`DeveloperTeamMember` (Член Команды Разработчика)**
     *   `developer_account_id` (UUID, PK, FK на DeveloperAccount). **Обязательность: Да.**
     *   `user_id` (UUID, PK, FK на User в Auth Service). **Обязательность: Да.**
-    *   `role_in_team` (VARCHAR: `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`, `marketing_manager`). **Обязательность: Да.**
-    *   `permissions_override` (JSONB, nullable): Индивидуальные переопределения прав. **Обязательность: Нет.**
-    *   `invited_by_user_id` (UUID, FK на User). **Обязательность: Да (для приглашенных).**
-    *   `joined_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
-*   **`ProductSubmission` (Представление Продукта/Черновик)**: Используется для хранения данных о продукте, пока он находится в разработке или на модерации в Developer Service, перед отправкой в Catalog Service.
-    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
-    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
-    *   `catalog_product_id` (UUID, nullable): ID продукта в Catalog Service. **Обязательность: Нет.**
-    *   `product_type` (VARCHAR: `game`, `dlc`, `software`, `bundle`). **Обязательность: Да.**
-    *   `status` (VARCHAR: `draft`, `in_review`, `changes_requested`, `approved_by_developer_service`, `rejected_by_developer_service`). **Обязательность: Да (DEFAULT 'draft').**
-    *   `current_version_id` (UUID, FK на `ProductVersion`, nullable). **Обязательность: Нет.**
-    *   `draft_metadata` (JSONB): Полная структура метаданных. **Обязательность: Да (может быть пустым JSON '{}').**
-    *   `draft_pricing` (JSONB): Предлагаемые цены. **Обязательность: Да (может быть пустым JSON '{}').**
-    *   `moderation_notes_to_admin` (TEXT, nullable). **Обязательность: Нет.**
-    *   `moderation_feedback_from_admin` (TEXT, nullable). **Обязательность: Нет.**
+    *   `role_in_team` (VARCHAR: `owner`, `admin`, `editor`, `viewer`, `finance_manager`, `build_manager`, `marketing_manager`, `support_agent`). **Обязательность: Да.**
+    *   `permissions_override` (JSONB, nullable): Индивидуальные переопределения прав (например, доступ к конкретным продуктам). **Обязательность: Нет.**
+    *   `invited_by_user_id` (UUID, FK на User в Auth Service, nullable). **Обязательность: Нет (если первый владелец).**
+    *   `invitation_status` (VARCHAR: `pending`, `accepted`, `declined`, nullable). **Обязательность: Нет.**
+    *   `joined_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет (устанавливается после принятия приглашения).**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
-    *   `submitted_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
-*   **`ProductVersion` (Версия Продукта)**
+*   **`ProductSubmission` (Представление Продукта/Черновик)**: Используется для хранения данных о продукте (игра, DLC, ПО), пока он находится в разработке или на модерации в Developer Service, перед его передачей/синхронизацией с Catalog Service.
+    *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
+    *   `developer_account_id` (UUID, FK на DeveloperAccount). **Обязательность: Да.**
+    *   `catalog_product_id` (UUID, nullable, UK): ID продукта в Catalog Service. Заполняется после успешной первой синхронизации. **Обязательность: Нет.**
+    *   `product_type` (VARCHAR: `game`, `dlc`, `software`, `bundle`, `soundtrack`, `artbook`, `demo`). **Обязательность: Да.**
+    *   `title_main_language_code` (CHAR(5), например "ru-RU", "en-US"): Основной язык, на котором представлено название и описание. **Обязательность: Да.**
+    *   `titles` (JSONB): Локализованные названия продукта. `{"ru-RU": "Моя Игра", "en-US": "My Game"}`. **Обязательность: Да (хотя бы для основного языка).**
+    *   `status_developer` (VARCHAR: `draft`, `ready_for_review`, `in_review_internal`, `changes_requested_internal`, `approved_internal`). Статус со стороны разработчика и внутренней проверки Developer Service. **Обязательность: Да (DEFAULT 'draft').**
+    *   `status_moderation_platform` (VARCHAR: `not_submitted`, `pending_moderation`, `in_moderation`, `changes_requested_by_moderator`, `approved_by_moderator`, `rejected_by_moderator`). Статус модерации со стороны платформы (Admin Service). **Обязательность: Да (DEFAULT 'not_submitted').**
+    *   `current_draft_version_id` (UUID, FK на `ProductVersionDraft`, nullable): Ссылка на текущий активный черновик версии продукта. **Обязательность: Нет.**
+    *   `live_version_id_in_catalog` (UUID, nullable): ID версии, которая сейчас "live" в Catalog Service (может быть не из этого сервиса, а из ProductVersionLive). **Обязательность: Нет.**
+    *   `moderation_request_id_admin_service` (UUID, nullable): ID тикета/запроса на модерацию в Admin Service. **Обязательность: Нет.**
+    *   `developer_notes_for_moderator` (TEXT, nullable). **Обязательность: Нет.**
+    *   `moderator_feedback_to_developer` (TEXT, nullable). **Обязательность: Нет.**
+    *   `tags_internal` (JSONB, массив строк): Внутренние теги для Developer Service. **Обязательность: Нет.**
+    *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `submitted_for_moderation_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `last_moderation_decision_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+*   **`ProductVersionDraft` (Черновик Версии Продукта)**: Представляет собой конкретную версию продукта, над которой работает разработчик.
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
     *   `product_submission_id` (UUID, FK на ProductSubmission). **Обязательность: Да.**
-    *   `version_name` (VARCHAR, например, "1.0.0", "Beta 2.1"). **Обязательность: Да.**
-    *   `status` (VARCHAR: `draft`, `uploading_builds`, `ready_for_submission`, `submitted_for_review`, `live`, `deprecated`). **Обязательность: Да (DEFAULT 'draft').**
-    *   `changelog` (JSONB, локализованный). **Обязательность: Нет.**
+    *   `version_name` (VARCHAR, например, "1.0.0", "Beta 2.1", "New Year Update"). **Обязательность: Да.**
+    *   `version_number_internal` (INTEGER, автоинкремент в рамках product_submission_id, опционально). **Обязательность: Нет.**
+    *   `status` (VARCHAR: `draft`, `builds_processing`, `ready_for_submission`, `submitted`, `approved`, `rejected`). **Обязательность: Да (DEFAULT 'draft').**
+    *   `metadata_draft` (JSONB): Полная структура метаданных для этой версии (описания, системные требования, возрастные рейтинги, ссылки на медиа в S3 и т.д.). **Обязательность: Да (может быть пустым JSON '{}').**
+    *   `pricing_draft` (JSONB): Предлагаемые цены для этой версии (базовая цена, региональные оверрайды, информация о скидках). **Обязательность: Да (может быть пустым JSON '{}').**
+    *   `changelog` (JSONB, локализованный): Список изменений для этой версии. **Обязательность: Нет.**
+    *   `release_date_planned` (TIMESTAMPTZ, nullable): Планируемая дата релиза этой версии. **Обязательность: Нет.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
-*   **`BuildArtifact` (Артефакт Билда)**
+*   **`BuildArtifact` (Артефакт Билда)**: Представляет собой конкретный файл билда для определенной платформы и версии продукта.
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
-    *   `product_version_id` (UUID, FK на ProductVersion). **Обязательность: Да.**
-    *   `platform` (VARCHAR: `windows_x64`, `linux_x86_64`, `macos_arm64`, `android_arm64v8a`, `ios_arm64`). **Обязательность: Да.**
-    *   `s3_path` (VARCHAR): Путь к файлу билда в S3. **Обязательность: Да.**
-    *   `file_name` (VARCHAR). **Обязательность: Да.**
+    *   `product_version_draft_id` (UUID, FK на ProductVersionDraft). **Обязательность: Да.**
+    *   `platform_code` (VARCHAR: `windows_x64`, `linux_x86_64`, `macos_arm64`, `android_arm64v8a`, `ios_arm64`). См. `project_cross_platform_support.md`. **Обязательность: Да.**
+    *   `s3_bucket_name` (VARCHAR). **Обязательность: Да.**
+    *   `s3_object_key` (VARCHAR, UK в рамках product_version_draft_id + platform_code): Путь к файлу билда в S3. **Обязательность: Да.**
+    *   `original_file_name` (VARCHAR). **Обязательность: Да.**
     *   `file_size_bytes` (BIGINT). **Обязательность: Да.**
-    *   `file_hash_sha256` (VARCHAR). **Обязательность: Нет (может быть вычислен после загрузки).**
-    *   `status` (VARCHAR: `uploading`, `uploaded`, `processing`, `ready`, `failed_processing`). **Обязательность: Да (DEFAULT 'uploading').**
+    *   `file_hash_sha256` (VARCHAR(64), nullable). **Обязательность: Нет (вычисляется после загрузки).**
+    *   `status` (VARCHAR: `pending_upload`, `uploading`, `uploaded`, `processing_requested`, `processing`, `ready`, `failed_processing`, `deprecated`). **Обязательность: Да (DEFAULT 'pending_upload').**
+    *   `upload_session_id` (VARCHAR, nullable): Идентификатор сессии загрузки (для multipart uploads). **Обязательность: Нет.**
     *   `upload_expires_at` (TIMESTAMPTZ, для pre-signed URL). **Обязательность: Нет.**
+    *   `processing_details` (JSONB, nullable): Информация о процессе обработки билда (например, результаты сканирования). **Обязательность: Нет.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 *   **`DeveloperPayoutRequest` (Запрос на Выплату)**
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
-    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
-    *   `amount_requested_minor_units` (BIGINT). **Обязательность: Да.**
-    *   `currency_code` (VARCHAR(3)). **Обязательность: Да.**
-    *   `status` (VARCHAR: `pending_request`, `pending_approval`, `processing`, `completed`, `failed`, `cancelled`). **Обязательность: Да (DEFAULT 'pending_request').**
-    *   `payment_method_id` (UUID, FK на `DeveloperPaymentMethod`). **Обязательность: Да.**
-    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса. **Обязательность: Да.**
+    *   `developer_account_id` (UUID, FK на DeveloperAccount). **Обязательность: Да.**
+    *   `amount_requested_minor_units` (BIGINT, >0). **Обязательность: Да.**
+    *   `currency_code` (VARCHAR(3), ISO 4217). **Обязательность: Да.**
+    *   `status` (VARCHAR: `pending_review`, `approved_by_developer_service`, `rejected_by_developer_service`, `pending_processing_payment_service`, `processing_by_payment_service`, `completed`, `failed_payment_service`, `cancelled_by_developer`). **Обязательность: Да (DEFAULT 'pending_review').**
+    *   `developer_payment_method_id` (UUID, FK на `DeveloperPaymentMethod`). **Обязательность: Да.**
+    *   `payment_method_details_snapshot` (JSONB): Снимок реквизитов на момент запроса для аудита. **Обязательность: Да.**
     *   `requested_at` (TIMESTAMPTZ). **Обязательность: Да (DEFAULT now()).**
-    *   `approved_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
-    *   `processed_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
-    *   `transaction_id_payment_service` (UUID, nullable). **Обязательность: Нет.**
-    *   `comment_developer` (TEXT, nullable). **Обязательность: Нет.**
-    *   `comment_admin` (TEXT, nullable). **Обязательность: Нет.**
+    *   `decision_by_developer_service_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `decision_notes_developer_service` (TEXT, nullable): Примечания от Developer Service (например, причина отклонения). **Обязательность: Нет.**
+    *   `payment_service_transaction_id` (UUID, nullable): ID транзакции, присвоенный Payment Service. **Обязательность: Нет.**
+    *   `payment_service_processing_started_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `payment_service_last_update_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `completed_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `developer_comment` (TEXT, nullable). **Обязательность: Нет.**
 *   **`DeveloperPaymentMethod` (Платежный Метод Разработчика)**
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
-    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
-    *   `method_type` (VARCHAR: `bank_transfer_ru`, `swift_transfer`, `crypto_wallet_placeholder`). **Обязательность: Да.**
-    *   `details_encrypted` (TEXT): Зашифрованные банковские реквизиты или адрес кошелька. **Обязательность: Да.**
-    *   `is_default` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
-    *   `is_verified` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
+    *   `developer_account_id` (UUID, FK на DeveloperAccount). **Обязательность: Да.**
+    *   `method_type` (VARCHAR: `bank_transfer_ru_individual`, `bank_transfer_ru_entity`, `swift_transfer_usd`, `swift_transfer_eur`, `crypto_wallet_usdt_trc20_placeholder`). **Обязательность: Да.**
+    *   `details_encrypted` (TEXT): Зашифрованные банковские реквизиты или адрес кошелька. Шифруется на уровне приложения перед сохранением в БД. **Обязательность: Да.**
+    *   `is_default` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).** Должен быть только один метод по умолчанию для аккаунта.
+    *   `is_verified_by_platform` (BOOLEAN). **Обязательность: Да (DEFAULT FALSE).**
+    *   `verification_notes` (TEXT, nullable). **Обязательность: Нет.**
+    *   `display_name` (VARCHAR, nullable, например "Мой счет в Альфа-Банке"). **Обязательность: Нет.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
     *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `verified_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
 *   **`DeveloperAPIKey` (API Ключ Разработчика)**
     *   `id` (UUID, PK). **Обязательность: Да (генерируется БД).**
-    *   `developer_account_id` (UUID, FK). **Обязательность: Да.**
+    *   `developer_account_id` (UUID, FK на DeveloperAccount). **Обызательность: Да.**
     *   `name` (VARCHAR). **Обязательность: Да.**
-    *   `prefix` (VARCHAR(8), UK). **Обязательность: Да.**
-    *   `key_hash` (VARCHAR, UK). **Обязательность: Да.**
-    *   `permissions` (JSONB). **Обязательность: Да (DEFAULT '[]').**
+    *   `description` (TEXT, nullable). **Обязательность: Нет.**
+    *   `prefix` (VARCHAR(8), UK): Короткий префикс ключа, видимый пользователю. **Обязательность: Да.**
+    *   `key_hash` (VARCHAR(255), UK): Хеш самого API ключа (ключ целиком не хранится). **Обязательность: Да.**
+    *   `permissions` (JSONB, массив строк, описывающих разрешения, например `["product:read:*", "product:write:prod_xyz", "build:upload:prod_xyz"]`). **Обязательность: Да (DEFAULT '[]').**
     *   `is_active` (BOOLEAN). **Обязательность: Да (DEFAULT TRUE).**
-    *   `expires_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `expires_at` (TIMESTAMPTZ, nullable): Дата и время истечения срока действия ключа. **Обязательность: Нет.**
     *   `last_used_at` (TIMESTAMPTZ, nullable). **Обязательность: Нет.**
+    *   `last_used_from_ip` (VARCHAR, nullable). **Обязательность: Нет.**
     *   `created_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
+    *   `updated_at` (TIMESTAMPTZ). **Обязательность: Да (генерируется БД).**
 
 ### 4.2. Схема Базы Данных
 
