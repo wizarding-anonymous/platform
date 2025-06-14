@@ -1,6 +1,8 @@
 <!-- backend\auth-service\docs\README.md -->
 # Спецификация Микросервиса: Auth Service
 
+**Note on MVP Implementation:** This document outlines the comprehensive specification for the Auth Service. The current implementation available in the repository corresponds to the **Minimum Viable Product (MVP)**, which includes a subset of these features. Key MVP functionalities are focused on core user registration (email/password), login, JWT-based session management (RS256 access and refresh tokens), and email verification. Features like 2FA, extended OAuth providers, advanced RBAC, and full audit logging are planned for future iterations. Please refer to the main [../README.md](../README.md) for a summary of currently implemented MVP features.
+
 **Версия:** 2.0
 **Дата последнего обновления:** 2024-07-16
 
